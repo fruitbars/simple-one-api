@@ -1,0 +1,43 @@
+# 编译输出
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# Go编译缓存目录
+/go-build/
+/.gocache/
+cmd/simple-one-api/build
+cmd/simple-one-api/config.json
+cmd/simple-one-api/simple-one-api
+
+# 编译器生成的二进制文件
+main
+
+# IDE和编辑器配置文件
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# 操作系统生成的文件
+.DS_Store
+Thumbs.db
+
+# 项目依赖
+vendor/
+
+# 环境配置文件
+.env
