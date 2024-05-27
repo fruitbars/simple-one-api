@@ -6,15 +6,29 @@
 
 **simple-one-api**是一个开源项目，旨在兼容多种大模型接口，并统一对外提供 OpenAI 接口。通过该项目，用户可以方便地集成和调用多种大模型，简化了不同平台接口差异带来的复杂性。
 
-### 免费大模型列表
 
-列出所有支持的免费模型。
+
+### 免费大模型列表
 
 | 大模型             | 免费版本                                                     | 控制台（api_key等）                                          | 文档地址                                               | 备注                                                         |
 | ------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------ |
-| 讯飞星火大模型     | `spark-lite`                                                 | https://console.xfyun.cn/services/cbm                        | https://www.xfyun.cn/doc/spark/Web.html                | tokens：总量无限<br>QPS：2<br>有效期：不限                   |
-| 百度千帆大模型平台 | `yi_34b_chat`, `ERNIE-Speed-8K`, `ERNIE-Speed-128K`, `ERNIE-Lite-8K`, `ERNIE-Lite-8K-0922`, `ERNIE-Tiny-8K` | https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application | https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf | Lite、Speed-8K：RPM = 300，TPM = 300000<br>Speed-128K：RPM = 60，TPM = 300000 |
-| 腾讯混元大模型     | `hunyuan-lite`                                               | https://console.cloud.tencent.com/cam/capi                   | https://cloud.tencent.com/document/api/1729/105701     | 限制并发数为 5 路                                            |
+| 讯飞星火大模型     | `spark-lite`                                                 | [链接](https://console.xfyun.cn/services/cbm)                | [链接](https://www.xfyun.cn/doc/spark/Web.html)        | tokens：总量无限<br>QPS：2<br>有效期：不限                   |
+| 百度千帆大模型平台 | `yi_34b_chat`, `ERNIE-Speed-8K`, `ERNIE-Speed-128K`, `ERNIE-Lite-8K`, `ERNIE-Lite-8K-0922`, `ERNIE-Tiny-8K` | [链接](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application) | [链接](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf) | Lite、Speed-8K：RPM = 300，TPM = 300000<br>Speed-128K：RPM = 60，TPM = 300000 |
+| 腾讯混元大模型     | `hunyuan-lite`                                               | [链接](https://console.cloud.tencent.com/cam/capi)           | [链接](https://cloud.tencent.com/document/api/1729/105701) | 限制并发数为 5 路                                            |
+
+#### 备注信息
+- **讯飞星火大模型**:
+   - **tokens**: 总量无限
+   - **QPS**: 2
+   - **有效期**: 不限
+   - **文档地址**：[https://www.xfyun.cn/doc/spark/Web.html](https://www.xfyun.cn/doc/spark/Web.html)
+- **百度千帆大模型平台**:
+   - **Lite、Speed-8K**: RPM = 300，TPM = 300000
+   - **Speed-128K**: RPM = 60，TPM = 300000]
+   - **文档地址**：[https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf)
+- **腾讯混元大模型**:
+   - **限制并发数**: 5 路
+   - **文档地址**：[https://cloud.tencent.com/document/api/1729/105701](https://cloud.tencent.com/document/api/1729/105701)
 
 ## 功能
 
@@ -38,7 +52,7 @@
 1. 克隆本仓库：
 
    ```bash
-   git clone https://github.com/yourusername/simple-one-api.git
+   git clone https://github.com/fruitbars/simple-one-api.git
    ```
 
 2. 编译程序：
