@@ -17,11 +17,26 @@ func OpenAIRequestToQianFanRequest(oaiReq openai.OpenAIRequest) *baidu_qianfan.Q
 
 	if oaiReq.TopP != nil {
 		topP := float64(*oaiReq.TopP) // 将 *float32 转换为 float64
+
+		if topP < 0 {
+			topP = 0
+		}
+		if topP > 1.0 {
+			topP = 1.0
+		}
 		req.TopP = &topP
 	}
 
 	if oaiReq.Temperature != nil {
 		temperature := float64(*oaiReq.Temperature) // 将 *float32 转换为 float64
+
+		if temperature <= 0 {
+			temperature = 0.1
+		}
+
+		if temperature > 1 {
+			temperature = 1
+		}
 		req.Temperature = &temperature
 	}
 	if oaiReq.Stream != nil {

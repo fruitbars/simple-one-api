@@ -91,6 +91,28 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopena
 
 			}
 		}
+	} else {
+		openaiClient := openai.NewClientWithConfig(config)
+		//ctx := context.Background()
+
+		req := adapter.OpenAIRequestToOpenAIRequest(oaiReq)
+		resp, err := openaiClient.CreateChatCompletion(
+			context.Background(),
+			*req,
+		)
+
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusBadRequest, err)
+			return
+		}
+
+		myresp := adapter.OpenAIResponseToOpenAIResponse(&resp)
+		myresp.Model = oaiReq.Model
+
+		log.Println("响应：", *myresp)
+
+		c.JSON(http.StatusOK, myresp)
 	}
 
 }

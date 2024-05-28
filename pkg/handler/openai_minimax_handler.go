@@ -30,16 +30,17 @@ func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 	serverUrl := fmt.Sprintf("%s?GroupId=%s", s.ServerURL, groupID)
 	bearerToken := fmt.Sprintf("Bearer %s", apiKey)
 
+	minimaxReq := adapter.OpenAIRequestToMinimaxRequest(oaiReq)
+
+	jsonData, err := json.Marshal(minimaxReq)
+	if err != nil {
+		log.Println("Error marshalling JSON:", err)
+		return
+	}
+
+	log.Println(string(jsonData))
+
 	if oaiReq.Stream != nil && *oaiReq.Stream {
-		minimaxReq := adapter.OpenAIRequestToMinimaxRequest(oaiReq)
-
-		jsonData, err := json.Marshal(minimaxReq)
-		if err != nil {
-			log.Println("Error marshalling JSON:", err)
-			return
-		}
-
-		log.Println(string(jsonData))
 
 		request, err := http.NewRequest("POST", serverUrl, bytes.NewBuffer(jsonData))
 		if err != nil {
@@ -109,5 +110,43 @@ func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 			}
 
 		}
+	} else {
+		request, err := http.NewRequest("POST", serverUrl, bytes.NewBuffer(jsonData))
+		if err != nil {
+			log.Println("Error creating request:", err)
+			return
+		}
+
+		request.Header.Add("Authorization", bearerToken)
+		request.Header.Add("Content-Type", "application/json")
+
+		// 使用http.Client发送请求
+		client := &http.Client{}
+		response, err := client.Do(request)
+		if err != nil {
+			log.Println("Error sending request:", err)
+			return
+		}
+		defer response.Body.Close()
+
+		bodyData, err := io.ReadAll(response.Body)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+
+		log.Println(string(bodyData))
+
+		var minimaxresp minimax.MinimaxResponse
+		json.Unmarshal(bodyData, &minimaxresp)
+		log.Println(minimaxresp)
+		myresp := adapter.MinimaxResponseToOpenAIResponse(&minimaxresp)
+
+		log.Println("响应：", *myresp)
+
+		respData, _ := json.Marshal(*myresp)
+		log.Println("响应", string(respData))
+
+		c.JSON(http.StatusOK, myresp)
 	}
 }

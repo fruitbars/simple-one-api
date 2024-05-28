@@ -48,6 +48,7 @@ func OpenAI2QianFanHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
 	} else {
 		apiKey := s.Credentials["api_key"]
 		secretKey := s.Credentials["secret_key"]
@@ -61,6 +62,7 @@ func OpenAI2QianFanHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 		} else {
 			//var oaiResp *openai.OpenAIResponse
 			oaiResp := adapter.QianFanResponseToOpenAIResponse(qfResp)
+			oaiResp.Model = oaiReq.Model
 			log.Println(oaiResp)
 			//oaiResp.Model = oaiReq.Model
 			// 设置响应的内容类型并发送JSON响应

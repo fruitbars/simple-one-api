@@ -125,3 +125,30 @@ func GetModelService(modelName string) (*ModelDetails, error) {
 	}
 	return nil, fmt.Errorf("model %s not found in the configuration", modelName)
 }
+
+func GetRandomEnabledModelDetails() (*ModelDetails, error) {
+	// 设置随机数种子
+	rand.Seed(time.Now().UnixNano())
+
+	// 创建一个切片存储所有 Enabled 为 true 的 ModelDetails
+	var enabledModels []ModelDetails
+
+	// 遍历 ModelToService 映射，收集所有 Enabled 为 true 的 ModelDetails
+	for _, models := range ModelToService {
+		for _, model := range models {
+			if model.ServiceModel.Enabled {
+				enabledModels = append(enabledModels, model)
+			}
+		}
+	}
+
+	// 检查是否有任何 Enabled 为 true 的 ModelDetails
+	if len(enabledModels) == 0 {
+		return nil, fmt.Errorf("no enabled ModelDetails found")
+	}
+
+	// 随机选择一个 Enabled 为 true 的 ModelDetails
+	randomModel := enabledModels[rand.Intn(len(enabledModels))]
+
+	return &randomModel, nil
+}

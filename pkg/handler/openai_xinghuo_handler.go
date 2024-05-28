@@ -77,6 +77,20 @@ func OpenAI2XingHuoHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 			}
 		})
 	} else {
+		client := gosparkclient.NewSparkClientWithOptions(appid, apiKey, apiSecret, serverUrl, domain)
+		xhReq := adapter.OpenAIRequestToXingHuoRequest(oaiReq)
+		xhresp, err := client.SparkChatWithCallback(*xhReq, nil)
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
 
+		myresp := adapter.XingHuoResponseToOpenAIResponse(xhresp)
+		myresp.Model = oaiReq.Model
+
+		log.Println("响应：", *myresp)
+
+		c.JSON(http.StatusOK, myresp)
 	}
 }

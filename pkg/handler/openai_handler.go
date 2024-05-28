@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
@@ -47,13 +48,27 @@ func OpenAIHandler(c *gin.Context) {
 		return
 	}
 
-	log.Println(oaiReq)
+	oaiData, _ := json.Marshal(oaiReq)
+	log.Println(string(oaiData))
 
-	s, err := config.GetModelService(oaiReq.Model)
-	if err != nil {
-		log.Println(err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	var s *config.ModelDetails
+	var err error
+	if oaiReq.Model == "random" {
+
+		s, err = config.GetRandomEnabledModelDetails()
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		oaiReq.Model = s.Models[0]
+	} else {
+		s, err = config.GetModelService(oaiReq.Model)
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	log.Println(*s)
@@ -70,6 +85,11 @@ func OpenAIHandler(c *gin.Context) {
 	case "minimax":
 		OpenAI2MinimaxHander(c, s, oaiReq)
 
+	}
+
+	if oaiReq.Stream != nil && *oaiReq.Stream == true {
+		c.Writer.WriteString("data: [DONE]\n\n")
+		c.Writer.(http.Flusher).Flush()
 	}
 
 }

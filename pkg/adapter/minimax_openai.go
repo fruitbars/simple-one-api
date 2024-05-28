@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"encoding/json"
 	"simple-one-api/pkg/llm/minimax"
 	"simple-one-api/pkg/openai"
 	"strings"
@@ -17,6 +18,11 @@ func OpenAIRequestToMinimaxRequest(openAIReq openai.OpenAIRequest) *minimax.Mini
 		BotName string `json:"bot_name"` // 机器人的名字
 		Content string `json:"content"`  // 具体机器人的设定
 	}{BotName: botName, Content: botName}
+
+	if len(openAIReq.Messages) > 0 && strings.ToUpper(openAIReq.Messages[0].Role) == "SYSTEM" {
+		botSetting.Content = openAIReq.Messages[0].Content
+		openAIReq.Messages = openAIReq.Messages[1:]
+	}
 
 	req.BotSetting = append(req.BotSetting, botSetting)
 	// 将 OpenAIRequest 的 Messages 转换为 SparkChatRequest 的 Message
@@ -97,4 +103,55 @@ func MinimaxResponseToOpenAIStreamResponse(minimaxResp *minimax.MinimaxResponse)
 	}
 
 	return openAIResp
+}
+
+// MinimaxResponseToOpenAIResponse 将 MinimaxResponse 转换为 OpenAIResponse
+func MinimaxResponseToOpenAIResponse(minimaxResp *minimax.MinimaxResponse) *openai.OpenAIResponse {
+	if minimaxResp == nil {
+		return nil
+	}
+
+	// 转换 Choices
+	var choices []openai.Choice
+	for _, minimaxChoice := range minimaxResp.Choices {
+		var messages []openai.ResponseMessage
+		for _, msg := range minimaxChoice.Messages {
+			messages = append(messages, openai.ResponseMessage{
+				Role:    "assistant",
+				Content: msg.Text,
+			})
+		}
+		var logProbs json.RawMessage // 如果需要，可以处理 logProbs
+
+		choices = append(choices, openai.Choice{
+			Index:        int(minimaxChoice.Index),
+			Message:      messages[0], // 假设只取第一个消息，如果有多个消息需要处理，请调整此处逻辑
+			LogProbs:     &logProbs,
+			FinishReason: minimaxChoice.FinishReason,
+		})
+	}
+
+	// 转换 Usage
+	usage := &openai.Usage{
+		TotalTokens: int(minimaxResp.Usage.TotalTokens),
+		// PromptTokens 和 CompletionTokens 需要额外处理
+	}
+
+	// 转换 Error
+	var errorDetail *openai.ErrorDetail
+	if minimaxResp.BaseResp.StatusCode != 0 {
+		errorDetail = &openai.ErrorDetail{
+			Message: minimaxResp.BaseResp.StatusMsg,
+			Code:    minimaxResp.BaseResp.StatusCode,
+		}
+	}
+
+	return &openai.OpenAIResponse{
+		ID:      minimaxResp.ID,
+		Created: minimaxResp.Created,
+		Model:   minimaxResp.Model,
+		Choices: choices,
+		Usage:   usage,
+		Error:   errorDetail,
+	}
 }

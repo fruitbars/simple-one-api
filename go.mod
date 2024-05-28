@@ -3,7 +3,7 @@ go 1.18
 module simple-one-api
 
 require (
-	github.com/fruitbars/gosparkclient v0.0.0-20240524164135-cc11b456a04c
+	github.com/fruitbars/gosparkclient v0.0.0-20240528030658-e0c6e0ded67f
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/sashabaranov/go-openai v1.24.1
