@@ -2,12 +2,13 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/openai"
-	mycommon "simple-one-api/pkg/utils"
+	"simple-one-api/pkg/utils"
 )
 
 func DebugInfo(c *gin.Context) {
@@ -47,6 +48,19 @@ func OpenAIHandler(c *gin.Context) {
 		log.Println(err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	if config.APIKey != "" {
+		apikey, err := utils.GetAPIKeyFromHeader(c)
+		if err != nil {
+			log.Println(err)
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		if config.APIKey != apikey {
+			c.JSON(http.StatusUnauthorized, errors.New("invalid authorization"))
+			return
+		}
 	}
 
 	oaiData, _ := json.Marshal(oaiReq)
@@ -92,7 +106,7 @@ func OpenAIHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, err.Error())
 	} else {
 		if oaiReq.Stream != nil && *oaiReq.Stream == true {
-			mycommon.SendOpenAIStreamEOFData(c)
+			utils.SendOpenAIStreamEOFData(c)
 		}
 	}
 }

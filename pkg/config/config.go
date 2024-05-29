@@ -11,6 +11,7 @@ import (
 var ModelToService map[string][]ModelDetails
 var LoadBalancingStrategy string
 var ServerPort string
+var APIKey string
 
 // 定义相关结构体
 type ServiceModel struct {
@@ -22,6 +23,7 @@ type ServiceModel struct {
 
 type Configuration struct {
 	ServerPort    string                    `json:"server_port"`
+	APIKey        string                    `json:"api_key"`
 	LoadBalancing string                    `json:"load_balancing"`
 	Services      map[string][]ServiceModel `json:"services"`
 }
@@ -63,31 +65,35 @@ func InitConfig(configName string) {
 	log.Println("read config ok,", configName)
 
 	// 解析 JSON 数据到结构体
-	var config Configuration
-	err = json.Unmarshal(data, &config)
+	var conf Configuration
+	err = json.Unmarshal(data, &conf)
 	if err != nil {
 		log.Fatalf("Error parsing JSON data: %s", err)
 	}
 
 	// 设置负载均衡策略，默认为 "first"
-	if config.LoadBalancing == "" {
+	if conf.LoadBalancing == "" {
 		LoadBalancingStrategy = "first"
 	} else {
-		LoadBalancingStrategy = config.LoadBalancing
+		LoadBalancingStrategy = conf.LoadBalancing
+	}
+
+	if conf.APIKey != "" {
+		APIKey = conf.APIKey
 	}
 
 	log.Println("read LoadBalancingStrategy ok,", LoadBalancingStrategy)
 
 	// 设置服务器端口，默认为 "9090"
-	if config.ServerPort == "" {
+	if conf.ServerPort == "" {
 		ServerPort = ":9090"
 	} else {
-		ServerPort = config.ServerPort
+		ServerPort = conf.ServerPort
 	}
 
 	log.Println("read ServerPort ok,", ServerPort)
 	// 创建映射
-	ModelToService = createModelToServiceMap(config)
+	ModelToService = createModelToServiceMap(conf)
 }
 
 // 根据模型名称获取服务和凭证信息
