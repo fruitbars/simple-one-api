@@ -13,9 +13,9 @@ import (
 	"net/url"
 	"regexp"
 	"simple-one-api/pkg/adapter"
-	"simple-one-api/pkg/common"
 	"simple-one-api/pkg/config"
 	myopenai "simple-one-api/pkg/openai"
+	"simple-one-api/pkg/utils"
 )
 
 // validateAndFormatURL checks if the given URL matches the two specified formats and returns the formatted URL
@@ -38,32 +38,32 @@ func validateAndFormatURL(rawurl string) (string, bool) {
 	return "", false
 }
 
-func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopenai.OpenAIRequest) {
+func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopenai.OpenAIRequest) error {
 	apiKey := s.Credentials["api_key"]
 
-	config := openai.DefaultConfig(apiKey)
+	conf := openai.DefaultConfig(apiKey)
 	if s.ServerURL != "" {
 		//serverUrl = defaultUrl
 		formattedURL, isOk := validateAndFormatURL(s.ServerURL)
 		if isOk {
-			config.BaseURL = formattedURL
+			conf.BaseURL = formattedURL
 		}
 	}
 
-	log.Println(config.BaseURL)
+	log.Println(conf.BaseURL)
 
 	if oaiReq.Stream != nil && *oaiReq.Stream {
-		common.SetEventStreamHeaders(c)
+		utils.SetEventStreamHeaders(c)
 
-		openaiClient := openai.NewClientWithConfig(config)
+		openaiClient := openai.NewClientWithConfig(conf)
 		ctx := context.Background()
 
 		req := adapter.OpenAIRequestToOpenAIRequest(oaiReq)
 
 		stream, err := openaiClient.CreateChatCompletionStream(ctx, *req)
 		if err != nil {
-			fmt.Printf("ChatCompletionStream error: %v\n", err)
-			return
+			log.Printf("ChatCompletionStream error: %v\n", err)
+			return err
 		}
 		defer stream.Close()
 
@@ -72,27 +72,27 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopena
 			response, err := stream.Recv()
 			if errors.Is(err, io.EOF) {
 				log.Println("Stream finished")
-				//fmt.Println("\nStream finished")
-				return
+				return nil
 			} else if err != nil {
-				log.Println("Stream error: ", err)
-				return
+				log.Println(err)
+				return err
 			}
 
+			response.Model = oaiReq.Model
 			respData, err := json.Marshal(&response)
 			if err != nil {
 				log.Println(err)
-				c.JSON(http.StatusUnauthorized, err)
+				return err
 			} else {
 				log.Println("response http data", string(respData))
 
 				c.Writer.WriteString("data: " + string(respData) + "\n\n")
 				c.Writer.(http.Flusher).Flush()
-
 			}
 		}
+
 	} else {
-		openaiClient := openai.NewClientWithConfig(config)
+		openaiClient := openai.NewClientWithConfig(conf)
 		//ctx := context.Background()
 
 		req := adapter.OpenAIRequestToOpenAIRequest(oaiReq)
@@ -103,8 +103,7 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopena
 
 		if err != nil {
 			log.Println(err)
-			c.JSON(http.StatusBadRequest, err)
-			return
+			return err
 		}
 
 		myresp := adapter.OpenAIResponseToOpenAIResponse(&resp)
@@ -115,4 +114,5 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopena
 		c.JSON(http.StatusOK, myresp)
 	}
 
+	return nil
 }

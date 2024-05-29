@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/openai"
+	mycommon "simple-one-api/pkg/utils"
 )
 
 func DebugInfo(c *gin.Context) {
@@ -52,16 +53,17 @@ func OpenAIHandler(c *gin.Context) {
 	log.Println(string(oaiData))
 
 	var s *config.ModelDetails
+	var modelName string
 	var err error
 	if oaiReq.Model == "random" {
 
-		s, err = config.GetRandomEnabledModelDetails()
+		s, modelName, err = config.GetRandomEnabledModelDetailsV1()
 		if err != nil {
 			log.Println(err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		oaiReq.Model = s.Models[0]
+		oaiReq.Model = modelName
 	} else {
 		s, err = config.GetModelService(oaiReq.Model)
 		if err != nil {
@@ -75,21 +77,22 @@ func OpenAIHandler(c *gin.Context) {
 
 	switch s.ServiceName {
 	case "qianfan":
-		OpenAI2QianFanHander(c, s, oaiReq)
+		err = OpenAI2QianFanHander(c, s, oaiReq)
 	case "hunyuan":
-		OpenAI2HunYuanHander(c, s, oaiReq)
+		err = OpenAI2HunYuanHander(c, s, oaiReq)
 	case "xinghuo":
-		OpenAI2XingHuoHander(c, s, oaiReq)
+		err = OpenAI2XingHuoHander(c, s, oaiReq)
 	case "openai":
-		OpenAI2OpenAIHandler(c, s, oaiReq)
+		err = OpenAI2OpenAIHandler(c, s, oaiReq)
 	case "minimax":
-		OpenAI2MinimaxHander(c, s, oaiReq)
-
+		err = OpenAI2MinimaxHander(c, s, oaiReq)
 	}
 
-	if oaiReq.Stream != nil && *oaiReq.Stream == true {
-		c.Writer.WriteString("data: [DONE]\n\n")
-		c.Writer.(http.Flusher).Flush()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, err.Error())
+	} else {
+		if oaiReq.Stream != nil && *oaiReq.Stream == true {
+			mycommon.SendOpenAIStreamEOFData(c)
+		}
 	}
-
 }

@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"time"
 )
 
 var ModelToService map[string][]ModelDetails
@@ -117,10 +116,9 @@ func GetModelService(modelName string) (*ModelDetails, error) {
 		case "first":
 			return &enabledServices[0], nil
 		case "random":
-			rand.Seed(time.Now().UnixNano())
 			return &enabledServices[rand.Intn(len(enabledServices))], nil
 		default:
-			return &enabledServices[0], nil
+			return &enabledServices[rand.Intn(len(enabledServices))], nil
 		}
 	}
 	return nil, fmt.Errorf("model %s not found in the configuration", modelName)
@@ -128,7 +126,7 @@ func GetModelService(modelName string) (*ModelDetails, error) {
 
 func GetRandomEnabledModelDetails() (*ModelDetails, error) {
 	// 设置随机数种子
-	rand.Seed(time.Now().UnixNano())
+	//rand.Seed(time.Now().UnixNano())
 
 	// 创建一个切片存储所有 Enabled 为 true 的 ModelDetails
 	var enabledModels []ModelDetails
@@ -151,4 +149,18 @@ func GetRandomEnabledModelDetails() (*ModelDetails, error) {
 	randomModel := enabledModels[rand.Intn(len(enabledModels))]
 
 	return &randomModel, nil
+}
+
+func GetRandomEnabledModelDetailsV1() (*ModelDetails, string, error) {
+	md, err := GetRandomEnabledModelDetails()
+	if err != nil {
+		return nil, "", err
+	}
+
+	randomString := md.Models[rand.Intn(len(md.Models))]
+
+	log.Println(randomString)
+
+	return md, randomString, nil
+
 }

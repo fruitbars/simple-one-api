@@ -8,9 +8,9 @@ import (
 	"log"
 	"net/http"
 	"simple-one-api/pkg/adapter"
-	"simple-one-api/pkg/common"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/openai"
+	"simple-one-api/pkg/utils"
 	"strings"
 )
 
@@ -34,7 +34,7 @@ func getURLAndDomain(modelName string) (string, string, error) {
 	}
 }
 
-func OpenAI2XingHuoHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.OpenAIRequest) {
+func OpenAI2XingHuoHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.OpenAIRequest) error {
 	appid := s.Credentials["appid"]
 	apiKey := s.Credentials["api_key"]
 	apiSecret := s.Credentials["api_secret"]
@@ -53,37 +53,41 @@ func OpenAI2XingHuoHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 	xhReq := adapter.OpenAIRequestToXingHuoRequest(oaiReq)
 
 	if oaiReq.Stream != nil && *oaiReq.Stream {
-		common.SetEventStreamHeaders(c)
-		client.SparkChatWithCallback(*xhReq, func(response gosparkclient.SparkAPIResponse) {
+		log.Println("stream mode")
+		utils.SetEventStreamHeaders(c)
+		_, err := client.SparkChatWithCallback(*xhReq, func(response gosparkclient.SparkAPIResponse) {
 			if len(response.Payload.Choices.Text) > 0 {
 				log.Println(response.Header.Sid, response.Payload.Choices.Text[0].Content)
 			}
 
 			oaiRespStream := adapter.XingHuoResponseToOpenAIStreamResponse(&response)
+			oaiRespStream.Model = oaiReq.Model
 			respData, err := json.Marshal(&oaiRespStream)
 			if err != nil {
 				log.Println(err)
+				return
 			} else {
 				log.Println("response http data", string(respData))
 
 				if oaiRespStream.Error != nil {
-
-					c.JSON(http.StatusBadRequest, oaiRespStream)
+					log.Println(*oaiRespStream.Error)
+					return
 				} else {
 					c.Writer.WriteString("data: " + string(respData) + "\n\n")
 					c.Writer.(http.Flusher).Flush()
 				}
-
 			}
 		})
+
+		return err
+
 	} else {
 		client := gosparkclient.NewSparkClientWithOptions(appid, apiKey, apiSecret, serverUrl, domain)
 		xhReq := adapter.OpenAIRequestToXingHuoRequest(oaiReq)
 		xhresp, err := client.SparkChatWithCallback(*xhReq, nil)
 		if err != nil {
 			log.Println(err)
-			c.JSON(http.StatusBadRequest, err.Error())
-			return
+			return err
 		}
 
 		myresp := adapter.XingHuoResponseToOpenAIResponse(xhresp)
@@ -93,4 +97,6 @@ func OpenAI2XingHuoHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 
 		c.JSON(http.StatusOK, myresp)
 	}
+
+	return nil
 }

@@ -6,19 +6,19 @@ import (
 	"log"
 	"net/http"
 	"simple-one-api/pkg/adapter"
-	"simple-one-api/pkg/common"
 	"simple-one-api/pkg/config"
 	baidu_qianfan "simple-one-api/pkg/llm/baidu-qianfan"
 	"simple-one-api/pkg/openai"
+	"simple-one-api/pkg/utils"
 )
 
-func OpenAI2QianFanHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.OpenAIRequest) {
+func OpenAI2QianFanHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.OpenAIRequest) error {
 	if oaiReq.Stream != nil && *oaiReq.Stream {
 		apiKey := s.Credentials["api_key"]
 		secretKey := s.Credentials["secret_key"]
 		qfReq := adapter.OpenAIRequestToQianFanRequest(oaiReq)
 
-		common.SetEventStreamHeaders(c)
+		utils.SetEventStreamHeaders(c)
 
 		// 创建 HTTP 客户端请求并处理 SSE
 		err := baidu_qianfan.QianFanCallSSE(apiKey, secretKey, oaiReq.Model, qfReq, func(qfResp *baidu_qianfan.QianFanResponse) {
@@ -31,22 +31,20 @@ func OpenAI2QianFanHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 			} else {
 				log.Println("response http data", string(respData))
 
-				if oaiRespStream.Error != nil {
-
-					c.JSON(http.StatusUnauthorized, oaiRespStream)
-				} else {
-					c.Writer.WriteString("data: " + string(respData) + "\n\n")
-					c.Writer.(http.Flusher).Flush()
+				if qfResp.ErrorCode != 0 && oaiRespStream.Error != nil {
+					log.Println(*oaiRespStream.Error)
+					c.JSON(http.StatusBadRequest, *qfResp)
+					return
 				}
-
+				c.Writer.WriteString("data: " + string(respData) + "\n\n")
+				c.Writer.(http.Flusher).Flush()
 			}
 
 		})
 
 		if err != nil {
 			log.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+			return err
 		}
 
 	} else {
@@ -59,6 +57,7 @@ func OpenAI2QianFanHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 
 		if err != nil {
 			log.Println(err)
+			return err
 		} else {
 			//var oaiResp *openai.OpenAIResponse
 			oaiResp := adapter.QianFanResponseToOpenAIResponse(qfResp)
@@ -69,4 +68,6 @@ func OpenAI2QianFanHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 			c.JSON(http.StatusOK, oaiResp)
 		}
 	}
+
+	return nil
 }

@@ -1,6 +1,9 @@
-package common
+package utils
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"net/http"
+)
 
 func SetEventStreamHeaders(c *gin.Context) {
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
@@ -8,4 +11,9 @@ func SetEventStreamHeaders(c *gin.Context) {
 	c.Writer.Header().Set("Connection", "keep-alive")
 	c.Writer.Header().Set("Transfer-Encoding", "chunked")
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
+}
+
+func SendOpenAIStreamEOFData(c *gin.Context) {
+	c.Writer.WriteString("data: [DONE]\n\n")
+	c.Writer.(http.Flusher).Flush()
 }

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,14 +12,14 @@ import (
 	"log"
 	"net/http"
 	"simple-one-api/pkg/adapter"
-	mycommon "simple-one-api/pkg/common"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/llm/minimax"
 	"simple-one-api/pkg/openai"
+	mycommon "simple-one-api/pkg/utils"
 	"strings"
 )
 
-func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.OpenAIRequest) {
+func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.OpenAIRequest) error {
 	apiKey := s.Credentials["api_key"]
 	groupID := s.Credentials["group_id"]
 
@@ -35,7 +36,7 @@ func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 	jsonData, err := json.Marshal(minimaxReq)
 	if err != nil {
 		log.Println("Error marshalling JSON:", err)
-		return
+		return err
 	}
 
 	log.Println(string(jsonData))
@@ -45,7 +46,7 @@ func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 		request, err := http.NewRequest("POST", serverUrl, bytes.NewBuffer(jsonData))
 		if err != nil {
 			log.Println("Error creating request:", err)
-			return
+			return err
 		}
 
 		request.Header.Add("Authorization", bearerToken)
@@ -56,7 +57,7 @@ func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 		response, err := client.Do(request)
 		if err != nil {
 			log.Println("Error sending request:", err)
-			return
+			return err
 		}
 		defer response.Body.Close()
 
@@ -70,8 +71,9 @@ func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 				if err == io.EOF {
 					break
 				}
+
 				log.Println("Error reading response:", err)
-				return
+				return err
 			}
 
 			// 去掉行尾的换行符
@@ -92,29 +94,31 @@ func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 
 			oaiRespStream := adapter.MinimaxResponseToOpenAIStreamResponse(&minimaxresp)
 			oaiRespStream.ID = id.String()
-
+			oaiRespStream.Model = oaiReq.Model
 			respData, err := json.Marshal(&oaiRespStream)
 			if err != nil {
 				log.Println(err)
+				return err
 			} else {
 				log.Println("response http data", string(respData))
 
 				if oaiRespStream.Error != nil {
-
-					c.JSON(http.StatusUnauthorized, oaiRespStream)
+					log.Println(oaiRespStream.Error)
+					errInfo, _ := json.Marshal(oaiRespStream.Error)
+					return errors.New(string(errInfo))
 				} else {
 					c.Writer.WriteString("data: " + string(respData) + "\n\n")
 					c.Writer.(http.Flusher).Flush()
 				}
-
 			}
 
 		}
+
 	} else {
 		request, err := http.NewRequest("POST", serverUrl, bytes.NewBuffer(jsonData))
 		if err != nil {
 			log.Println("Error creating request:", err)
-			return
+			return err
 		}
 
 		request.Header.Add("Authorization", bearerToken)
@@ -125,14 +129,14 @@ func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 		response, err := client.Do(request)
 		if err != nil {
 			log.Println("Error sending request:", err)
-			return
+			return err
 		}
 		defer response.Body.Close()
 
 		bodyData, err := io.ReadAll(response.Body)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, err.Error())
-			return
+			log.Println(err)
+			return err
 		}
 
 		log.Println(string(bodyData))
@@ -141,12 +145,16 @@ func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 		json.Unmarshal(bodyData, &minimaxresp)
 		log.Println(minimaxresp)
 		myresp := adapter.MinimaxResponseToOpenAIResponse(&minimaxresp)
-
+		myresp.Model = oaiReq.Model
 		log.Println("响应：", *myresp)
 
 		respData, _ := json.Marshal(*myresp)
 		log.Println("响应", string(respData))
 
 		c.JSON(http.StatusOK, myresp)
+
+		return nil
 	}
+
+	return nil
 }
