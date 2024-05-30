@@ -91,13 +91,15 @@
 
 ## 使用方法
 
-1. 启动服务：
+1. **启动服务：**
 
 **直接启动**
+
    ```bash
    ./simple-one-api [config](可选项，默认为config.json)
    ```
 **nohup启动**
+
 使用提供的`nohup_manage_simple_one_api.sh`脚本
 - 启动：
 ```bash
@@ -112,7 +114,8 @@
 ./nohup_manage_simple_one_api.sh restart
 ```
 
-**systemd**
+**使用systemd服务**
+
 也可以是使用准备好的脚本`install_simple_one_api_service.sh`
 需要修改下其中的工作目录
 ```bash
@@ -137,7 +140,7 @@ sudo systemctl start simple-one-api
 ./nohup_manage_simple_one_api.sh restart
 ```
 
-2. 调用 API：
+**2. 调用 API：**
 
    现在，你可以通过 OpenAI 兼容的接口调用你配置的各大模型服务。服务地址: `http://host:port/v1`,`api-key`可以任意设置
 
@@ -318,6 +321,8 @@ sudo systemctl start simple-one-api
     ]
 }
 ```
+### 在沉浸式翻译当中怎么使用？
+参考[docs/在沉浸式翻译中使用simple-one-api](在沉浸式翻译中使用simple-one-api.md)
 
 ### 如何让后台模型随机使用？
 `load_balancing`就是为自动选择模型来配置的，支持`random`，自动随机选一个`enabled`为`true`的模型

@@ -23,27 +23,27 @@
 
 1. 首先进入到设置当中
 
-<img src="/Users/admin/Library/Application Support/typora-user-images/image-20240530233647666.png" alt="image-20240530233647666" style="zoom: 50%;" />
+<img src="asset/image-20240530233647666.png" alt="image-20240530233647666" style="zoom: 50%;" />
 
 2. 选择翻译服务，选中OpenAI，点去修改
 
-<img src="/Users/admin/Library/Application Support/typora-user-images/image-20240530233748804.png" alt="image-20240530233748804" style="zoom:50%;" />
+<img src="asset/image-20240530233748804.png" alt="image-20240530233748804" style="zoom:50%;" />
 
 3. 输入后台设置的自定义模型列表这里我们填入了列表`spark-lite,ERNIE-Speed-8K,hunyuan-lite,random`
 
-<img src="/Users/admin/Library/Application Support/typora-user-images/image-20240530233817058.png" alt="image-20240530233817058" style="zoom:50%;" />
+<img src="asset/image-20240530233817058.png" alt="image-20240530233817058" style="zoom:50%;" />
 
 4. 将模型设置为`random`，然后随机选一个模型使用
 
-<img src="/Users/admin/Library/Application Support/typora-user-images/image-20240530233858173.png" alt="image-20240530233858173" style="zoom:50%;" />
+<img src="asset/image-20240530233858173.png" alt="image-20240530233858173" style="zoom:50%;" />
 
 5. 设置部署simple-one-api的服务地址
 
-![image-20240530233928186](/Users/admin/Library/Application Support/typora-user-images/image-20240530233928186.png)
+![image-20240530233928186](asset/image-20240530233928186.png)
 
 6. 最后测试服务是否通畅
 
-<img src="/Users/admin/Library/Application Support/typora-user-images/image-20240530234334239.png" alt="image-20240530234334239" style="zoom:50%;" />
+<img src="asset/image-20240530234334239.png" alt="image-20240530234334239" style="zoom:50%;" />
 
 ## simple-one-api配置
 
