@@ -24,13 +24,16 @@
    - **QPS**: 2
    - **有效期**: 不限
    - **文档地址**：[https://www.xfyun.cn/doc/spark/Web.html](https://www.xfyun.cn/doc/spark/Web.html)
+   - **申请流程**：[docs/讯飞星火spark-lite模型申请流程](docs/讯飞星火spark-lite模型申请流程.md)
 - **百度千帆大模型平台**:
    - **Lite、Speed-8K**: RPM = 300，TPM = 300000
    - **Speed-128K**: RPM = 60，TPM = 300000]
    - **文档地址**：[https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf)
+   - **申请流程**：[docs/百度千帆speed和lite模型申请流程](docs/百度千帆speed和lite模型申请流程.md)
 - **腾讯混元大模型**:
    - **限制并发数**: 5 路
    - **文档地址**：[https://cloud.tencent.com/document/api/1729/105701](https://cloud.tencent.com/document/api/1729/105701)
+   - **申请流程**：[docs/腾讯混元hunyuan-lite模型申请流程](docs/腾讯混元hunyuan-lite模型申请流程.md)
 
 ## 功能
 
@@ -90,9 +93,49 @@
 
 1. 启动服务：
 
+**直接启动**
    ```bash
    ./simple-one-api [config](可选项，默认为config.json)
    ```
+**nohup启动**
+使用提供的`nohup_manage_simple_one_api.sh`脚本
+- 启动：
+```bash
+./nohup_manage_simple_one_api.sh start
+```
+- 停止：
+```bash
+./nohup_manage_simple_one_api.sh stop
+```
+- 重启：
+```bash
+./nohup_manage_simple_one_api.sh restart
+```
+
+**systemd**
+也可以是使用准备好的脚本`install_simple_one_api_service.sh`
+需要修改下其中的工作目录
+```bash
+WORKING_DIRECTORY="/path/to/your/application"
+```
+开启权限，安装
+```bash
+chmod +x install_simple_one_api_service.sh
+./install_simple_one_api_service.sh
+```
+然后使用
+- 启动：
+```bash
+sudo systemctl start simple-one-api
+```
+- 停止：
+```bash
+./nohup_manage_simple_one_api.sh stop
+```
+- 重启：
+```bash
+./nohup_manage_simple_one_api.sh restart
+```
 
 2. 调用 API：
 
