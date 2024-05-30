@@ -5,7 +5,7 @@ export GOOS=linux
 export GOARCH=amd64
 
 # 设置输出目录
-OUTPUT_DIR="build/linux"
+OUTPUT_DIR="build/simple-one-api-linux"
 mkdir -p $OUTPUT_DIR
 
 # 检查是否传入 --rebuild 参数

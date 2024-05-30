@@ -36,9 +36,6 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-	// 定义 POST 方法的路由和处理函数
-	// 添加OPTIONS请求方法支持
-	//r.OPTIONS("/v1/chat/completions", handler.OpenAIHandler)
 
 	// 添加POST请求方法处理
 	r.POST("/v1/chat/completions", handler.OpenAIHandler)

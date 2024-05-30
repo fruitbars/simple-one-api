@@ -126,11 +126,12 @@
 
 ### 顶层字段说明
 
-| 字段名           | 类型   | 说明                                                         |
-| ---------------- | ------ | ------------------------------------------------------------ |
-| `server_port`    | 字符串 | 服务地址，例如：":9090"                                      |
+| 字段名              | 类型   | 说明                                                               |
+|------------------| ------ |------------------------------------------------------------------|
+| `server_port`    | 字符串 | 服务地址，例如：":9090"                                                  |
+| `api_key`        | 字符串 | 客户端需要传入的api_key，例如："sk-123456"                                   |
 | `load_balancing` | 字符串 | 负载均衡策略，示例值："first"和"random"。first是取一个enabled，random是随机取一个enabled |
-| `services`       | 对象   | 包含多个服务配置，每个服务对应一个大模型平台。               |
+| `services`       | 对象   | 包含多个服务配置，每个服务对应一个大模型平台。                                          |
 
 ### `services.<service>` 对象数组字段说明
 
@@ -225,7 +226,76 @@
   }
 }
 ```
+## FAQ
+### 如何设置一个对外的apikey？
+可以通过`api_key`字段来设置
+```json
+{
+    "api_key":"123456",
+    "load_balancing": "random",
+    "xinghuo": [
+      {
+        "models": ["spark-lite"],
+        "enabled": true,
+        "credentials": {
+          "appid": "xxx",
+          "api_key": "xxx",
+          "api_secret": "xxx"
+        }
+      }
+    ]
+}
+```
+### 单个模型如何配置多个credentials自动负载？
+ 以客户端选择spark-lite为例，可以按照下面这样配置，会随机credentials
 
+```json
+{
+    "api_key":"123456",
+    "load_balancing": "random",
+    "xinghuo": [
+      {
+        "models": ["spark-lite"],
+        "enabled": true,
+        "credentials": {
+          "appid": "xxx",
+          "api_key": "xxx",
+          "api_secret": "xxx"
+        }
+      },
+      {
+        "models": ["spark-lite"],
+        "enabled": true,
+        "credentials": {
+          "appid": "xxx",
+          "api_key": "xxx",
+          "api_secret": "xxx"
+        }
+      }
+    ]
+}
+```
+
+### 如何让后台模型随机使用？
+`load_balancing`就是为自动选择模型来配置的，支持`random`，自动随机选一个`enabled`为`true`的模型
+
+```json
+{
+    "api_key":"123456",
+    "load_balancing": "random",
+    "xinghuo": [
+      {
+        "models": ["spark-lite"],
+        "enabled": true,
+        "credentials": {
+          "appid": "xxx",
+          "api_key": "xxx",
+          "api_secret": "xxx"
+        }
+      }
+    ]
+}
+```
 ## 贡献
 
 我们欢迎任何形式的贡献。如果你有任何建议或发现了问题，请通过提交 issue 或 pull request 的方式与我们联系。

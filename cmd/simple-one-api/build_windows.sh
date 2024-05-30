@@ -5,7 +5,7 @@ export GOOS=windows
 export GOARCH=amd64
 
 # 设置输出目录
-OUTPUT_DIR="build/windows"
+OUTPUT_DIR="build/simple-one-api-windows"
 mkdir -p $OUTPUT_DIR
 
 # 检查是否传入 --rebuild 参数

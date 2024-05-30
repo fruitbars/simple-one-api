@@ -87,7 +87,7 @@ func OpenAIHandler(c *gin.Context) {
 		}
 	}
 
-	log.Println(*s)
+	log.Println(*s, modelName)
 
 	switch s.ServiceName {
 	case "qianfan":

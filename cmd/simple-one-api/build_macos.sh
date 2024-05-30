@@ -5,7 +5,7 @@ export GOOS=darwin
 export GOARCH=amd64
 
 # 设置输出目录
-OUTPUT_DIR="build/macos"
+OUTPUT_DIR="build/simple-one-api-macos-m3"
 mkdir -p $OUTPUT_DIR
 
 # 检查是否传入 --rebuild 参数
