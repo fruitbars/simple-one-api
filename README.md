@@ -37,6 +37,10 @@
 
 ## 功能
 
+### 更新日志
+
+查看 [CHANGELOG.md](docs/CHANGELOG.md) 获取本项目的详细更新历史。
+
 ### 文本生成
 
 支持多种大模型：
@@ -114,31 +118,31 @@
 ./nohup_manage_simple_one_api.sh restart
 ```
 
-**使用systemd服务**
+**使用 systemd 服务**
 
-也可以是使用准备好的脚本`install_simple_one_api_service.sh`
-需要修改下其中的工作目录
+您也可以使用我们提供的脚本 `install_simple_one_api_service.sh` 来设置服务。首先，您需要在脚本中指定应用的工作目录：
 ```bash
 WORKING_DIRECTORY="/path/to/your/application"
 ```
-开启权限，安装
+接着，为脚本文件设置执行权限，并执行安装：
 ```bash
 chmod +x install_simple_one_api_service.sh
 ./install_simple_one_api_service.sh
 ```
-然后使用
-- 启动：
+安装完成后，您可以通过以下 systemd 命令来管理服务：
+- 启动服务：
 ```bash
 sudo systemctl start simple-one-api
 ```
-- 停止：
+- 停止服务：
 ```bash
-./nohup_manage_simple_one_api.sh stop
+sudo systemctl stop simple-one-api
 ```
-- 重启：
+- 重启服务：
 ```bash
-./nohup_manage_simple_one_api.sh restart
+sudo systemctl restart simple-one-api
 ```
+
 
 **2. 调用 API：**
 
@@ -174,6 +178,7 @@ sudo systemctl start simple-one-api
 
 | 字段名              | 类型   | 说明                                                               |
 |------------------| ------ |------------------------------------------------------------------|
+| `debug`          | 布尔值 | 是否开启debug模式（gin的debug模式），默认为false                                |
 | `server_port`    | 字符串 | 服务地址，例如：":9090"                                                  |
 | `api_key`        | 字符串 | 客户端需要传入的api_key，例如："sk-123456"                                   |
 | `load_balancing` | 字符串 | 负载均衡策略，示例值："first"和"random"。first是取一个enabled，random是随机取一个enabled |
