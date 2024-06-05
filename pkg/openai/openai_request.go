@@ -1,6 +1,7 @@
-package openai
+package myopenai
 
 import (
+	"encoding/json"
 	"simple-one-api/pkg/common"
 )
 
@@ -23,7 +24,7 @@ type OpenAIRequest struct {
 	Temperature      *float32         `json:"temperature,omitempty"`
 	TopP             *float32         `json:"top_p,omitempty"`
 	Tools            []Tool           `json:"tools,omitempty"`
-	ToolChoice       *ToolChoice      `json:"tool_choice,omitempty"`
+	ToolChoice       json.RawMessage  `json:"tool_choice,omitempty"`
 	User             *string          `json:"user,omitempty"`
 }
 
@@ -49,7 +50,7 @@ type Function struct {
 }
 
 // ToolChoice 定义工具选择的结构
-type ToolChoice struct {
+type ToolChoiceFunction struct {
 	Type     string    `json:"type"`
 	Function *Function `json:"function,omitempty"`
 }

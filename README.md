@@ -12,11 +12,12 @@
 
 ### 免费大模型列表
 
-| 大模型             | 免费版本                                                     | 控制台（api_key等）                                          | 文档地址                                               | 备注                                                         |
-| ------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------ |
-| 讯飞星火大模型     | `spark-lite`                                                 | [链接](https://console.xfyun.cn/services/cbm)                | [链接](https://www.xfyun.cn/doc/spark/Web.html)        | tokens：总量无限<br>QPS：2<br>有效期：不限                   |
+| 大模型             | 免费版本                                                                                                        | 控制台（api_key等）                                          | 文档地址                                               | 备注                                                         |
+| ------------------ |-------------------------------------------------------------------------------------------------------------| ------------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------ |
+| 讯飞星火大模型     | `spark-lite`                                                                                                | [链接](https://console.xfyun.cn/services/cbm)                | [链接](https://www.xfyun.cn/doc/spark/Web.html)        | tokens：总量无限<br>QPS：2<br>有效期：不限                   |
 | 百度千帆大模型平台 | `yi_34b_chat`, `ERNIE-Speed-8K`, `ERNIE-Speed-128K`, `ERNIE-Lite-8K`, `ERNIE-Lite-8K-0922`, `ERNIE-Tiny-8K` | [链接](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application) | [链接](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf) | Lite、Speed-8K：RPM = 300，TPM = 300000<br>Speed-128K：RPM = 60，TPM = 300000 |
-| 腾讯混元大模型     | `hunyuan-lite`                                               | [链接](https://console.cloud.tencent.com/cam/capi)           | [链接](https://cloud.tencent.com/document/api/1729/105701) | 限制并发数为 5 路                                            |
+| 腾讯混元大模型     | `hunyuan-lite`                                                                                              | [链接](https://console.cloud.tencent.com/cam/capi)           | [链接](https://cloud.tencent.com/document/api/1729/105701) | 限制并发数为 5 路                                            |
+| Cloudflare Workers AI     | `所有模型`                                                                                                      | [链接](https://dash.cloudflare.com/)           | [链接](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/) | 免费可以每天使用1万次，一个月可以30万次；测试版本本的模型无限制                                            |
 
 #### 备注信息
 - **讯飞星火大模型**:
@@ -34,6 +35,10 @@
    - **限制并发数**: 5 路
    - **文档地址**：[https://cloud.tencent.com/document/api/1729/105701](https://cloud.tencent.com/document/api/1729/105701)
    - **申请流程**：[docs/腾讯混元hunyuan-lite模型申请流程](docs/腾讯混元hunyuan-lite模型申请流程.md)
+- **Cloudflare_Workers_AI**
+  - **次数限制**: 免费可以每天使用1万次，一个月可以30万次；测试版本本的模型无限制
+  - **文档地址**：[https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/)
+  - **申请流程**：[docs/Cloudflare_Workers_AI申请使用流程.md](docs/Cloudflare_Workers_AI申请使用流程.md)
 
 ## 功能
 
@@ -50,6 +55,7 @@
 - [x] [腾讯混元大模型](https://cloud.tencent.com/product/hunyuan)
 - [x] [OpenAI ChatGPT 系列模型](https://platform.openai.com/docs/guides/gpt/chat-completions-api)
     - [x] [Deep-Seek](https://platform.deepseek.com/api-docs/zh-cn/)
+    - [x] [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/)
 - [x] [MiniMax](https://platform.minimaxi.com/document/guides/chat-model/pro)
 
 如果兼容OpenAI的接口，那么直接就可以使用了。
@@ -327,7 +333,7 @@ sudo systemctl restart simple-one-api
 }
 ```
 ### 在沉浸式翻译当中怎么使用？
-参考[docs/在沉浸式翻译中使用simple-one-api](在沉浸式翻译中使用simple-one-api.md)
+参考[docs/在沉浸式翻译中使用simple-one-api](docs/在沉浸式翻译中使用simple-one-api.md)
 
 ### 如何让后台模型随机使用？
 `load_balancing`就是为自动选择模型来配置的，支持`random`，自动随机选一个`enabled`为`true`的模型

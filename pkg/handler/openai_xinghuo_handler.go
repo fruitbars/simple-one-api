@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"github.com/fruitbars/gosparkclient"
 	"github.com/gin-gonic/gin"
+	"github.com/sashabaranov/go-openai"
 	"log"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
-	"simple-one-api/pkg/openai"
 	"simple-one-api/pkg/utils"
 	"strings"
 )
@@ -34,7 +34,7 @@ func getURLAndDomain(modelName string) (string, string, error) {
 	}
 }
 
-func OpenAI2XingHuoHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.OpenAIRequest) error {
+func OpenAI2XingHuoHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
 	appid := s.Credentials["appid"]
 	apiKey := s.Credentials["api_key"]
 	apiSecret := s.Credentials["api_secret"]
@@ -52,7 +52,10 @@ func OpenAI2XingHuoHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 	client := gosparkclient.NewSparkClientWithOptions(appid, apiKey, apiSecret, serverUrl, domain)
 	xhReq := adapter.OpenAIRequestToXingHuoRequest(oaiReq)
 
-	if oaiReq.Stream != nil && *oaiReq.Stream {
+	xhDataJson, _ := json.Marshal(xhReq)
+	log.Println(string(xhDataJson))
+
+	if oaiReq.Stream {
 		log.Println("stream mode")
 		utils.SetEventStreamHeaders(c)
 		_, err := client.SparkChatWithCallback(*xhReq, func(response gosparkclient.SparkAPIResponse) {
@@ -82,8 +85,8 @@ func OpenAI2XingHuoHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 		return err
 
 	} else {
-		client := gosparkclient.NewSparkClientWithOptions(appid, apiKey, apiSecret, serverUrl, domain)
-		xhReq := adapter.OpenAIRequestToXingHuoRequest(oaiReq)
+		//client := gosparkclient.NewSparkClientWithOptions(appid, apiKey, apiSecret, serverUrl, domain)
+		//xhReq := adapter.OpenAIRequestToXingHuoRequest(oaiReq)
 		xhresp, err := client.SparkChatWithCallback(*xhReq, nil)
 		if err != nil {
 			log.Println(err)

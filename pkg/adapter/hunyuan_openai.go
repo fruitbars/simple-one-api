@@ -2,16 +2,17 @@ package adapter
 
 import (
 	"encoding/json"
+	"github.com/sashabaranov/go-openai"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
 	hunyuan "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/hunyuan/v20230901"
 	"log"
-	tecent_hunyuan "simple-one-api/pkg/llm/tecent-hunyuan"
-	"simple-one-api/pkg/openai"
+	tecenthunyuan "simple-one-api/pkg/llm/tecent-hunyuan"
+	myopenai "simple-one-api/pkg/openai"
 	"simple-one-api/pkg/utils"
 )
 
-func OpenAIRequestToHunYuanRequest(oaiReq openai.OpenAIRequest) *hunyuan.ChatCompletionsRequest {
+func OpenAIRequestToHunYuanRequest(oaiReq openai.ChatCompletionRequest) *hunyuan.ChatCompletionsRequest {
 	request := hunyuan.NewChatCompletionsRequest()
 
 	request.Model = common.StringPtr(oaiReq.Model)
@@ -26,36 +27,31 @@ func OpenAIRequestToHunYuanRequest(oaiReq openai.OpenAIRequest) *hunyuan.ChatCom
 		})
 	}
 
-	if oaiReq.TopP != nil {
-		topP := float64(*oaiReq.TopP) // 将 *float32 转换为 float64
-		request.TopP = &topP
-	}
+	topP := float64(oaiReq.TopP) // 将 *float32 转换为 float64
+	request.TopP = &topP
 
-	if oaiReq.Temperature != nil {
-		temperature := float64(*oaiReq.Temperature) // 将 *float32 转换为 float64
-		request.Temperature = &temperature
-	}
-	if oaiReq.Stream != nil {
-		request.Stream = oaiReq.Stream
-	}
+	temperature := float64(oaiReq.Temperature) // 将 *float32 转换为 float64
+	request.Temperature = &temperature
+
+	request.Stream = &oaiReq.Stream
 
 	return request
 }
 
 // 转换函数实现
-func HunYuanResponseToOpenAIStreamResponse(event tchttp.SSEvent) (*openai.OpenAIStreamResponse, error) {
+func HunYuanResponseToOpenAIStreamResponse(event tchttp.SSEvent) (*myopenai.OpenAIStreamResponse, error) {
 
-	var sResponse tecent_hunyuan.StreamResponse
+	var sResponse tecenthunyuan.StreamResponse
 	json.Unmarshal(event.Data, &sResponse)
 
 	//common.
-	openAIResp := &openai.OpenAIStreamResponse{
+	openAIResp := &myopenai.OpenAIStreamResponse{
 		ID:      event.Id,
 		Created: sResponse.Created,
 		//Usage:   sResponse.Usage,
 		//Error: sResponse.e,
 	}
-	openAIResp.Usage = &openai.Usage{
+	openAIResp.Usage = &myopenai.Usage{
 		PromptTokens:     sResponse.Usage.PromptTokens,
 		CompletionTokens: sResponse.Usage.CompletionTokens,
 		TotalTokens:      sResponse.Usage.TotalTokens,
@@ -88,13 +84,13 @@ func HunYuanResponseToOpenAIStreamResponse(event tchttp.SSEvent) (*openai.OpenAI
 }
 
 // 转换函数实现
-func HunYuanResponseToOpenAIResponse(qfResp *hunyuan.ChatCompletionsResponse) *openai.OpenAIResponse {
+func HunYuanResponseToOpenAIResponse(qfResp *hunyuan.ChatCompletionsResponse) *myopenai.OpenAIResponse {
 	if qfResp == nil || qfResp.Response == nil {
 		return nil
 	}
 
 	// 初始化OpenAIResponse
-	openAIResp := &openai.OpenAIResponse{
+	openAIResp := &myopenai.OpenAIResponse{
 		ID:      utils.GetString(qfResp.Response.Id),
 		Created: utils.GetInt64(qfResp.Response.Created),
 		Usage:   convertUsage(qfResp.Response.Usage),
@@ -103,7 +99,7 @@ func HunYuanResponseToOpenAIResponse(qfResp *hunyuan.ChatCompletionsResponse) *o
 
 	// 转换Choices
 	for _, choice := range qfResp.Response.Choices {
-		openAIResp.Choices = append(openAIResp.Choices, openai.Choice{
+		openAIResp.Choices = append(openAIResp.Choices, myopenai.Choice{
 			//Index:   choice.Index,
 			Message: convertMessage(*choice.Message),
 			//LogProbs:     choice.LogProbs,
@@ -115,11 +111,11 @@ func HunYuanResponseToOpenAIResponse(qfResp *hunyuan.ChatCompletionsResponse) *o
 }
 
 // 辅助函数：转换Usage
-func convertUsage(hunyuanUsage *hunyuan.Usage) *openai.Usage {
+func convertUsage(hunyuanUsage *hunyuan.Usage) *myopenai.Usage {
 	if hunyuanUsage == nil {
 		return nil
 	}
-	return &openai.Usage{
+	return &myopenai.Usage{
 		PromptTokens:     int(utils.GetInt64(hunyuanUsage.PromptTokens)),
 		CompletionTokens: int(utils.GetInt64(hunyuanUsage.CompletionTokens)),
 		TotalTokens:      int(utils.GetInt64(hunyuanUsage.TotalTokens)),
@@ -127,11 +123,11 @@ func convertUsage(hunyuanUsage *hunyuan.Usage) *openai.Usage {
 }
 
 // 辅助函数：转换ErrorMsg
-func convertError(hunyuanError *hunyuan.ErrorMsg) *openai.ErrorDetail {
+func convertError(hunyuanError *hunyuan.ErrorMsg) *myopenai.ErrorDetail {
 	if hunyuanError == nil {
 		return nil
 	}
-	return &openai.ErrorDetail{
+	return &myopenai.ErrorDetail{
 		Message: utils.GetString(hunyuanError.Msg),
 		//Type:    hunyuanError.Type,
 		//Param: hunyuanError.Param,
@@ -140,8 +136,8 @@ func convertError(hunyuanError *hunyuan.ErrorMsg) *openai.ErrorDetail {
 }
 
 // 辅助函数：转换Message
-func convertMessage(hunyuanMessage hunyuan.Message) openai.ResponseMessage {
-	return openai.ResponseMessage{
+func convertMessage(hunyuanMessage hunyuan.Message) myopenai.ResponseMessage {
+	return myopenai.ResponseMessage{
 		Role:    utils.GetString(hunyuanMessage.Role),
 		Content: utils.GetString(hunyuanMessage.Content),
 	}

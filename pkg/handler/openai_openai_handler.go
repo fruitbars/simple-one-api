@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
-	myopenai "simple-one-api/pkg/openai"
 	"simple-one-api/pkg/utils"
 )
 
@@ -38,7 +37,7 @@ func validateAndFormatURL(rawurl string) (string, bool) {
 	return "", false
 }
 
-func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopenai.OpenAIRequest) error {
+func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.ChatCompletionRequest) error {
 	apiKey := s.Credentials["api_key"]
 
 	conf := openai.DefaultConfig(apiKey)
@@ -52,15 +51,15 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopena
 
 	log.Println(conf.BaseURL)
 
-	if oaiReq.Stream != nil && *oaiReq.Stream {
+	if req.Stream {
 		utils.SetEventStreamHeaders(c)
 
 		openaiClient := openai.NewClientWithConfig(conf)
 		ctx := context.Background()
 
-		req := adapter.OpenAIRequestToOpenAIRequest(oaiReq)
+		//req := adapter.OpenAIRequestToOpenAIRequest(oaiReq)
 
-		stream, err := openaiClient.CreateChatCompletionStream(ctx, *req)
+		stream, err := openaiClient.CreateChatCompletionStream(ctx, req)
 		if err != nil {
 			log.Printf("ChatCompletionStream error: %v\n", err)
 			return err
@@ -78,7 +77,7 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopena
 				return err
 			}
 
-			response.Model = oaiReq.Model
+			response.Model = req.Model
 			respData, err := json.Marshal(&response)
 			if err != nil {
 				log.Println(err)
@@ -95,10 +94,10 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopena
 		openaiClient := openai.NewClientWithConfig(conf)
 		//ctx := context.Background()
 
-		req := adapter.OpenAIRequestToOpenAIRequest(oaiReq)
+		//req := adapter.OpenAIRequestToOpenAIRequest(oaiReq)
 		resp, err := openaiClient.CreateChatCompletion(
 			context.Background(),
-			*req,
+			req,
 		)
 
 		if err != nil {
@@ -107,7 +106,7 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, oaiReq myopena
 		}
 
 		myresp := adapter.OpenAIResponseToOpenAIResponse(&resp)
-		myresp.Model = oaiReq.Model
+		myresp.Model = req.Model
 
 		log.Println("响应：", *myresp)
 

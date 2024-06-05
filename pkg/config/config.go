@@ -12,6 +12,7 @@ var ModelToService map[string][]ModelDetails
 var LoadBalancingStrategy string
 var ServerPort string
 var APIKey string
+var Debug bool
 
 // 定义相关结构体
 type ServiceModel struct {
@@ -23,6 +24,7 @@ type ServiceModel struct {
 
 type Configuration struct {
 	ServerPort    string                    `json:"server_port"`
+	Debug         bool                      `json:"debug"`
 	APIKey        string                    `json:"api_key"`
 	LoadBalancing string                    `json:"load_balancing"`
 	Services      map[string][]ServiceModel `json:"services"`
@@ -90,6 +92,8 @@ func InitConfig(configName string) {
 	} else {
 		ServerPort = conf.ServerPort
 	}
+
+	Debug = conf.Debug
 
 	log.Println("read ServerPort ok,", ServerPort)
 	// 创建映射

@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/sashabaranov/go-openai"
 	"log"
 	"net/http"
 	"simple-one-api/pkg/config"
-	"simple-one-api/pkg/openai"
 	"simple-one-api/pkg/utils"
 )
 
@@ -42,7 +42,8 @@ func OpenAIHandler(c *gin.Context) {
 		return
 	}
 
-	var oaiReq openai.OpenAIRequest
+	//var oaiReq openai.OpenAIRequest
+	var oaiReq openai.ChatCompletionRequest
 	// 从请求中解析 JSON 到 reqBody
 	if err := c.ShouldBindJSON(&oaiReq); err != nil {
 		log.Println(err)
@@ -105,7 +106,7 @@ func OpenAIHandler(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
 	} else {
-		if oaiReq.Stream != nil && *oaiReq.Stream == true {
+		if oaiReq.Stream == true {
 			utils.SendOpenAIStreamEOFData(c)
 		}
 	}

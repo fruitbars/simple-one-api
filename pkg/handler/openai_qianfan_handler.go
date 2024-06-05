@@ -3,17 +3,17 @@ package handler
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"github.com/sashabaranov/go-openai"
 	"log"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	baidu_qianfan "simple-one-api/pkg/llm/baidu-qianfan"
-	"simple-one-api/pkg/openai"
 	"simple-one-api/pkg/utils"
 )
 
-func OpenAI2QianFanHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.OpenAIRequest) error {
-	if oaiReq.Stream != nil && *oaiReq.Stream {
+func OpenAI2QianFanHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+	if oaiReq.Stream {
 		apiKey := s.Credentials["api_key"]
 		secretKey := s.Credentials["secret_key"]
 		qfReq := adapter.OpenAIRequestToQianFanRequest(oaiReq)

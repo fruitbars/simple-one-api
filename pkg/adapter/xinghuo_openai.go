@@ -1,12 +1,15 @@
 package adapter
 
 import (
+	"encoding/json"
 	"github.com/fruitbars/gosparkclient"
-	"simple-one-api/pkg/openai"
+	"github.com/sashabaranov/go-openai"
+	"log"
+	myopenai "simple-one-api/pkg/openai"
 	"time"
 )
 
-func OpenAIRequestToXingHuoRequest(openAIReq openai.OpenAIRequest) *gosparkclient.SparkChatRequest {
+func OpenAIRequestToXingHuoRequest(openAIReq openai.ChatCompletionRequest) *gosparkclient.SparkChatRequest {
 	var sparkChatReq gosparkclient.SparkChatRequest
 
 	// 将 OpenAIRequest 的 Messages 转换为 SparkChatRequest 的 Message
@@ -20,24 +23,51 @@ func OpenAIRequestToXingHuoRequest(openAIReq openai.OpenAIRequest) *gosparkclien
 		})
 	}
 
-	if openAIReq.TopP != nil {
-		sparkChatReq.Topk = int(*openAIReq.TopP)
+	sparkChatReq.Topk = int(openAIReq.TopP)
+	if sparkChatReq.Topk < 0 {
+		sparkChatReq.Topk = 0
+	}
+	if sparkChatReq.Topk > 6 {
+		sparkChatReq.Topk = 6
 	}
 
-	if openAIReq.Temperature != nil {
-		sparkChatReq.Temperature = float64(*openAIReq.Temperature)
+	sparkChatReq.Temperature = float64(openAIReq.Temperature)
+	if sparkChatReq.Temperature < 0 {
+		sparkChatReq.Temperature = 0
+	}
+	if sparkChatReq.Temperature > 1 {
+		sparkChatReq.Temperature = 1
 	}
 
-	if openAIReq.MaxTokens != nil {
-		sparkChatReq.Maxtokens = *openAIReq.MaxTokens
+	sparkChatReq.Maxtokens = openAIReq.MaxTokens
+
+	switch v := openAIReq.ToolChoice.(type) {
+	case string:
+		if v == "auto" {
+			var xffunctions []*openai.FunctionDefinition
+			for _, tool := range openAIReq.Tools {
+				xffunctions = append(xffunctions, tool.Function)
+			}
+			for len(xffunctions) > 0 {
+				toolsJsonData, err := json.Marshal(xffunctions)
+				if err != nil {
+					log.Println(err)
+				}
+				sparkChatReq.Functions = toolsJsonData
+			}
+		}
+
+	case map[string]interface{}:
+		log.Println("ToolChoice is an object, ignore")
+	default:
+		log.Println("Unhandled type, ignore")
 	}
 
 	return &sparkChatReq
 }
 
-// 转换函数
-func XingHuoResponseToOpenAIResponse(qfResp *gosparkclient.SparkAPIResponse) *openai.OpenAIResponse {
-	openAIResp := &openai.OpenAIResponse{
+func XingHuoResponseToOpenAIResponse(qfResp *gosparkclient.SparkAPIResponse) *myopenai.OpenAIResponse {
+	openAIResp := &myopenai.OpenAIResponse{
 		ID:                qfResp.Header.Sid,
 		Object:            "text_completion",
 		SystemFingerprint: qfResp.Header.Message,
@@ -45,9 +75,9 @@ func XingHuoResponseToOpenAIResponse(qfResp *gosparkclient.SparkAPIResponse) *op
 
 	// 转换 Choices
 	for _, choice := range qfResp.Payload.Choices.Text {
-		openAIResp.Choices = append(openAIResp.Choices, openai.Choice{
+		openAIResp.Choices = append(openAIResp.Choices, myopenai.Choice{
 			Index: choice.Index,
-			Message: openai.ResponseMessage{
+			Message: myopenai.ResponseMessage{
 				Role:    choice.Role,
 				Content: choice.Content,
 			},
@@ -55,7 +85,7 @@ func XingHuoResponseToOpenAIResponse(qfResp *gosparkclient.SparkAPIResponse) *op
 	}
 
 	// 转换 Usage
-	openAIResp.Usage = &openai.Usage{
+	openAIResp.Usage = &myopenai.Usage{
 		PromptTokens:     qfResp.Payload.Usage.Text.PromptTokens,
 		CompletionTokens: qfResp.Payload.Usage.Text.CompletionTokens,
 		TotalTokens:      qfResp.Payload.Usage.Text.TotalTokens,
@@ -67,8 +97,8 @@ func XingHuoResponseToOpenAIResponse(qfResp *gosparkclient.SparkAPIResponse) *op
 	return openAIResp
 }
 
-func XingHuoResponseToOpenAIStreamResponse(qfResp *gosparkclient.SparkAPIResponse) *openai.OpenAIStreamResponse {
-	openAIResp := &openai.OpenAIStreamResponse{
+func XingHuoResponseToOpenAIStreamResponse(qfResp *gosparkclient.SparkAPIResponse) *myopenai.OpenAIStreamResponse {
+	openAIResp := &myopenai.OpenAIStreamResponse{
 		ID:                qfResp.Header.Sid,
 		Object:            "chat.completion.chunk",
 		Created:           int(time.Now().Unix()), // 使用当前 Unix 时间戳
@@ -98,7 +128,7 @@ func XingHuoResponseToOpenAIStreamResponse(qfResp *gosparkclient.SparkAPIRespons
 	}
 
 	// 转换 Usage
-	openAIResp.Usage = &openai.Usage{
+	openAIResp.Usage = &myopenai.Usage{
 		PromptTokens:     qfResp.Payload.Usage.Text.PromptTokens,
 		CompletionTokens: qfResp.Payload.Usage.Text.CompletionTokens,
 		TotalTokens:      qfResp.Payload.Usage.Text.TotalTokens,

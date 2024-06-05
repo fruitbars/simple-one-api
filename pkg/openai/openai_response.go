@@ -1,8 +1,7 @@
-package openai
+package myopenai
 
 import "encoding/json"
 
-// Response 定义了 chat.completion API 响应的结构
 type OpenAIResponse struct {
 	ID                string   `json:"id"`
 	Object            string   `json:"object,omitempty"`
@@ -23,7 +22,7 @@ type Choice struct {
 	FinishReason string           `json:"finish_reason"`
 }
 
-// Message 定义了对话中的消息结构
+// ResponseMessage Message 定义了对话中的消息结构
 type ResponseMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`

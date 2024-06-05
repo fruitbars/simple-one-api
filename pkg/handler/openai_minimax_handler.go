@@ -8,18 +8,18 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/sashabaranov/go-openai"
 	"io"
 	"log"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/llm/minimax"
-	"simple-one-api/pkg/openai"
 	mycommon "simple-one-api/pkg/utils"
 	"strings"
 )
 
-func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.OpenAIRequest) error {
+func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
 	apiKey := s.Credentials["api_key"]
 	groupID := s.Credentials["group_id"]
 
@@ -41,7 +41,7 @@ func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 
 	log.Println(string(jsonData))
 
-	if oaiReq.Stream != nil && *oaiReq.Stream {
+	if oaiReq.Stream {
 
 		request, err := http.NewRequest("POST", serverUrl, bytes.NewBuffer(jsonData))
 		if err != nil {

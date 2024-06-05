@@ -24,6 +24,11 @@ func main() {
 
 	// 初始化配置
 	config.InitConfig(configName)
+
+	if config.Debug == false {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	// 创建一个 Gin 路由器实例
 	r := gin.Default()
 

@@ -2,12 +2,14 @@ package adapter
 
 import (
 	"encoding/json"
+	"github.com/sashabaranov/go-openai"
+	"log"
 	"simple-one-api/pkg/llm/minimax"
-	"simple-one-api/pkg/openai"
+	myopenai "simple-one-api/pkg/openai"
 	"strings"
 )
 
-func OpenAIRequestToMinimaxRequest(openAIReq openai.OpenAIRequest) *minimax.MinimaxRequest {
+func OpenAIRequestToMinimaxRequest(openAIReq openai.ChatCompletionRequest) *minimax.MinimaxRequest {
 	var req minimax.MinimaxRequest
 
 	req.Model = openAIReq.Model
@@ -21,7 +23,14 @@ func OpenAIRequestToMinimaxRequest(openAIReq openai.OpenAIRequest) *minimax.Mini
 
 	if len(openAIReq.Messages) > 0 && strings.ToUpper(openAIReq.Messages[0].Role) == "SYSTEM" {
 		botSetting.Content = openAIReq.Messages[0].Content
-		openAIReq.Messages = openAIReq.Messages[1:]
+
+		if len(openAIReq.Messages) > 1 {
+			openAIReq.Messages = openAIReq.Messages[1:]
+		} else {
+			log.Println("message only has a SYSTEM message")
+			// 处理数组长度不足的情况，例如可以清空或给出错误提示
+			openAIReq.Messages = nil // 或其他适当的错误处理
+		}
 	}
 
 	req.BotSetting = append(req.BotSetting, botSetting)
@@ -45,27 +54,23 @@ func OpenAIRequestToMinimaxRequest(openAIReq openai.OpenAIRequest) *minimax.Mini
 	req.ReplyConstraints.SenderType = botName
 	req.ReplyConstraints.SenderName = botName
 
-	if openAIReq.Stream != nil {
-		req.Stream = *openAIReq.Stream
-	}
+	req.Stream = openAIReq.Stream
 
-	if openAIReq.TopP != nil {
-		req.TopP = *openAIReq.TopP
-	}
+	req.TopP = openAIReq.TopP
 
-	if openAIReq.Temperature != nil {
-		req.Temperature = *openAIReq.Temperature
-	}
+	req.Temperature = openAIReq.Temperature
 
-	if openAIReq.MaxTokens != nil {
-		req.TokensToGenerate = int64(*openAIReq.MaxTokens)
+	req.TokensToGenerate = int64(openAIReq.MaxTokens)
+
+	if req.Model == "abab6-chat" {
+		req.TokensToGenerate = 8192
 	}
 
 	return &req
 }
 
-func MinimaxResponseToOpenAIStreamResponse(minimaxResp *minimax.MinimaxResponse) *openai.OpenAIStreamResponse {
-	openAIResp := &openai.OpenAIStreamResponse{
+func MinimaxResponseToOpenAIStreamResponse(minimaxResp *minimax.MinimaxResponse) *myopenai.OpenAIStreamResponse {
+	openAIResp := &myopenai.OpenAIStreamResponse{
 		ID:      minimaxResp.ID,
 		Object:  "chat.completion.chunk",
 		Created: int(minimaxResp.Created), // 使用当前 Unix 时间戳
@@ -73,7 +78,7 @@ func MinimaxResponseToOpenAIStreamResponse(minimaxResp *minimax.MinimaxResponse)
 	}
 
 	// 转换 Usage
-	openAIResp.Usage = &openai.Usage{
+	openAIResp.Usage = &myopenai.Usage{
 		TotalTokens: int(minimaxResp.Usage.TotalTokens),
 	}
 
@@ -106,24 +111,24 @@ func MinimaxResponseToOpenAIStreamResponse(minimaxResp *minimax.MinimaxResponse)
 }
 
 // MinimaxResponseToOpenAIResponse 将 MinimaxResponse 转换为 OpenAIResponse
-func MinimaxResponseToOpenAIResponse(minimaxResp *minimax.MinimaxResponse) *openai.OpenAIResponse {
+func MinimaxResponseToOpenAIResponse(minimaxResp *minimax.MinimaxResponse) *myopenai.OpenAIResponse {
 	if minimaxResp == nil {
 		return nil
 	}
 
 	// 转换 Choices
-	var choices []openai.Choice
+	var choices []myopenai.Choice
 	for _, minimaxChoice := range minimaxResp.Choices {
-		var messages []openai.ResponseMessage
+		var messages []myopenai.ResponseMessage
 		for _, msg := range minimaxChoice.Messages {
-			messages = append(messages, openai.ResponseMessage{
+			messages = append(messages, myopenai.ResponseMessage{
 				Role:    "assistant",
 				Content: msg.Text,
 			})
 		}
 		var logProbs json.RawMessage // 如果需要，可以处理 logProbs
 
-		choices = append(choices, openai.Choice{
+		choices = append(choices, myopenai.Choice{
 			Index:        int(minimaxChoice.Index),
 			Message:      messages[0], // 假设只取第一个消息，如果有多个消息需要处理，请调整此处逻辑
 			LogProbs:     &logProbs,
@@ -132,21 +137,21 @@ func MinimaxResponseToOpenAIResponse(minimaxResp *minimax.MinimaxResponse) *open
 	}
 
 	// 转换 Usage
-	usage := &openai.Usage{
+	usage := &myopenai.Usage{
 		TotalTokens: int(minimaxResp.Usage.TotalTokens),
 		// PromptTokens 和 CompletionTokens 需要额外处理
 	}
 
 	// 转换 Error
-	var errorDetail *openai.ErrorDetail
+	var errorDetail *myopenai.ErrorDetail
 	if minimaxResp.BaseResp.StatusCode != 0 {
-		errorDetail = &openai.ErrorDetail{
+		errorDetail = &myopenai.ErrorDetail{
 			Message: minimaxResp.BaseResp.StatusMsg,
 			Code:    minimaxResp.BaseResp.StatusCode,
 		}
 	}
 
-	return &openai.OpenAIResponse{
+	return &myopenai.OpenAIResponse{
 		ID:      minimaxResp.ID,
 		Created: minimaxResp.Created,
 		Model:   minimaxResp.Model,
