@@ -101,14 +101,30 @@
 
 ## 使用方法
 
-1. **启动服务：**
-
-**直接启动**
+### 直接启动
 
    ```bash
    ./simple-one-api [config](可选项，默认为config.json)
    ```
-**nohup启动**
+### Docker 启动
+
+以下是如何使用 Docker 部署 `simple-one-api` 的步骤：
+**运行**
+使用以下命令运行 Docker 容器，同时挂载你的配置文件 `config.json`：
+```sh
+docker run -d -p 9090:9090 -v /path/to/config.json:/app/config.json fruitbars/simple-one-api
+```
+请确保将 /path/to/config.json 替换为 config.json 文件在你主机上的绝对路径。
+
+**查看容器日志**
+你可以使用以下命令查看容器的日志输出：
+
+```sh
+docker logs -f <container_id>
+```
+其中，<container_id> 是容器的 ID，可以通过 docker ps 命令查看。
+
+###  nohup启动
 
 使用提供的`nohup_manage_simple_one_api.sh`脚本
 - 启动：
@@ -124,7 +140,7 @@
 ./nohup_manage_simple_one_api.sh restart
 ```
 
-**使用 systemd 服务**
+### 使用 systemd 服务
 
 您也可以使用我们提供的脚本 `install_simple_one_api_service.sh` 来设置服务。首先，您需要在脚本中指定应用的工作目录：
 ```bash
@@ -150,7 +166,7 @@ sudo systemctl restart simple-one-api
 ```
 
 
-**2. 调用 API：**
+### 调用 API
 
    现在，你可以通过 OpenAI 兼容的接口调用你配置的各大模型服务。服务地址: `http://host:port/v1`,`api-key`可以任意设置
 
