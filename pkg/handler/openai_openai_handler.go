@@ -24,17 +24,23 @@ func validateAndFormatURL(rawurl string) (string, bool) {
 		return "", false
 	}
 
-	// Regular expression to match "/v1" or "/v1/chat/completions"
-	re := regexp.MustCompile(`^/v1(/chat/completions)?$`)
+	// Regular expression to match "/v1" to "/v50" or "/v1/chat/completions" to "/v50/chat/completions"
+	re := regexp.MustCompile(`/v([1-9]|[1-4][0-9]|50)(/chat/completions)?$`)
 
+	log.Println(rawurl)
 	// Check if the path matches the regular expression
 	if re.MatchString(parsedURL.Path) {
-		// Return the formatted URL as "https://domain/v1"
-		formattedURL := fmt.Sprintf("%s://%s/v1", parsedURL.Scheme, parsedURL.Host)
-		return formattedURL, true
+		// If the path matches "/v1/chat/completions" to "/v50/chat/completions"
+		if re.MatchString(parsedURL.Path) && re.FindStringSubmatch(parsedURL.Path)[2] == "/chat/completions" {
+			// Remove "/chat/completions" part
+			formattedURL := fmt.Sprintf("%s://%s%s", parsedURL.Scheme, parsedURL.Host, parsedURL.Path[:len(parsedURL.Path)-len("/chat/completions")])
+			return formattedURL, true
+		}
+		// If the path matches "/v1" to "/v50"
+		return rawurl, true
 	}
 
-	return "", false
+	return rawurl, false
 }
 
 func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.ChatCompletionRequest) error {
@@ -101,7 +107,7 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.Cha
 		)
 
 		if err != nil {
-			log.Println(err)
+			log.Println(err.Error())
 			return err
 		}
 

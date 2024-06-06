@@ -1,0 +1,18 @@
+{
+  "server_port": ":9099",
+  "load_balancing": "first",
+  "services": {
+    "openai": [
+      {
+        "models": [
+          "@cf/meta/llama-2-7b-chat-int8"
+        ],
+        "enabled": true,
+        "credentials": {
+          "api_key": "xxx"
+        },
+        "server_url": "https://api.cloudflare.com/client/v4/accounts/0b4a4013591101f6f5657fcb68f32043/ai/v1/chat/completions"
+      }
+    ]
+  }
+}
