@@ -43,7 +43,7 @@
 - **字节扣子(coze.cn)**
    - **次数限制**：QPS (每秒发送的请求数)：2，QPM (每分钟发送的请求数)：60，QPD (每天发送的请求数)：3000
    - **文档地址**：https://www.coze.cn/docs/developer_guides/coze_api_overview
-   - **申请流程**：[docs/coze.cn申请使用流程.md](docs/coze.cn申请使用流程.md)
+   - **申请流程**：[docs/coze.cn申请API使用流程.md](docs/coze.cn申请API使用流程.md)
 
 
 ## 功能
