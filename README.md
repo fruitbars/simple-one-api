@@ -18,6 +18,7 @@
 | 百度千帆大模型平台 | `yi_34b_chat`, `ERNIE-Speed-8K`, `ERNIE-Speed-128K`, `ERNIE-Lite-8K`, `ERNIE-Lite-8K-0922`, `ERNIE-Tiny-8K` | [链接](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application) | [链接](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf) | Lite、Speed-8K：RPM = 300，TPM = 300000<br>Speed-128K：RPM = 60，TPM = 300000 |
 | 腾讯混元大模型     | `hunyuan-lite`                                                                                              | [链接](https://console.cloud.tencent.com/cam/capi)           | [链接](https://cloud.tencent.com/document/api/1729/105701) | 限制并发数为 5 路                                            |
 | Cloudflare Workers AI     | `所有模型`                                                                                                      | [链接](https://dash.cloudflare.com/)           | [链接](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/) | 免费可以每天使用1万次，一个月可以30万次；测试版本本的模型无限制                                            |
+| 字节扣子(coze.cn) | 豆包·Function call模型(32K)、通义千问-Max(8K)、MiniMax 6.5s(245K)、Moonshot（8K）、Moonshot（32K）、Moonshot（128K） | [链接](https://www.coze.cn/space) | [链接](https://www.coze.cn/docs/developer_guides/coze_api_overview) | 当前扣子 API 免费供开发者使用，每个空间的 API 请求限额如下：QPS (每秒发送的请求数)：2<br>QPM (每分钟发送的请求数)：60<br>QPD (每天发送的请求数)：3000 |
 
 #### 备注信息
 - **讯飞星火大模型**:
@@ -39,6 +40,11 @@
   - **次数限制**: 免费可以每天使用1万次，一个月可以30万次；测试版本本的模型无限制
   - **文档地址**：[https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/)
   - **申请流程**：[docs/Cloudflare_Workers_AI申请使用流程.md](docs/Cloudflare_Workers_AI申请使用流程.md)
+- **字节扣子(coze.cn)**
+   - **次数限制**：QPS (每秒发送的请求数)：2，QPM (每分钟发送的请求数)：60，QPD (每天发送的请求数)：3000
+   - **文档地址**：https://www.coze.cn/docs/developer_guides/coze_api_overview
+   - **申请流程**：[docs/coze.cn申请使用流程.md](docs/coze.cn申请使用流程.md)
+
 
 ## 功能
 
@@ -112,7 +118,7 @@
 **运行**
 使用以下命令运行 Docker 容器，同时挂载你的配置文件 `config.json`：
 ```sh
-docker run -d -p 9090:9090 -v /path/to/config.json:/app/config.json fruitbars/simple-one-api
+docker run -d --name simple-one-api -p 9090:9090 -v /path/to/config.json:/app/config.json fruitbars/simple-one-api
 ```
 请确保将 /path/to/config.json 替换为 config.json 文件在你主机上的绝对路径。
 

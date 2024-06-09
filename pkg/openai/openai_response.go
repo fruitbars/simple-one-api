@@ -44,20 +44,22 @@ type ErrorDetail struct {
 }
 
 type OpenAIStreamResponse struct {
-	ID                string `json:"id,omitempty"`
-	Object            string `json:"object,omitempty"`
-	Created           int    `json:"created,omitempty"`
-	Model             string `json:"model,omitempty"`
-	SystemFingerprint string `json:"system_fingerprint,omitempty"`
-	Choices           []struct {
-		Index int `json:"index,omitempty"`
-		Delta struct {
-			Role    string `json:"role,omitempty"`
-			Content string `json:"content,omitempty"`
-		} `json:"delta,omitempty"`
-		Logprobs     any `json:"logprobs,omitempty"`
-		FinishReason any `json:"finish_reason,omitempty"`
-	} `json:"choices,omitempty"`
-	Usage *Usage       `json:"usage,omitempty"`
-	Error *ErrorDetail `json:"error,omitempty"`
+	ID                string                       `json:"id,omitempty"`
+	Object            string                       `json:"object,omitempty"`
+	Created           int                          `json:"created,omitempty"`
+	Model             string                       `json:"model,omitempty"`
+	SystemFingerprint string                       `json:"system_fingerprint,omitempty"`
+	Choices           []OpenAIStreamResponseChoice `json:"choices,omitempty"`
+	Usage             *Usage                       `json:"usage,omitempty"`
+	Error             *ErrorDetail                 `json:"error,omitempty"`
+}
+
+type OpenAIStreamResponseChoice struct {
+	Index int `json:"index,omitempty"`
+	Delta struct {
+		Role    string `json:"role,omitempty"`
+		Content string `json:"content,omitempty"`
+	} `json:"delta,omitempty"`
+	Logprobs     any `json:"logprobs,omitempty"`
+	FinishReason any `json:"finish_reason,omitempty"`
 }

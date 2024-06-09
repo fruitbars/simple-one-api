@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"simple-one-api/pkg/utils"
 )
 
 var ModelToService map[string][]ModelDetails
@@ -54,28 +55,36 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 }
 
 // 初始化配置
-func InitConfig(configName string) {
+func InitConfig(configName string) error {
 	if configName == "" {
 		configName = "config.json"
 	}
-	// 从文件读取配置数据
-	data, err := os.ReadFile(configName)
+
+	configAbsolutePath, err := utils.GetAbsolutePath(configName)
 	if err != nil {
-		log.Fatalf("Error reading JSON file: %s", err)
+		log.Println("Error getting absolute path:", err)
+		return err
+	}
+	log.Println("config name:", configAbsolutePath)
+	// 从文件读取配置数据
+	data, err := os.ReadFile(configAbsolutePath)
+	if err != nil {
+		log.Println("Error reading JSON file: ", err)
+		return err
 	}
 
-	log.Println("read config ok,", configName)
+	log.Println("read config ok,", configAbsolutePath)
 
 	// 解析 JSON 数据到结构体
 	var conf Configuration
 	err = json.Unmarshal(data, &conf)
 	if err != nil {
-		log.Fatalf("Error parsing JSON data: %s", err)
+		log.Println("Error parsing JSON data: %s", err)
 	}
 
 	// 设置负载均衡策略，默认为 "first"
 	if conf.LoadBalancing == "" {
-		LoadBalancingStrategy = "first"
+		LoadBalancingStrategy = "random"
 	} else {
 		LoadBalancingStrategy = conf.LoadBalancing
 	}
@@ -98,6 +107,8 @@ func InitConfig(configName string) {
 	log.Println("read ServerPort ok,", ServerPort)
 	// 创建映射
 	ModelToService = createModelToServiceMap(conf)
+
+	return nil
 }
 
 // 根据模型名称获取服务和凭证信息

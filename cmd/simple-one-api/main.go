@@ -23,7 +23,12 @@ func main() {
 	}
 
 	// 初始化配置
-	config.InitConfig(configName)
+	err := config.InitConfig(configName)
+	if err != nil {
+		log.Println(err)
+		log.Println("exit")
+		return
+	}
 
 	if config.Debug == false {
 		gin.SetMode(gin.ReleaseMode)
@@ -46,5 +51,9 @@ func main() {
 	r.POST("/v1/chat/completions", handler.OpenAIHandler)
 
 	// 启动服务器，使用配置中的端口
-	r.Run(config.ServerPort) // 使用配置文件中指定的端口号
+	err = r.Run(config.ServerPort)
+	if err != nil {
+		log.Println(err)
+		return
+	} // 使用配置文件中指定的端口号
 }

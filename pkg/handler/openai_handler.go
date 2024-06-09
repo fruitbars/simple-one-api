@@ -101,9 +101,12 @@ func OpenAIHandler(c *gin.Context) {
 		err = OpenAI2OpenAIHandler(c, s, oaiReq)
 	case "minimax":
 		err = OpenAI2MinimaxHander(c, s, oaiReq)
+	case "cozecn":
+		err = OpenAI2CozecnHander(c, s, oaiReq)
 	}
 
 	if err != nil {
+		log.Println("出错了", err)
 		c.JSON(http.StatusBadRequest, err.Error())
 	} else {
 		if oaiReq.Stream == true {
