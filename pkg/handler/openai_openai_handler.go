@@ -15,6 +15,7 @@ import (
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/utils"
+	"strings"
 )
 
 // validateAndFormatURL checks if the given URL matches the two specified formats and returns the formatted URL
@@ -43,12 +44,33 @@ func validateAndFormatURL(rawurl string) (string, bool) {
 	return rawurl, false
 }
 
+func getDefaultServerURL(model string) string {
+	var serverURL string
+
+	switch {
+	case strings.HasPrefix(model, "GLM-"):
+		serverURL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+	case strings.HasPrefix(model, "deepseek-"):
+		serverURL = "https://api.deepseek.com/v1"
+	}
+
+	return serverURL
+}
+
 func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.ChatCompletionRequest) error {
 	apiKey := s.Credentials["api_key"]
 
 	conf := openai.DefaultConfig(apiKey)
-	if s.ServerURL != "" {
-		//serverUrl = defaultUrl
+
+	var serverURL string
+	if s.ServerURL == "" {
+		serverURL = getDefaultServerURL(req.Model)
+		log.Println("get default server_url", serverURL)
+	} else {
+		serverURL = s.ServerURL
+	}
+
+	if serverURL != "" {
 		formattedURL, isOk := validateAndFormatURL(s.ServerURL)
 		if isOk {
 			conf.BaseURL = formattedURL
@@ -62,8 +84,6 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.Cha
 
 		openaiClient := openai.NewClientWithConfig(conf)
 		ctx := context.Background()
-
-		//req := adapter.OpenAIRequestToOpenAIRequest(oaiReq)
 
 		stream, err := openaiClient.CreateChatCompletionStream(ctx, req)
 		if err != nil {
