@@ -23,6 +23,7 @@ cmd/simple-one-api/build
 cmd/simple-one-api/config.json
 cmd/simple-one-api/config_cozecn.json
 cmd/simple-one-api/config_cloudflare.json
+cmd/simple-one-api/config_*.json
 cmd/simple-one-api/simple-one-api
 cmd/simple-one-api/build.zip
 
