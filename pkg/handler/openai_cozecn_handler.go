@@ -21,7 +21,10 @@ import (
 var defaultCozeUrl = "https://api.coze.cn/open_api/v2/chat"
 
 func OpenAI2CozecnHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
-	secretToken := s.Credentials["token"]
+	secretToken := s.Credentials["api_key"]
+	if secretToken == "" {
+		secretToken = s.Credentials["token"]
+	}
 
 	cozecnReq := adapter.OpenAIRequestToCozecnRequest(oaiReq)
 
