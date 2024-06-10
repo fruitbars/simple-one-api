@@ -46,9 +46,9 @@ func validateAndFormatURL(rawurl string) (string, bool) {
 
 func getDefaultServerURL(model string) string {
 	var serverURL string
-
+	model = strings.ToLower(model)
 	switch {
-	case strings.HasPrefix(model, "GLM-"):
+	case strings.HasPrefix(model, "glm-"):
 		serverURL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 	case strings.HasPrefix(model, "deepseek-"):
 		serverURL = "https://api.deepseek.com/v1"
