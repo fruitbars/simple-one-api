@@ -1,0 +1,17 @@
+{
+  "debug": false,
+  "load_balancing": "random",
+  "services": {
+    "xinghuo": [
+      {
+        "models": ["spark-lite"],
+        "enabled": true,
+        "credentials": {
+          "appid": "xxx",
+          "api_key": "xxx",
+          "api_secret": "xxx"
+        }
+      }
+    ]
+  }
+}
