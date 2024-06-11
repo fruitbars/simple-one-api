@@ -1,0 +1,16 @@
+{
+  "server_port": ":9099",
+  "load_balancing": "random",
+  "services": {
+    "openai": [
+      {
+        "models": ["glm-4","glm-3-turbo"],
+        "enabled": true,
+        "credentials": {
+          "api_key": "26083bda04bfa65989a47bfa4874e95c.xjf6GtZQPgssVCfa"
+        },
+        "server_url":"https://open.bigmodel.cn/api/paas/v4/chat/completions"
+      }
+    ]
+  }
+}
