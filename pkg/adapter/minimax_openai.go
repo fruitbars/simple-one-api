@@ -73,7 +73,7 @@ func MinimaxResponseToOpenAIStreamResponse(minimaxResp *minimax.MinimaxResponse)
 	openAIResp := &myopenai.OpenAIStreamResponse{
 		ID:      minimaxResp.ID,
 		Object:  "chat.completion.chunk",
-		Created: int(minimaxResp.Created), // 使用当前 Unix 时间戳
+		Created: minimaxResp.Created, // 使用当前 Unix 时间戳
 		Model:   minimaxResp.Model,
 	}
 

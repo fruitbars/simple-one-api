@@ -18,126 +18,147 @@ import (
 	"strings"
 )
 
-// validateAndFormatURL checks if the given URL matches the two specified formats and returns the formatted URL
+// validateAndFormatURL checks if the given URL matches the specified formats and returns the formatted URL
 func validateAndFormatURL(rawurl string) (string, bool) {
 	parsedURL, err := url.Parse(rawurl)
 	if err != nil {
 		return "", false
 	}
 
-	// Regular expression to match "/v1" to "/v50" or "/v1/chat/completions" to "/v50/chat/completions"
 	re := regexp.MustCompile(`/v([1-9]|[1-4][0-9]|50)(/chat/completions)?$`)
-
-	log.Println(rawurl)
-	// Check if the path matches the regular expression
 	if re.MatchString(parsedURL.Path) {
-		// If the path matches "/v1/chat/completions" to "/v50/chat/completions"
-		if re.MatchString(parsedURL.Path) && re.FindStringSubmatch(parsedURL.Path)[2] == "/chat/completions" {
-			// Remove "/chat/completions" part
+		if submatch := re.FindStringSubmatch(parsedURL.Path); submatch[2] == "/chat/completions" {
 			formattedURL := fmt.Sprintf("%s://%s%s", parsedURL.Scheme, parsedURL.Host, parsedURL.Path[:len(parsedURL.Path)-len("/chat/completions")])
 			return formattedURL, true
 		}
-		// If the path matches "/v1" to "/v50"
 		return rawurl, true
 	}
-
 	return rawurl, false
 }
 
+// getDefaultServerURL returns the default server URL based on the model prefix
 func getDefaultServerURL(model string) string {
-	var serverURL string
 	model = strings.ToLower(model)
 	switch {
 	case strings.HasPrefix(model, "glm-"):
-		serverURL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+		return "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 	case strings.HasPrefix(model, "deepseek-"):
-		serverURL = "https://api.deepseek.com/v1"
+		return "https://api.deepseek.com/v1"
+	default:
+		return ""
 	}
-
-	return serverURL
 }
 
-func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.ChatCompletionRequest) error {
-	apiKey := s.Credentials["api_key"]
-
+// getConfig generates the OpenAI client configuration based on model details and request
+func getConfig(s *config.ModelDetails, req openai.ChatCompletionRequest) (openai.ClientConfig, error) {
+	apiKey := s.Credentials[config.KEYNAME_API_KEY]
 	conf := openai.DefaultConfig(apiKey)
 
-	var serverURL string
-	if s.ServerURL == "" {
+	serverURL := s.ServerURL
+	if serverURL == "" {
 		serverURL = getDefaultServerURL(req.Model)
-		log.Println("get default server_url", serverURL)
-	} else {
-		serverURL = s.ServerURL
+		log.Println("Using default server URL:", serverURL)
 	}
 
 	if serverURL != "" {
-		formattedURL, isOk := validateAndFormatURL(s.ServerURL)
-		if isOk {
+		if formattedURL, ok := validateAndFormatURL(serverURL); ok {
 			conf.BaseURL = formattedURL
+			log.Println("Formatted server URL is valid:", formattedURL)
+		} else {
+			return conf, errors.New("formatted server URL is invalid")
 		}
+	} else {
+		return conf, errors.New("server URL is empty")
 	}
 
-	log.Println(conf.BaseURL)
+	return conf, nil
+}
+
+// handleOpenAIRequest handles OpenAI requests, supporting both streaming and non-streaming modes
+func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req openai.ChatCompletionRequest) error {
+	openaiClient := openai.NewClientWithConfig(conf)
+	ctx := context.Background()
 
 	if req.Stream {
-		utils.SetEventStreamHeaders(c)
-
-		openaiClient := openai.NewClientWithConfig(conf)
-		ctx := context.Background()
-
-		stream, err := openaiClient.CreateChatCompletionStream(ctx, req)
-		if err != nil {
-			log.Printf("ChatCompletionStream error: %v\n", err)
-			return err
-		}
-		defer stream.Close()
-
-		fmt.Printf("Stream response: ")
-		for {
-			response, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
-				log.Println("Stream finished")
-				return nil
-			} else if err != nil {
-				log.Println(err)
-				return err
-			}
-
-			response.Model = req.Model
-			respData, err := json.Marshal(&response)
-			if err != nil {
-				log.Println(err)
-				return err
-			} else {
-				log.Println("response http data", string(respData))
-
-				c.Writer.WriteString("data: " + string(respData) + "\n\n")
-				c.Writer.(http.Flusher).Flush()
-			}
-		}
-
-	} else {
-		openaiClient := openai.NewClientWithConfig(conf)
-		//ctx := context.Background()
-
-		//req := adapter.OpenAIRequestToOpenAIRequest(oaiReq)
-		resp, err := openaiClient.CreateChatCompletion(
-			context.Background(),
-			req,
-		)
-
-		if err != nil {
-			log.Println(err.Error())
-			return err
-		}
-
-		myresp := adapter.OpenAIResponseToOpenAIResponse(&resp)
-		myresp.Model = req.Model
-
-		log.Println("响应：", *myresp)
-
-		c.JSON(http.StatusOK, myresp)
+		return handleOpenAIOpenAIStreamRequest(c, openaiClient, ctx, req)
 	}
 
+	return handleOpenAIStandardRequest(c, openaiClient, ctx, req)
+}
+
+// handleStreamRequest handles streaming OpenAI requests
+func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx context.Context, req openai.ChatCompletionRequest) error {
+	utils.SetEventStreamHeaders(c)
+	stream, err := client.CreateChatCompletionStream(ctx, req)
+	if err != nil {
+		return fmt.Errorf("ChatCompletionStream error: %w", err)
+	}
+	defer stream.Close()
+
+	for {
+		response, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		response.Model = req.Model
+		respData, err := json.Marshal(&response)
+		if err != nil {
+			return err
+		}
+
+		_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		c.Writer.(http.Flusher).Flush()
+	}
+}
+
+// handleStandardRequest handles non-streaming OpenAI requests
+func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx context.Context, req openai.ChatCompletionRequest) error {
+	resp, err := client.CreateChatCompletion(ctx, req)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	myResp := adapter.OpenAIResponseToOpenAIResponse(&resp)
+	myResp.Model = req.Model
+	c.JSON(http.StatusOK, myResp)
 	return nil
+}
+
+// OpenAI2OpenAIHandler handles OpenAI to OpenAI requests
+func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.ChatCompletionRequest) error {
+	conf, err := getConfig(s, req)
+	if err != nil {
+		return err
+	}
+	return handleOpenAIOpenAIRequest(conf, c, req)
+}
+
+// getAzureConfig generates the OpenAI client configuration for Azure based on model details and request
+func getAzureConfig(s *config.ModelDetails) (openai.ClientConfig, error) {
+	apiKey := s.Credentials[config.KEYNAME_API_KEY]
+	conf := openai.DefaultAzureConfig(apiKey, s.ServerURL)
+
+	if s.ServerURL == "" {
+		return conf, errors.New("server URL is empty")
+	}
+
+	return conf, nil
+}
+
+// OpenAI2AzureOpenAIHandler handles OpenAI to Azure OpenAI requests
+func OpenAI2AzureOpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.ChatCompletionRequest) error {
+	conf, err := getAzureConfig(s)
+	if err != nil {
+		return err
+	}
+	return handleOpenAIOpenAIRequest(conf, c, req)
 }

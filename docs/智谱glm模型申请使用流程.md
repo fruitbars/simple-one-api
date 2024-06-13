@@ -23,7 +23,8 @@
         "enabled": true,
         "credentials": {
           "api_key": "xxx"
-        }
+        },
+        "server_url":"https://open.bigmodel.cn/api/paas/v4/chat/completions"
       }
     ]
   }

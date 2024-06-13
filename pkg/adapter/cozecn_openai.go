@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
-	"simple-one-api/pkg/devplatform/cozecn"
+	cozecn2 "simple-one-api/pkg/llm/devplatform/cozecn"
 	myopenai "simple-one-api/pkg/openai"
 	"strings"
 	"time"
 )
 
-func OpenAIRequestToCozecnRequest(oaiReq openai.ChatCompletionRequest) *cozecn.CozeRequest {
+func OpenAIRequestToCozecnRequest(oaiReq openai.ChatCompletionRequest) *cozecn2.CozeRequest {
 	var query string
-	var cozeMessages []cozecn.Message
+	var cozeMessages []cozecn2.Message
 
 	// Check if there are any messages
 	if len(oaiReq.Messages) > 0 {
@@ -37,14 +37,14 @@ func OpenAIRequestToCozecnRequest(oaiReq openai.ChatCompletionRequest) *cozecn.C
 
 			// Convert all previous messages to coze messages
 			if len(hisMessages) > 1 {
-				cozeMessages = make([]cozecn.Message, hisMessagesLen)
+				cozeMessages = make([]cozecn2.Message, hisMessagesLen)
 				for i, msg := range hisMessages {
 					mt := ""
 					if strings.ToLower(msg.Role) == "assistant" {
 						mt = "answer"
 					}
 
-					cozeMessages[i] = cozecn.Message{
+					cozeMessages[i] = cozecn2.Message{
 						Role:        msg.Role,
 						Type:        mt,
 						Content:     msg.Content,
@@ -61,7 +61,7 @@ func OpenAIRequestToCozecnRequest(oaiReq openai.ChatCompletionRequest) *cozecn.C
 		user = uuid.New().String()
 	}
 
-	return &cozecn.CozeRequest{
+	return &cozecn2.CozeRequest{
 		ConversationID: "123",        // Assuming a static conversation ID
 		BotID:          oaiReq.Model, // Assuming the model as the bot ID
 		User:           user,
@@ -71,7 +71,7 @@ func OpenAIRequestToCozecnRequest(oaiReq openai.ChatCompletionRequest) *cozecn.C
 	}
 }
 
-func CozecnReponseToOpenAIResponse(resp *cozecn.Response) *myopenai.OpenAIResponse {
+func CozecnReponseToOpenAIResponse(resp *cozecn2.Response) *myopenai.OpenAIResponse {
 	if resp.Code != 0 {
 		return &myopenai.OpenAIResponse{
 			ID: resp.ConversationID,
@@ -115,7 +115,7 @@ func CozecnReponseToOpenAIResponse(resp *cozecn.Response) *myopenai.OpenAIRespon
 	}
 }
 
-func CozecnReponseToOpenAIResponseStream(resp *cozecn.StreamResponse) *myopenai.OpenAIStreamResponse {
+func CozecnReponseToOpenAIResponseStream(resp *cozecn2.StreamResponse) *myopenai.OpenAIStreamResponse {
 	var choices []myopenai.OpenAIStreamResponseChoice
 
 	if resp.Event == "message" {
@@ -142,7 +142,7 @@ func CozecnReponseToOpenAIResponseStream(resp *cozecn.StreamResponse) *myopenai.
 	return &myopenai.OpenAIStreamResponse{
 		ID:      resp.ConversationID,
 		Object:  "chat.completion.chunk",
-		Created: int(time.Now().Unix()),
+		Created: time.Now().Unix(),
 		Choices: choices,
 		Error:   errorDetail,
 	}

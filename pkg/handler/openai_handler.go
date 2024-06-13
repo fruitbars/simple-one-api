@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
@@ -11,106 +10,116 @@ import (
 	"simple-one-api/pkg/utils"
 )
 
-func DebugInfo(c *gin.Context) {
-	// 打印请求方法
-	log.Printf("HTTP请求方法：%s\n", c.Request.Method)
+// serviceHandlerMap maps service names to their corresponding handler functions
+var serviceHandlerMap = map[string]func(*gin.Context, *config.ModelDetails, openai.ChatCompletionRequest) error{
+	"qianfan":  OpenAI2QianFanHandler,
+	"hunyuan":  OpenAI2HunYuanHandler,
+	"xinghuo":  OpenAI2XingHuoHandler,
+	"openai":   OpenAI2OpenAIHandler,
+	"azure":    OpenAI2AzureOpenAIHandler,
+	"deepseek": OpenAI2OpenAIHandler,
+	"zhipu":    OpenAI2OpenAIHandler,
+	"minimax":  OpenAI2MinimaxHandler,
+	"cozecn":   OpenAI2CozecnHandler,
+	"huoshan":  OpenAI2HuoShanHandler,
+	"ollama":   OpenAI2OllamaHandler,
+}
 
-	// 打印请求路径
-	log.Printf("请求路径：%s\n", c.Request.URL.Path)
+// LogRequestDetails logs detailed request information for debugging purposes
+func LogRequestDetails(c *gin.Context) {
+	log.Printf("HTTP Request Method: %s, Request Path: %s\n", c.Request.Method, c.Request.URL.Path)
+	log.Println("Request Parameters: ", c.Request.URL.Query())
+	log.Println("Request Headers: ", c.Request.Header)
+}
 
-	// 打印请求参数
-	queryParam := c.Request.URL.Query()
-	log.Println("请求参数：")
-	for key, value := range queryParam {
-		log.Printf("%s: %s\n", key, value)
+// OpenAIHandler handles POST requests on /v1/chat/completions path
+func OpenAIHandler(c *gin.Context) {
+	if !validateRequestMethod(c, "POST") {
+		return
+	}
+	LogRequestDetails(c)
+
+	var oaiReq openai.ChatCompletionRequest
+	if err := c.ShouldBindJSON(&oaiReq); err != nil {
+		log.Println(err)
+		sendErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
 	}
 
-	// 打印请求头部信息
-	log.Println("请求头部信息：")
-	for key, value := range c.Request.Header {
-		log.Printf("%s: %s\n", key, value)
+	if err := validateAPIKey(c); err != nil {
+		log.Println(err)
+		sendErrorResponse(c, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	handleOpenAIRequest(c, oaiReq)
+}
+
+func handleOpenAIRequest(c *gin.Context, oaiReq openai.ChatCompletionRequest) {
+	s, modelName, err := getModelDetails(oaiReq)
+	if err != nil {
+		log.Println(err)
+		sendErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	oaiReq.Model = config.GetModelMapping(s, modelName)
+
+	log.Println("map model:", modelName, "to", oaiReq.Model)
+
+	//oaiReq.Model = modelName
+
+	if err := dispatchToServiceHandler(c, s, oaiReq); err != nil {
+		log.Println("Error handling request:", err)
+		sendErrorResponse(c, http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+
+	if oaiReq.Stream {
+		utils.SendOpenAIStreamEOFData(c)
 	}
 }
 
-// OpenAIHandler 处理 /v1/chat/completions 路径上的 POST 请求
-func OpenAIHandler(c *gin.Context) {
-	DebugInfo(c)
-	// 检查请求方法是否为POST
-	if c.Request.Method != "POST" {
-		log.Println("not post")
-		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "Only POST method is accepted"})
-		return
+// dispatchToServiceHandler dispatches the request to the appropriate service handler based on the service name
+func dispatchToServiceHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+	if handler, ok := serviceHandlerMap[s.ServiceName]; ok {
+		return handler(c, s, oaiReq)
+	}
+	return errors.New("Service handler not found")
+}
+
+func validateRequestMethod(c *gin.Context, method string) bool {
+	if c.Request.Method != method {
+		sendErrorResponse(c, http.StatusMethodNotAllowed, "Only "+method+" method is accepted")
+		return false
+	}
+	return true
+}
+
+func validateAPIKey(c *gin.Context) error {
+	if config.APIKey == "" {
+		return nil
 	}
 
-	//var oaiReq openai.OpenAIRequest
-	var oaiReq openai.ChatCompletionRequest
-	// 从请求中解析 JSON 到 reqBody
-	if err := c.ShouldBindJSON(&oaiReq); err != nil {
-		log.Println(err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	apikey, err := utils.GetAPIKeyFromHeader(c)
+	if err != nil || config.APIKey != apikey {
+		return errors.New("Invalid authorization")
 	}
+	return nil
+}
 
-	if config.APIKey != "" {
-		apikey, err := utils.GetAPIKeyFromHeader(c)
-		if err != nil {
-			log.Println(err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-			return
-		}
-		if config.APIKey != apikey {
-			c.JSON(http.StatusUnauthorized, errors.New("invalid authorization"))
-			return
-		}
-	}
-
-	oaiData, _ := json.Marshal(oaiReq)
-	log.Println(string(oaiData))
-
-	var s *config.ModelDetails
-	var modelName string
-	var err error
+func getModelDetails(oaiReq openai.ChatCompletionRequest) (*config.ModelDetails, string, error) {
 	if oaiReq.Model == "random" {
-
-		s, modelName, err = config.GetRandomEnabledModelDetailsV1()
-		if err != nil {
-			log.Println(err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		oaiReq.Model = modelName
-	} else {
-		s, err = config.GetModelService(oaiReq.Model)
-		if err != nil {
-			log.Println(err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+		return config.GetRandomEnabledModelDetailsV1()
 	}
-
-	log.Println(*s, modelName)
-
-	switch s.ServiceName {
-	case "qianfan":
-		err = OpenAI2QianFanHander(c, s, oaiReq)
-	case "hunyuan":
-		err = OpenAI2HunYuanHander(c, s, oaiReq)
-	case "xinghuo":
-		err = OpenAI2XingHuoHander(c, s, oaiReq)
-	case "openai":
-		err = OpenAI2OpenAIHandler(c, s, oaiReq)
-	case "minimax":
-		err = OpenAI2MinimaxHander(c, s, oaiReq)
-	case "cozecn":
-		err = OpenAI2CozecnHander(c, s, oaiReq)
-	}
-
+	s, err := config.GetModelService(oaiReq.Model)
 	if err != nil {
-		log.Println("出错了", err)
-		c.JSON(http.StatusBadRequest, err.Error())
-	} else {
-		if oaiReq.Stream == true {
-			utils.SendOpenAIStreamEOFData(c)
-		}
+		return nil, "", err
 	}
+
+	return s, oaiReq.Model, err
+}
+
+func sendErrorResponse(c *gin.Context, code int, msg string) {
+	c.JSON(code, gin.H{"error": msg})
 }

@@ -19,9 +19,9 @@ import (
 	"strings"
 )
 
-func OpenAI2MinimaxHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
-	apiKey := s.Credentials["api_key"]
-	groupID := s.Credentials["group_id"]
+func OpenAI2MinimaxHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+	apiKey := s.Credentials[config.KEYNAME_API_KEY]
+	groupID := s.Credentials[config.KEYNAME_GROUP_ID]
 
 	if s.ServerURL == "" {
 		//serverUrl = defaultUrl

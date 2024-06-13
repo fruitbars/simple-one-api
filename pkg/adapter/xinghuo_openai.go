@@ -101,7 +101,7 @@ func XingHuoResponseToOpenAIStreamResponse(qfResp *gosparkclient.SparkAPIRespons
 	openAIResp := &myopenai.OpenAIStreamResponse{
 		ID:                qfResp.Header.Sid,
 		Object:            "chat.completion.chunk",
-		Created:           int(time.Now().Unix()), // 使用当前 Unix 时间戳
+		Created:           time.Now().Unix(), // 使用当前 Unix 时间戳
 		SystemFingerprint: qfResp.Header.Message,
 	}
 

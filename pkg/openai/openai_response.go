@@ -46,7 +46,7 @@ type ErrorDetail struct {
 type OpenAIStreamResponse struct {
 	ID                string                       `json:"id,omitempty"`
 	Object            string                       `json:"object,omitempty"`
-	Created           int                          `json:"created,omitempty"`
+	Created           int64                        `json:"created,omitempty"`
 	Model             string                       `json:"model,omitempty"`
 	SystemFingerprint string                       `json:"system_fingerprint,omitempty"`
 	Choices           []OpenAIStreamResponseChoice `json:"choices,omitempty"`

@@ -1,0 +1,20 @@
+{
+  "server_port": ":9099",
+  "load_balancing": "random",
+  "services": {
+    "huoshan": [
+      {
+        "models": ["doubao32k"],
+        "enabled": true,
+        "credentials": {
+          "access_key": "xxx",
+          "secret_key": "xxx"
+        },
+        "model_map":{
+          "doubao32k": "ep-20240612090709-hzjz5"
+        },
+        "server_url":"https://ark.cn-beijing.volces.com/api/v3"
+      }
+    ]
+  }
+}

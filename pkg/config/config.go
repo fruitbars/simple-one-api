@@ -15,12 +15,13 @@ var ServerPort string
 var APIKey string
 var Debug bool
 
-// 定义相关结构体
+// ServiceModel 定义相关结构体
 type ServiceModel struct {
 	Models      []string          `json:"models"`
 	Enabled     bool              `json:"enabled"`
 	Credentials map[string]string `json:"credentials"`
 	ServerURL   string            `json:"server_url"`
+	ModelMap    map[string]string `json:"model_map"`
 }
 
 type Configuration struct {
@@ -54,7 +55,7 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 	return modelToService
 }
 
-// 初始化配置
+// InitConfig 初始化配置
 func InitConfig(configName string) error {
 	if configName == "" {
 		configName = "config.json"
@@ -79,7 +80,7 @@ func InitConfig(configName string) error {
 	var conf Configuration
 	err = json.Unmarshal(data, &conf)
 	if err != nil {
-		log.Println("Error parsing JSON data: %s", err)
+		log.Println(err)
 	}
 
 	// 设置负载均衡策略，默认为 "first"
@@ -111,7 +112,7 @@ func InitConfig(configName string) error {
 	return nil
 }
 
-// 根据模型名称获取服务和凭证信息
+// GetAllModelService 根据模型名称获取服务和凭证信息
 func GetAllModelService(modelName string) ([]ModelDetails, error) {
 	if serviceDetails, found := ModelToService[modelName]; found {
 		return serviceDetails, nil
@@ -119,7 +120,7 @@ func GetAllModelService(modelName string) ([]ModelDetails, error) {
 	return nil, fmt.Errorf("model %s not found in the configuration", modelName)
 }
 
-// 根据模型名称获取启用的服务和凭证信息
+// GetModelService 根据模型名称获取启用的服务和凭证信息
 func GetModelService(modelName string) (*ModelDetails, error) {
 	if serviceDetails, found := ModelToService[modelName]; found {
 		enabledServices := []ModelDetails{}
@@ -146,10 +147,6 @@ func GetModelService(modelName string) (*ModelDetails, error) {
 }
 
 func GetRandomEnabledModelDetails() (*ModelDetails, error) {
-	// 设置随机数种子
-	//rand.Seed(time.Now().UnixNano())
-
-	// 创建一个切片存储所有 Enabled 为 true 的 ModelDetails
 	var enabledModels []ModelDetails
 
 	// 遍历 ModelToService 映射，收集所有 Enabled 为 true 的 ModelDetails
@@ -180,8 +177,16 @@ func GetRandomEnabledModelDetailsV1() (*ModelDetails, string, error) {
 
 	randomString := md.Models[rand.Intn(len(md.Models))]
 
-	log.Println(randomString)
+	//	log.Println(randomString)
 
 	return md, randomString, nil
 
+}
+
+// GetModelMapping 函数，根据model在ModelMap中查找对应的映射，如果找不到则返回原始model
+func GetModelMapping(s *ModelDetails, model string) string {
+	if mappedModel, exists := s.ModelMap[model]; exists {
+		return mappedModel
+	}
+	return model
 }

@@ -20,12 +20,14 @@
 /go-build/
 /.gocache/
 cmd/simple-one-api/build
-cmd/simple-one-api/config.json
-cmd/simple-one-api/config_cozecn.json
-cmd/simple-one-api/config_cloudflare.json
+cmd/simple-one-api/myconfigs
+cmd/simple-one-api/myconfigs/config.json
+cmd/simple-one-api/myconfigs/config_cozecn.json
+cmd/simple-one-api/myconfigs/config_cloudflare.json
 cmd/simple-one-api/config_*.json
 cmd/simple-one-api/simple-one-api
 cmd/simple-one-api/build.zip
+cmd/simple-one-api/docker_build_push.sh
 
 # 编译器生成的二进制文件
 main

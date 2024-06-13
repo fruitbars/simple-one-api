@@ -13,88 +13,86 @@ import (
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
-	"simple-one-api/pkg/devplatform/cozecn"
+	"simple-one-api/pkg/llm/devplatform/cozecn"
 	"simple-one-api/pkg/utils"
 	"strings"
 )
 
-var defaultCozeUrl = "https://api.coze.cn/open_api/v2/chat"
+var defaultCozeURL = "https://api.coze.cn/open_api/v2/chat"
 
-func OpenAI2CozecnHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
-	secretToken := s.Credentials["api_key"]
+func OpenAI2CozecnHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+	// 使用统一的api_key获取
+	secretToken := s.Credentials[config.KEYNAME_API_KEY]
 	if secretToken == "" {
-		secretToken = s.Credentials["token"]
+		secretToken = s.Credentials[config.KEYNAME_TOKEN]
 	}
 
 	cozecnReq := adapter.OpenAIRequestToCozecnRequest(oaiReq)
-
-	cozeServerUrl := defaultCozeUrl
-	if s.ServerURL != "" {
-		cozeServerUrl = s.ServerURL
+	cozeServerURL := s.ServerURL
+	if cozeServerURL == "" {
+		cozeServerURL = defaultCozeURL
 	}
 
-	// 将请求数据编码为JSON格式
-	jsonData, err := json.Marshal(cozecnReq)
-	if err != nil {
-		return fmt.Errorf("json编码错误: %v", err)
-	}
-
-	log.Println(string(jsonData))
-
-	// 创建HTTP请求
-	req, err := http.NewRequest("POST", cozeServerUrl, bytes.NewBuffer(jsonData))
-	if err != nil {
-		log.Println(err)
+	// 使用统一的错误处理函数
+	if err := sendRequest(c, secretToken, cozeServerURL, cozecnReq, oaiReq); err != nil {
+		log.Printf("处理请求失败: %v\n", err)
 		return err
-	}
-
-	// 设置请求头
-	req.Header.Set("Authorization", "Bearer "+secretToken)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Connection", "keep-alive")
-
-	// 发送请求
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	defer resp.Body.Close()
-
-	// 处理响应数据
-	if oaiReq.Stream {
-		return handleStreamResponse(c, oaiReq, resp.Body)
-	} else {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		log.Println(string(body))
-
-		var respJson cozecn.Response
-		json.Unmarshal(body, &respJson)
-		myresp := adapter.CozecnReponseToOpenAIResponse(&respJson)
-
-		myresp.Model = oaiReq.Model
-
-		log.Println("响应：", *myresp)
-
-		if respJson.Code != 0 {
-			log.Println("错误信息：", respJson)
-			return errors.New(respJson.Msg)
-		}
-
-		c.JSON(http.StatusOK, myresp)
 	}
 
 	return nil
 }
 
-func handleStreamResponse(c *gin.Context, oaiReq openai.ChatCompletionRequest, body io.Reader) error {
+func sendRequest(c *gin.Context, token, url string, request interface{}, oaiReq openai.ChatCompletionRequest) error {
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("json编码错误: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	return handleCozecnResponse(c, resp, oaiReq)
+}
+
+func handleCozecnResponse(c *gin.Context, resp *http.Response, oaiReq openai.ChatCompletionRequest) error {
+	if oaiReq.Stream {
+		return handleCozecnStreamResponse(c, oaiReq, resp.Body)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	var respJson cozecn.Response
+	if err := json.Unmarshal(body, &respJson); err != nil {
+		return fmt.Errorf("json解码错误: %v", err)
+	}
+
+	if respJson.Code != 0 {
+		return fmt.Errorf("错误码: %d, 错误信息: %s", respJson.Code, respJson.Msg)
+	}
+
+	myresp := adapter.CozecnReponseToOpenAIResponse(&respJson)
+	myresp.Model = oaiReq.Model
+	c.JSON(http.StatusOK, myresp)
+
+	return nil
+}
+
+func handleCozecnStreamResponse(c *gin.Context, oaiReq openai.ChatCompletionRequest, body io.Reader) error {
 	scanner := bufio.NewScanner(body)
 	utils.SetEventStreamHeaders(c)
 

@@ -36,7 +36,7 @@ type StreamResponse struct {
 		} `json:"Delta"`
 		FinishReason string `json:"FinishReason"`
 	} `json:"Choices"`
-	Created int    `json:"Created"`
+	Created int64  `json:"Created"`
 	ID      string `json:"Id"`
 	Usage   struct {
 		PromptTokens     int `json:"PromptTokens"`

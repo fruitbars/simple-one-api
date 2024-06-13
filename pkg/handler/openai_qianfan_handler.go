@@ -12,62 +12,62 @@ import (
 	"simple-one-api/pkg/utils"
 )
 
-func OpenAI2QianFanHander(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+func OpenAI2QianFanHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+	apiKey := s.Credentials[config.KEYNAME_API_KEY]
+	secretKey := s.Credentials[config.KEYNAME_SECRET_KEY]
+	qfReq := adapter.OpenAIRequestToQianFanRequest(oaiReq)
+
 	if oaiReq.Stream {
-		apiKey := s.Credentials["api_key"]
-		secretKey := s.Credentials["secret_key"]
-		qfReq := adapter.OpenAIRequestToQianFanRequest(oaiReq)
-
-		utils.SetEventStreamHeaders(c)
-
-		// 创建 HTTP 客户端请求并处理 SSE
-		err := baidu_qianfan.QianFanCallSSE(apiKey, secretKey, oaiReq.Model, qfReq, func(qfResp *baidu_qianfan.QianFanResponse) {
-			// 将数据转发给客户端
-			oaiRespStream := adapter.QianFanResponseToOpenAIStreamResponse(qfResp)
-			oaiRespStream.Model = oaiReq.Model
-			respData, err := json.Marshal(&oaiRespStream)
-			if err != nil {
-				log.Println(err)
-			} else {
-				log.Println("response http data", string(respData))
-
-				if qfResp.ErrorCode != 0 && oaiRespStream.Error != nil {
-					log.Println(*oaiRespStream.Error)
-					c.JSON(http.StatusBadRequest, *qfResp)
-					return
-				}
-				c.Writer.WriteString("data: " + string(respData) + "\n\n")
-				c.Writer.(http.Flusher).Flush()
-			}
-
-		})
-
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
+		return handleQianFanStreamRequest(c, apiKey, secretKey, oaiReq.Model, qfReq)
 	} else {
-		apiKey := s.Credentials["api_key"]
-		secretKey := s.Credentials["secret_key"]
-		qfReq := adapter.OpenAIRequestToQianFanRequest(oaiReq)
+		return handleQianFanStandardRequest(c, apiKey, secretKey, oaiReq.Model, qfReq)
+	}
+}
 
-		// 确保传入的 QianFanRequest 对象 qfReq 是正确初始化并准备好的
-		qfResp, err := baidu_qianfan.QianFanCall(apiKey, secretKey, oaiReq.Model, qfReq)
+func handleQianFanStreamRequest(c *gin.Context, apiKey, secretKey, model string, qfReq *baidu_qianfan.QianFanRequest) error {
+	utils.SetEventStreamHeaders(c)
 
+	err := baidu_qianfan.QianFanCallSSE(apiKey, secretKey, model, qfReq, func(qfResp *baidu_qianfan.QianFanResponse) {
+		oaiRespStream := adapter.QianFanResponseToOpenAIStreamResponse(qfResp)
+		oaiRespStream.Model = model
+
+		respData, err := json.Marshal(&oaiRespStream)
 		if err != nil {
-			log.Println(err)
-			return err
-		} else {
-			//var oaiResp *openai.OpenAIResponse
-			oaiResp := adapter.QianFanResponseToOpenAIResponse(qfResp)
-			oaiResp.Model = oaiReq.Model
-			log.Println(oaiResp)
-			//oaiResp.Model = oaiReq.Model
-			// 设置响应的内容类型并发送JSON响应
-			c.JSON(http.StatusOK, oaiResp)
+			log.Println("Error marshaling response:", err)
+			return
 		}
+
+		log.Println("Response HTTP data:", string(respData))
+
+		if qfResp.ErrorCode != 0 && oaiRespStream.Error != nil {
+			log.Println("Error response:", *oaiRespStream.Error)
+			c.JSON(http.StatusBadRequest, qfResp)
+			return
+		}
+
+		c.Writer.WriteString("data: " + string(respData) + "\n\n")
+		c.Writer.(http.Flusher).Flush()
+	})
+
+	if err != nil {
+		log.Println("Error during SSE call:", err)
+		return err
 	}
 
+	return nil
+}
+
+func handleQianFanStandardRequest(c *gin.Context, apiKey, secretKey, model string, qfReq *baidu_qianfan.QianFanRequest) error {
+	qfResp, err := baidu_qianfan.QianFanCall(apiKey, secretKey, model, qfReq)
+	if err != nil {
+		log.Println("Error during API call:", err)
+		return err
+	}
+
+	oaiResp := adapter.QianFanResponseToOpenAIResponse(qfResp)
+	oaiResp.Model = model
+	log.Println("Standard response:", oaiResp)
+
+	c.JSON(http.StatusOK, oaiResp)
 	return nil
 }

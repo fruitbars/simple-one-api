@@ -4,7 +4,7 @@ package baidu_qianfan
 type QianFanResponse struct {
 	ID               string `json:"id"`
 	Object           string `json:"object,omitempty"`
-	Created          int    `json:"created,omitempty"`
+	Created          int64  `json:"created,omitempty"`
 	SentenceID       *int   `json:"sentence_id,omitempty"` // 在流式接口模式下返回
 	IsEnd            *bool  `json:"is_end,omitempty"`      // 在流式接口模式下返回
 	IsTruncated      bool   `json:"is_truncated,omitempty"`

@@ -1,64 +1,81 @@
-.PHONY: release build
+.PHONY: release build compress
+
+BINARY_NAME=simple-one-api
+BUILD_DIR=build
+use_upx?=0  # 设置默认值为0，表示默认禁用 UPX 压缩
+clean_up?=0  # 默认不删除构建目录
+
+PLATFORMS = darwin-amd64 darwin-arm64 windows-amd64 windows-arm64 linux-amd64 linux-arm64
 
 release: build upx compress
 
 dev: build
 
-build:
-	@$(MAKE) --no-print-directory \
-    build-darwin-amd64 build-darwin-arm64 \
-    build-windows-amd64 build-windows-arm64 \
-    build-linux-amd64 build-linux-arm64
+build: $(PLATFORMS)
+
+$(PLATFORMS):
+	@$(MAKE) --no-print-directory build-$@
 
 build-darwin-amd64:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o build/darwin-amd64/simpleoneapi
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BUILD_DIR)/darwin-amd64/$(BINARY_NAME)
 
 build-darwin-arm64:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o build/darwin-arm64/simpleoneapi
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BUILD_DIR)/darwin-arm64/$(BINARY_NAME)
 
 build-windows-amd64:
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o build/windows-amd64/simpleoneapi.exe
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BUILD_DIR)/windows-amd64/$(BINARY_NAME).exe
 
 build-windows-arm64:
-	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -o build/windows-arm64/simpleoneapi.exe
+	CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -o $(BUILD_DIR)/windows-arm64/$(BINARY_NAME).exe
 
 build-linux-amd64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/simpleoneapi
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/linux-amd64/$(BINARY_NAME)
 
 build-linux-arm64:
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o build/linux-arm64/simpleoneapi
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BUILD_DIR)/linux-arm64/$(BINARY_NAME)
 
 upx:
-	upx --best --lzma build/darwin-amd64/simpleoneapi; \
-    upx --best --lzma build/windows-amd64/simpleoneapi.exe; \
-    upx --best --lzma build/linux-amd64/simpleoneapi;
+ifeq ($(use_upx),1)
+	upx --best --lzma $(BUILD_DIR)/darwin-amd64/$(BINARY_NAME); \
+    upx --best --lzma $(BUILD_DIR)/windows-amd64/$(BINARY_NAME).exe; \
+    upx --best --lzma $(BUILD_DIR)/linux-amd64/$(BINARY_NAME);
+endif
 
 compress:
-	@$(MAKE) --no-print-directory \
-    compress-darwin-amd64 compress-darwin-arm64 \
-    compress-windows-amd64 compress-windows-arm64 \
-    compress-linux-amd64 compress-linux-arm64
+	@$(MAKE) --no-print-directory $(addprefix compress-,$(PLATFORMS))
 
 compress-darwin-amd64:
-	tar -czvf build/wxbot-darwin-amd64.tar.gz -C build/darwin-amd64/ simpleoneapi; \
-    rm -rf build/darwin-amd64
+	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64.tar.gz -C $(BUILD_DIR)/darwin-amd64/ $(BINARY_NAME)
+ifeq ($(clean_up),1)
+	rm -rf $(BUILD_DIR)/darwin-amd64
+endif
 
 compress-darwin-arm64:
-	tar -czvf build/wxbot-darwin-arm64.tar.gz -C build/darwin-arm64/ simpleoneapi; \
-    rm -rf build/darwin-arm64
+	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64.tar.gz -C $(BUILD_DIR)/darwin-arm64/ $(BINARY_NAME)
+ifeq ($(clean_up),1)
+	rm -rf $(BUILD_DIR)/darwin-arm64
+endif
 
 compress-windows-amd64:
-	tar -czvf build/wxbot-windows-amd64.tar.gz -C build/windows-amd64/ simpleoneapi.exe; \
-    rm -rf build/windows-amd64
+	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.tar.gz -C $(BUILD_DIR)/windows-amd64/ $(BINARY_NAME).exe
+ifeq ($(clean_up),1)
+	rm -rf $(BUILD_DIR)/windows-amd64
+endif
 
 compress-windows-arm64:
-	tar -czvf build/wxbot-windows-arm64.tar.gz -C build/windows-arm64/ simpleoneapi.exe; \
-    rm -rf build/windows-arm64
+	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.tar.gz -C $(BUILD_DIR)/windows-arm64/ $(BINARY_NAME).exe
+ifeq ($(clean_up),1)
+	rm -rf $(BUILD_DIR)/windows-arm64
+endif
 
 compress-linux-amd64:
-	tar -czvf build/wxbot-linux-amd64.tar.gz -C build/linux-amd64/ simpleoneapi; \
-    rm -rf build/linux-amd64
+	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64.tar.gz -C $(BUILD_DIR)/linux-amd64/ $(BINARY_NAME)
+ifeq ($(clean_up),1)
+	rm -rf $(BUILD_DIR)/linux-amd64
+endif
 
 compress-linux-arm64:
-	tar -czvf build/wxbot-linux-arm64.tar.gz -C build/linux-arm64/ simpleoneapi; \
-    rm -rf build/linux-arm64
+	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64.tar.gz -C $(BUILD_DIR)/linux-arm64/ $(BINARY_NAME)
+ifeq ($(clean_up),1)
+	rm -rf $(BUILD_DIR)/linux-arm64
+endif

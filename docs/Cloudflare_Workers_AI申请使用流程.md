@@ -11,9 +11,10 @@ cloudflare_Workers_AI目前免费可以每天使用1万次，一个月可以30�
 
 
 
-## 如何接入simple-one-api？
+## Workers AI支持OpenAI标准协议？
 
-查看从文档：https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/
+查看从文档：[https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/)
+后台地址：[https://dash.cloudflare.com/](https://dash.cloudflare.com/)
 
 Workers AI 还支持 `/v1/chat/completions`，也就是说Workers AI 兼容OpenAI的接口，因此可以直接在simple-one-api中使用。
 
@@ -25,7 +26,7 @@ Workers AI 还支持 `/v1/chat/completions`，也就是说Workers AI 兼容OpenA
 
 
 
-而这篇文档详细描述和如何采用OpenAI兼容的接口进行调用：https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/。
+而这篇文档详细描述和如何采用OpenAI兼容的接口进行调用：https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/
 
 ```shell
 curl --request POST \
@@ -44,6 +45,9 @@ curl --request POST \
     }
 '
 ```
+
+## 在simple-one-api中配置
+查看自己的api-tokens：[https://dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
 
 从上面的示例参考，因此在可以按照下面的方式进行配置：
 
