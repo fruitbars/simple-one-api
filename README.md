@@ -68,7 +68,7 @@
 - [x] [MiniMax](https://platform.minimaxi.com/document/guides/chat-model/pro)
 - [x] [字节扣子(coze.cn)](https://www.coze.cn/docs/developer_guides/coze_api_overview)
 - [x] [火山方舟](https://www.volcengine.com/docs/82379/1263482)
-- [x] [ollama](hhttps://github.com/ollama/ollama/blob/main/docs/api.md)
+- [x] [ollama](https://github.com/ollama/ollama/blob/main/docs/api.md)
 
 如果兼容OpenAI的接口，那么直接就可以使用了。参考文档[docs/兼容OpenAI模型协议接入指南.md](docs/兼容OpenAI模型协议接入指南.md)
 
@@ -77,14 +77,16 @@
 - 支持一个模型可配置多个api_key，并且可以随机负载均衡
 - 支持设置一个对外总api_key
 - 支持模型设置别名
-- 支持每一种模型服务设置服务的地址，
+- 支持每一种模型服务设置服务的地址
 - 兼容支持OpenAI的接口，同时支持/v1和/v1/chat/completions两种路径
 - 对于不支持system的模型，simple-one-api会放到第一个prompt中直接兼容（更加统一，例如沉浸式翻译中如果system，不支持system的模型也能正常调用）
-
 
 ### 更新日志
 
 查看 [CHANGELOG.md](docs/CHANGELOG.md) 获取本项目的详细更新历史。
+
+### 交流群
+![交流群](docs/asset/qq_team.jpg)
 
 ## 安装
 
