@@ -19,7 +19,7 @@ docker buildx inspect --bootstrap
 docker buildx build --platform linux/amd64,linux/arm64 \
     -t ${IMAGE_NAME}:${VERSION} \
     -t ${IMAGE_NAME}:${LATEST} \
-    --push .
+    --load .
 
 # 清理 Buildx builder
 docker buildx rm multiarch-builder

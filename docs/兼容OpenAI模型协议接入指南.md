@@ -17,7 +17,7 @@
 ```
 以上两种形式地址都是可以的。
 
-### 智谱glm接入simple-one-api
+### DeepSeek接入simple-one-api
 我们以DeepSeek模型为例，目前DeepSeek提供的模型是`deepseek-chat`,然后其服务地址是`https://api.deepseek.com/v1` 
 因此配置信息如下：
 ```json
