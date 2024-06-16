@@ -157,17 +157,19 @@ docker logs -f <container_id>
 ```json
 {
     "load_balancing": "first",
-    "xinghuo": [
-      {
-        "models": ["spark-lite"],
-        "enabled": true,
-        "credentials": {
-          "appid": "xxx",
-          "api_key": "xxx",
-          "api_secret": "xxx"
-        }
-      }
-    ]
+    "services": {
+       "xinghuo": [
+         {
+           "models": ["spark-lite"],
+           "enabled": true,
+           "credentials": {
+             "appid": "xxx",
+             "api_key": "xxx",
+             "api_secret": "xxx"
+           }
+         }
+       ]
+   }
 }
 ```
 
@@ -286,17 +288,19 @@ docker logs -f <container_id>
 {
     "api_key":"123456",
     "load_balancing": "random",
-    "xinghuo": [
-      {
-        "models": ["spark-lite"],
-        "enabled": true,
-        "credentials": {
-          "appid": "xxx",
-          "api_key": "xxx",
-          "api_secret": "xxx"
-        }
-      }
-    ]
+    "services": {
+       "xinghuo": [
+         {
+           "models": ["spark-lite"],
+           "enabled": true,
+           "credentials": {
+             "appid": "xxx",
+             "api_key": "xxx",
+             "api_secret": "xxx"
+           }
+         }
+       ]
+   }
 }
 ```
 ### 单个模型如何配置多个credentials自动负载？
@@ -306,26 +310,28 @@ docker logs -f <container_id>
 {
     "api_key":"123456",
     "load_balancing": "random",
-    "xinghuo": [
-      {
-        "models": ["spark-lite"],
-        "enabled": true,
-        "credentials": {
-          "appid": "xxx",
-          "api_key": "xxx",
-          "api_secret": "xxx"
-        }
-      },
-      {
-        "models": ["spark-lite"],
-        "enabled": true,
-        "credentials": {
-          "appid": "xxx",
-          "api_key": "xxx",
-          "api_secret": "xxx"
-        }
-      }
-    ]
+    "services": {
+       "xinghuo": [
+         {
+           "models": ["spark-lite"],
+           "enabled": true,
+           "credentials": {
+             "appid": "xxx",
+             "api_key": "xxx",
+             "api_secret": "xxx"
+           }
+         },
+         {
+           "models": ["spark-lite"],
+           "enabled": true,
+           "credentials": {
+             "appid": "xxx",
+             "api_key": "xxx",
+             "api_secret": "xxx"
+           }
+         }
+       ]
+   }
 }
 ```
 ### 在沉浸式翻译当中怎么使用？
@@ -338,17 +344,19 @@ docker logs -f <container_id>
 {
     "api_key":"123456",
     "load_balancing": "random",
-    "xinghuo": [
-      {
-        "models": ["spark-lite"],
-        "enabled": true,
-        "credentials": {
-          "appid": "xxx",
-          "api_key": "xxx",
-          "api_secret": "xxx"
-        }
-      }
-    ]
+    "services": {
+       "xinghuo": [
+         {
+           "models": ["spark-lite"],
+           "enabled": true,
+           "credentials": {
+             "appid": "xxx",
+             "api_key": "xxx",
+             "api_secret": "xxx"
+           }
+         }
+       ]
+   }
 }
 ```
 ## 贡献
