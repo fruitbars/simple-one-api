@@ -408,7 +408,7 @@ docker logs -f <container_id>
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=simple-one-api/simple-one-api&type=Date)](https://star-history.com/#simple-one-api/simple-one-api&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=fruitbars/simple-one-api&type=Date)](https://star-history.com/#fruitbars/simple-one-api&Date)
 
 ## 贡献
 
