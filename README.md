@@ -130,7 +130,7 @@ chmod +x quick_build.sh
 quick_build.bat
 ```
 
-将会在当前目录生成``simple-one-api.exe`
+将会在当前目录生成`simple-one-api.exe`
 
 #### 交叉编译不同平台版本：
 
@@ -206,17 +206,19 @@ docker logs -f <container_id>
 ```json
 {
     "load_balancing": "first",
-    "xinghuo": [
-      {
-        "models": ["spark-lite"],
-        "enabled": true,
-        "credentials": {
-          "appid": "xxx",
-          "api_key": "xxx",
-          "api_secret": "xxx"
+    "services": {
+      "xinghuo": [
+        {
+          "models": ["spark-lite"],
+          "enabled": true,
+          "credentials": {
+            "appid": "xxx",
+            "api_key": "xxx",
+            "api_secret": "xxx"
+          }
         }
-      }
-    ]
+      ]
+    }
 }
 ```
 
