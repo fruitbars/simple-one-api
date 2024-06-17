@@ -1,0 +1,17 @@
+{
+  "server_port": ":9099",
+  "debug": false,
+  "load_balancing": "random",
+  "services": {
+    "hunyuan": [
+      {
+        "models": ["xxx"],
+        "enabled": true,
+        "credentials": {
+          "secret_id": "xxx",
+          "secret_key": "xxx"
+        }
+      }
+    ]
+  }
+}

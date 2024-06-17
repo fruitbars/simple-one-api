@@ -18,6 +18,22 @@ import (
 	"strings"
 )
 
+func formatAzureURL(inputURL string) (string, error) {
+	// 解析URL
+	parsedURL, err := url.Parse(inputURL)
+	if err != nil {
+		return "", err
+	}
+
+	// 构建新的URL
+	formattedURL := &url.URL{
+		Scheme: parsedURL.Scheme,
+		Host:   parsedURL.Host,
+	}
+
+	return formattedURL.String(), nil
+}
+
 // validateAndFormatURL checks if the given URL matches the specified formats and returns the formatted URL
 func validateAndFormatURL(rawurl string) (string, bool) {
 	parsedURL, err := url.Parse(rawurl)
@@ -25,7 +41,7 @@ func validateAndFormatURL(rawurl string) (string, bool) {
 		return "", false
 	}
 
-	re := regexp.MustCompile(`/v([1-9]|[1-4][0-9]|50)(/chat/completions)?$`)
+	re := regexp.MustCompile(`/v([1-9]|[1-4][0-9]|50)(/chat/completions|/)?$`)
 	if re.MatchString(parsedURL.Path) {
 		if submatch := re.FindStringSubmatch(parsedURL.Path); submatch[2] == "/chat/completions" {
 			formattedURL := fmt.Sprintf("%s://%s%s", parsedURL.Scheme, parsedURL.Host, parsedURL.Path[:len(parsedURL.Path)-len("/chat/completions")])
@@ -145,7 +161,11 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.Cha
 // getAzureConfig generates the OpenAI client configuration for Azure based on model details and request
 func getAzureConfig(s *config.ModelDetails) (openai.ClientConfig, error) {
 	apiKey := s.Credentials[config.KEYNAME_API_KEY]
-	conf := openai.DefaultAzureConfig(apiKey, s.ServerURL)
+	serverURL, err := formatAzureURL(s.ServerURL)
+	if err != nil {
+		serverURL = s.ServerURL
+	}
+	conf := openai.DefaultAzureConfig(apiKey, serverURL)
 
 	if s.ServerURL == "" {
 		return conf, errors.New("server URL is empty")

@@ -1,0 +1,74 @@
+{
+  "debug": false,
+  "load_balancing": "random",
+  "services": {
+    "xinghuo": [
+      {
+        "models": ["spark-lite"],
+        "enabled": true,
+        "credentials": {
+          "appid": "xxx",
+          "api_key": "xxx",
+          "api_secret": "xxx"
+        }
+      }
+    ],
+    "qianfan": [
+      {
+        "models": ["yi_34b_chat","ERNIE-Speed-8K","ERNIE-Speed-128K","ERNIE-Lite-8K","ERNIE-Lite-8K-0922","ERNIE-Tiny-8K"],
+        "enabled": true,
+        "credentials": {
+          "api_key": "xxx",
+          "secret_key": "xxx"
+        }
+      }
+    ],
+    "hunyuan": [
+      {
+        "models": ["hunyuan-lite"],
+        "enabled": true,
+        "credentials": {
+          "secret_id": "xxx",
+          "secret_key": "xxx"
+        }
+      }
+    ],
+    "openai": [
+      {
+        "models": ["deepseek-chat"],
+        "enabled": true,
+        "credentials": {
+          "api_key": "xxx"
+        },
+        "server_url":"https://api.deepseek.com/v1"
+      },
+      {
+        "models": ["@cf/meta/llama-2-7b-chat-int8"],
+        "enabled": true,
+        "credentials": {
+          "api_key": "xxx"
+        },
+        "server_url": "https://api.cloudflare.com/client/v4/accounts/xxx/ai/v1/chat/completions"
+      },
+      {
+        "models": ["glm-4","glm-3-turbo"],
+        "enabled": true,
+        "credentials": {
+          "api_key": "xxx"
+        },
+        "server_url":"https://open.bigmodel.cn/api/paas/v4/chat/completions"
+      }
+    ],
+    "minimax": [
+      {
+        "models": ["abab6-chat"],
+        "enabled": true,
+        "credentials": {
+          "group_id": "1782658868262748467",
+          "api_key": "xxx"
+        },
+        "server_url":"https://api.minimax.chat/v1/text/chatcompletion_pro"
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "server_port": ":9090",
+  "load_balancing": "random",
+  "services": {
+    "azure": [
+      {
+        "models": ["ada"],
+        "enabled": true,
+        "credentials": {
+          "api_key": "xxx"
+        },
+        "server_url":"https://YOUR_RESOURCE_NAME.openai.azure.com/openai/deployments/YOUR_DEPLOYMENT_NAME/completions?api-version=2024-02-01"
+      }
+    ]
+  }
+}

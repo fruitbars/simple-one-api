@@ -1,0 +1,13 @@
+{
+  "server_port": ":9099",
+  "load_balancing": "random",
+  "services": {
+    "ollama": [
+      {
+        "models": ["llama2"],
+        "enabled": true,
+        "server_url":"http://127.0.0.1:11434/api/chat"
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "server_port": ":9099",
+  "load_balancing": "random",
+  "services": {
+    "cozecom": [
+      {
+        "models": ["xxx"],
+        "enabled": true,
+        "credentials": {
+          "token": "xxx"
+        },
+        "server_url": "https://api.coze.com/open_api/v2/chat"
+      }
+    ]
+  }
+}

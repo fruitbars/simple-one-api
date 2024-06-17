@@ -17,6 +17,7 @@
 *.swp
 
 # Go编译缓存目录
+./simple-one-api
 /go-build/
 /.gocache/
 cmd/simple-one-api/build

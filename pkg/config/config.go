@@ -3,11 +3,15 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"golang.org/x/time/rate"
 	"log"
 	"math/rand"
 	"os"
 	"simple-one-api/pkg/utils"
+	"time"
 )
+
+var defaultLimitTimeout int = 10
 
 var ModelToService map[string][]ModelDetails
 var LoadBalancingStrategy string
@@ -15,13 +19,24 @@ var ServerPort string
 var APIKey string
 var Debug bool
 
+type Limit struct {
+	QPS         int `json:"qps"`
+	QPM         int `json:"qpm"`
+	Concurrency int `json:"concurrency"`
+	Timeout     int `json:"timeout"`
+}
+
 // ServiceModel 定义相关结构体
 type ServiceModel struct {
-	Models      []string          `json:"models"`
-	Enabled     bool              `json:"enabled"`
-	Credentials map[string]string `json:"credentials"`
-	ServerURL   string            `json:"server_url"`
-	ModelMap    map[string]string `json:"model_map"`
+	Models             []string          `json:"models"`
+	Enabled            bool              `json:"enabled"`
+	Credentials        map[string]string `json:"credentials"`
+	ServerURL          string            `json:"server_url"`
+	ModelMap           map[string]string `json:"model_map"`
+	Limit              Limit             `json:"limit"`
+	Limiter            *rate.Limiter     `json:"-"`
+	Timeout            int               `json:"-"`
+	ConcurrencyLimiter chan struct{}     `json:"-"`
 }
 
 type Configuration struct {
@@ -43,12 +58,41 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 	modelToService := make(map[string][]ModelDetails)
 	for serviceName, serviceModels := range config.Services {
 		for _, model := range serviceModels {
-			for _, modelName := range model.Models {
-				detail := ModelDetails{
-					ServiceName:  serviceName,
-					ServiceModel: model,
+			if model.Enabled {
+				var limiter *rate.Limiter
+				var semaphore chan struct{}
+				if model.Limit.QPS > 0 {
+					limiter = rate.NewLimiter(rate.Limit(model.Limit.QPS), int(model.Limit.QPS)) // 设定令牌桶的容量等于QPS
+				} else if model.Limit.QPM > 0 {
+					limiter = rate.NewLimiter(rate.Every(1*time.Minute/time.Duration(model.Limit.QPM)), model.Limit.QPM)
+				} else {
+					if model.Limit.Concurrency > 0 {
+						log.Println("create semaphore chan ", model.Limit.Concurrency)
+						semaphore = make(chan struct{}, model.Limit.Concurrency)
+						log.Println(cap(semaphore))
+						for i := 0; i < model.Limit.Concurrency; i++ {
+							semaphore <- struct{}{} // 预填充通道，以便其可以被正确地使用
+						}
+					}
 				}
-				modelToService[modelName] = append(modelToService[modelName], detail)
+
+				model.Limiter = limiter
+				model.ConcurrencyLimiter = semaphore
+
+				model.Timeout = defaultLimitTimeout
+				if model.Limit.Timeout > 0 {
+					model.Timeout = model.Limit.Timeout
+				}
+				log.Printf("Models: %v, Timeout: %v, QPS: %v, QPM: %v, Concurrency: %v\n",
+					model.Models, model.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.Concurrency)
+
+				for _, modelName := range model.Models {
+					detail := ModelDetails{
+						ServiceName:  serviceName,
+						ServiceModel: model,
+					}
+					modelToService[modelName] = append(modelToService[modelName], detail)
+				}
 			}
 		}
 	}
@@ -61,7 +105,8 @@ func InitConfig(configName string) error {
 		configName = "config.json"
 	}
 
-	configAbsolutePath, err := utils.GetAbsolutePath(configName)
+	//configAbsolutePath, err := utils.GetAbsolutePath(configName)
+	configAbsolutePath, err := utils.ResolveRelativePathToAbsolute(configName)
 	if err != nil {
 		log.Println("Error getting absolute path:", err)
 		return err

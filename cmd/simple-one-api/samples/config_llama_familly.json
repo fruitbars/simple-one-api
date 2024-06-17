@@ -1,0 +1,17 @@
+{
+  "server_port": ":9099",
+  "debug": false,
+  "load_balancing": "random",
+  "services": {
+    "openai": [
+      {
+        "models": ["Atom-13B-Chat","Atom-7B-Chat","Atom-1B-Chat","Llama3-Chinese-8B-Instruct"],
+        "enabled": true,
+        "credentials": {
+          "api_key": "xxx"
+        },
+        "server_url":"https://api.atomecho.cn/v1"
+      }
+    ]
+  }
+}

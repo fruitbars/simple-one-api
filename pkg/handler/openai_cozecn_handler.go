@@ -18,7 +18,8 @@ import (
 	"strings"
 )
 
-var defaultCozeURL = "https://api.coze.cn/open_api/v2/chat"
+var defaultCozecnURL = "https://api.coze.cn/open_api/v2/chat"
+var defaultCozecomURL = "https://api.coze.com/open_api/v2/chat"
 
 func OpenAI2CozecnHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
 	// 使用统一的api_key获取
@@ -29,9 +30,19 @@ func OpenAI2CozecnHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 
 	cozecnReq := adapter.OpenAIRequestToCozecnRequest(oaiReq)
 	cozeServerURL := s.ServerURL
+
 	if cozeServerURL == "" {
-		cozeServerURL = defaultCozeURL
+		switch s.ServiceName {
+		case "cozecn":
+			cozeServerURL = defaultCozecnURL
+		case "cozecom":
+			cozeServerURL = defaultCozecomURL
+		default:
+			cozeServerURL = defaultCozecnURL
+		}
 	}
+
+	log.Println(cozeServerURL)
 
 	// 使用统一的错误处理函数
 	if err := sendRequest(c, secretToken, cozeServerURL, cozecnReq, oaiReq); err != nil {
