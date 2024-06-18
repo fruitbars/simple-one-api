@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  simple-one-api:
+    image: fruitbars/simple-one-api
+    container_name: simple-one-api
+    ports:
+      - "9090:9090"
+    volumes:
+      - /path/to/config.json:/app/config.json
+    restart: always
