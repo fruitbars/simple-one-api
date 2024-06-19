@@ -4,6 +4,9 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"log"
+	"simple-one-api/pkg/mylog"
+
+	//"log"
 	"os"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/handler"
@@ -11,8 +14,8 @@ import (
 )
 
 func main() {
-
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Println("123")
 
 	// 获取程序的第一个参数作为配置文件名
 	var configName string
@@ -22,17 +25,21 @@ func main() {
 		configName = "config.json"
 	}
 
+	var err error
 	// 初始化配置
-	err := config.InitConfig(configName)
+	err = config.InitConfig(configName)
 	if err != nil {
-		log.Println(err)
-		log.Println("exit")
+		mylog.Logger.Error(err.Error())
+		mylog.Logger.Error("exit")
 		return
 	}
 
 	if config.Debug == false {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	mylog.InitLog(config.LogLevel)
+	defer mylog.Logger.Sync()
 
 	// 创建一个 Gin 路由器实例
 	r := gin.Default()
@@ -53,7 +60,7 @@ func main() {
 	// 启动服务器，使用配置中的端口
 	err = r.Run(config.ServerPort)
 	if err != nil {
-		log.Println(err)
+		mylog.Logger.Error(err.Error())
 		return
 	} // 使用配置文件中指定的端口号
 }

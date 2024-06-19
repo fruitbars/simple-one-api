@@ -1,4 +1,4 @@
-.PHONY: release build compress
+.PHONY: release build compress clean
 
 BINARY_NAME=simple-one-api
 BUILD_DIR=build
@@ -38,7 +38,10 @@ upx:
 ifeq ($(use_upx),1)
 	upx --best --lzma $(BUILD_DIR)/darwin-amd64/$(BINARY_NAME); \
     upx --best --lzma $(BUILD_DIR)/windows-amd64/$(BINARY_NAME).exe; \
-    upx --best --lzma $(BUILD_DIR)/linux-amd64/$(BINARY_NAME);
+    upx --best --lzma $(BUILD_DIR)/linux-amd64/$(BINARY_NAME);\
+    upx --best --lzma $(BUILD_DIR)/darwin-arm64/$(BINARY_NAME); \
+    upx --best --lzma $(BUILD_DIR)/windows-arm64/$(BINARY_NAME).exe; \
+    upx --best --lzma $(BUILD_DIR)/linux-arm64/$(BINARY_NAME)
 endif
 
 compress:
@@ -48,34 +51,43 @@ compress-darwin-amd64:
 	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64.tar.gz -C $(BUILD_DIR)/darwin-amd64/ $(BINARY_NAME)
 ifeq ($(clean_up),1)
 	rm -rf $(BUILD_DIR)/darwin-amd64
+	@echo "Removed build directory for darwin-amd64"
 endif
 
 compress-darwin-arm64:
 	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64.tar.gz -C $(BUILD_DIR)/darwin-arm64/ $(BINARY_NAME)
 ifeq ($(clean_up),1)
 	rm -rf $(BUILD_DIR)/darwin-arm64
+	@echo "Removed build directory for darwin-arm64"
 endif
 
 compress-windows-amd64:
 	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.tar.gz -C $(BUILD_DIR)/windows-amd64/ $(BINARY_NAME).exe
 ifeq ($(clean_up),1)
 	rm -rf $(BUILD_DIR)/windows-amd64
+	@echo "Removed build directory for windows-amd64"
 endif
 
 compress-windows-arm64:
 	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.tar.gz -C $(BUILD_DIR)/windows-arm64/ $(BINARY_NAME).exe
 ifeq ($(clean_up),1)
 	rm -rf $(BUILD_DIR)/windows-arm64
+	@echo "Removed build directory for windows-arm64"
 endif
 
 compress-linux-amd64:
 	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64.tar.gz -C $(BUILD_DIR)/linux-amd64/ $(BINARY_NAME)
 ifeq ($(clean_up),1)
 	rm -rf $(BUILD_DIR)/linux-amd64
+	@echo "Removed build directory for linux-amd64"
 endif
 
 compress-linux-arm64:
 	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64.tar.gz -C $(BUILD_DIR)/linux-arm64/ $(BINARY_NAME)
 ifeq ($(clean_up),1)
 	rm -rf $(BUILD_DIR)/linux-arm64
+	@echo "Removed build directory for linux-arm64"
 endif
+
+clean:
+	rm -rf $(BUILD_DIR)/*
