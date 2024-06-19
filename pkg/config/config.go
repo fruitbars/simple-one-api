@@ -35,7 +35,7 @@ type ServiceModel struct {
 	Credentials        map[string]string `json:"credentials"`
 	ServerURL          string            `json:"server_url"`
 	ModelMap           map[string]string `json:"model_map"`
-	ModelRedirect      map[string]string `json:"modelR_redirect"`
+	ModelRedirect      map[string]string `json:"model_redirect"`
 	Limit              Limit             `json:"limit"`
 	Limiter            *rate.Limiter     `json:"-"`
 	Timeout            int               `json:"-"`
