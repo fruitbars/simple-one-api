@@ -18,10 +18,12 @@ var LoadBalancingStrategy string
 var ServerPort string
 var APIKey string
 var Debug bool
+var LogLevel string
 
 type Limit struct {
 	QPS         int `json:"qps"`
 	QPM         int `json:"qpm"`
+	RPM         int `json:"rpm"`
 	Concurrency int `json:"concurrency"`
 	Timeout     int `json:"timeout"`
 }
@@ -33,6 +35,7 @@ type ServiceModel struct {
 	Credentials        map[string]string `json:"credentials"`
 	ServerURL          string            `json:"server_url"`
 	ModelMap           map[string]string `json:"model_map"`
+	ModelRedirect      map[string]string `json:"modelR_redirect"`
 	Limit              Limit             `json:"limit"`
 	Limiter            *rate.Limiter     `json:"-"`
 	Timeout            int               `json:"-"`
@@ -40,8 +43,13 @@ type ServiceModel struct {
 }
 
 type Configuration struct {
-	ServerPort    string                    `json:"server_port"`
-	Debug         bool                      `json:"debug"`
+	ServerPort string `json:"server_port"`
+	Debug      bool   `json:"debug"`
+	LogLevel   string `json:"log_level"`
+	Proxy      struct {
+		HTTPProxy  string `json:"http_proxy"`
+		HTTPSProxy string `json:"https_proxy"`
+	} `json:"proxy"`
 	APIKey        string                    `json:"api_key"`
 	LoadBalancing string                    `json:"load_balancing"`
 	Services      map[string][]ServiceModel `json:"services"`
@@ -64,7 +72,10 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 				if model.Limit.QPS > 0 {
 					limiter = rate.NewLimiter(rate.Limit(model.Limit.QPS), int(model.Limit.QPS)) // 设定令牌桶的容量等于QPS
 				} else if model.Limit.QPM > 0 {
-					limiter = rate.NewLimiter(rate.Every(1*time.Minute/time.Duration(model.Limit.QPM)), model.Limit.QPM)
+					limiter = rate.NewLimiter(rate.Every(1*time.Minute/time.Duration(model.Limit.QPM)), model.Limit.QPM*2)
+				} else if model.Limit.RPM > 0 {
+					model.Limit.QPM = model.Limit.RPM
+					limiter = rate.NewLimiter(rate.Every(1*time.Minute/time.Duration(model.Limit.RPM)), model.Limit.RPM*2)
 				} else {
 					if model.Limit.Concurrency > 0 {
 						log.Println("create semaphore chan ", model.Limit.Concurrency)
@@ -79,12 +90,15 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 				model.Limiter = limiter
 				model.ConcurrencyLimiter = semaphore
 
+				log.Println("Limiter", model.Limiter)
+				log.Println("ConcurrencyLimiter", model.ConcurrencyLimiter)
+
 				model.Timeout = defaultLimitTimeout
 				if model.Limit.Timeout > 0 {
 					model.Timeout = model.Limit.Timeout
 				}
-				log.Printf("Models: %v, Timeout: %v, QPS: %v, QPM: %v, Concurrency: %v\n",
-					model.Models, model.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.Concurrency)
+				log.Printf("Models: %v, Timeout: %v, QPS: %v, QPM: %v, RPM: %v,Concurrency: %v\n",
+					model.Models, model.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.RPM, model.Limit.Concurrency)
 
 				for _, modelName := range model.Models {
 					detail := ModelDetails{
@@ -135,6 +149,16 @@ func InitConfig(configName string) error {
 		LoadBalancingStrategy = conf.LoadBalancing
 	}
 
+	if conf.Proxy.HTTPProxy != "" {
+		log.Println("set HTTP_PROXY", conf.Proxy.HTTPProxy)
+		os.Setenv("HTTP_PROXY", conf.Proxy.HTTPProxy)
+
+	}
+	if conf.Proxy.HTTPSProxy != "" {
+		log.Println("set HTTPS_PROXY", conf.Proxy.HTTPSProxy)
+		os.Setenv("HTTPS_PROXY", conf.Proxy.HTTPSProxy)
+	}
+
 	if conf.APIKey != "" {
 		APIKey = conf.APIKey
 	}
@@ -147,10 +171,13 @@ func InitConfig(configName string) error {
 	} else {
 		ServerPort = conf.ServerPort
 	}
+	log.Println("read ServerPort ok,", ServerPort)
 
 	Debug = conf.Debug
 
-	log.Println("read ServerPort ok,", ServerPort)
+	LogLevel = conf.LogLevel
+	log.Println("log level: ", LogLevel)
+
 	// 创建映射
 	ModelToService = createModelToServiceMap(conf)
 
@@ -232,6 +259,14 @@ func GetRandomEnabledModelDetailsV1() (*ModelDetails, string, error) {
 func GetModelMapping(s *ModelDetails, model string) string {
 	if mappedModel, exists := s.ModelMap[model]; exists {
 		return mappedModel
+	}
+	return model
+}
+
+// GetModelMapping 函数，根据model在ModelMap中查找对应的映射，如果找不到则返回原始model
+func GetModelRedirect(s *ModelDetails, model string) string {
+	if redirectModel, exists := s.ModelRedirect[model]; exists {
+		return redirectModel
 	}
 	return model
 }
