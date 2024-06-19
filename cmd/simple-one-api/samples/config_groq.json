@@ -7,7 +7,7 @@
         "models": ["llama3-70b-8192","llama3-8b-8192","gemma-7b-it","mixtral-8x7b-32768"],
         "enabled": true,
         "credentials": {
-          "api_key": "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"
+          "api_key": "xxx"
         },
         "server_url":"https://api.groq.com/openai/v1"
       }
