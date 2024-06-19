@@ -10,15 +10,22 @@ import (
 	tecenthunyuan "simple-one-api/pkg/llm/tecent-hunyuan"
 	myopenai "simple-one-api/pkg/openai"
 	"simple-one-api/pkg/utils"
+	"strings"
 )
 
 func OpenAIRequestToHunYuanRequest(oaiReq openai.ChatCompletionRequest) *hunyuan.ChatCompletionsRequest {
 	request := hunyuan.NewChatCompletionsRequest()
 
-	request.Model = common.StringPtr(oaiReq.Model)
+	model := oaiReq.Model
+	request.Model = common.StringPtr(model)
 
 	log.Println(oaiReq.Messages)
-	for _, msg := range oaiReq.Messages {
+	for i, msg := range oaiReq.Messages {
+		//超级对齐，多余的system直接删除
+		if strings.ToLower(msg.Role) == "system" && i > 0 {
+			continue
+		}
+
 		tmpMsg := msg
 
 		request.Messages = append(request.Messages, &hunyuan.Message{
