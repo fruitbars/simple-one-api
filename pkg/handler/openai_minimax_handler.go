@@ -10,11 +10,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
 	"io"
-	"log"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/llm/minimax"
+	"simple-one-api/pkg/mylog"
 	mycommon "simple-one-api/pkg/utils"
 	"strings"
 )
@@ -35,17 +35,17 @@ func OpenAI2MinimaxHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 
 	jsonData, err := json.Marshal(minimaxReq)
 	if err != nil {
-		log.Println("Error marshalling JSON:", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
-	log.Println(string(jsonData))
+	mylog.Logger.Info(string(jsonData))
 
 	if oaiReq.Stream {
 
 		request, err := http.NewRequest("POST", serverUrl, bytes.NewBuffer(jsonData))
 		if err != nil {
-			log.Println("Error creating request:", err)
+			mylog.Logger.Error(err.Error())
 			return err
 		}
 
@@ -56,7 +56,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 		client := &http.Client{}
 		response, err := client.Do(request)
 		if err != nil {
-			log.Println("Error sending request:", err)
+			mylog.Logger.Error(err.Error())
 			return err
 		}
 		defer response.Body.Close()
@@ -72,7 +72,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 					break
 				}
 
-				log.Println("Error reading response:", err)
+				mylog.Logger.Error(err.Error())
 				return err
 			}
 
@@ -87,7 +87,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 				continue
 			}
 
-			log.Println(line)
+			mylog.Logger.Info(line)
 
 			var minimaxresp minimax.MinimaxResponse
 			json.Unmarshal([]byte(line), &minimaxresp)
@@ -97,13 +97,13 @@ func OpenAI2MinimaxHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 			oaiRespStream.Model = oaiReq.Model
 			respData, err := json.Marshal(&oaiRespStream)
 			if err != nil {
-				log.Println(err)
+				mylog.Logger.Error(err.Error())
 				return err
 			} else {
-				log.Println("response http data", string(respData))
+				mylog.Logger.Info(string(respData))
 
 				if oaiRespStream.Error != nil {
-					log.Println(oaiRespStream.Error)
+					mylog.Logger.Info(oaiRespStream.Error.Message)
 					errInfo, _ := json.Marshal(oaiRespStream.Error)
 					return errors.New(string(errInfo))
 				} else {
@@ -117,7 +117,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 	} else {
 		request, err := http.NewRequest("POST", serverUrl, bytes.NewBuffer(jsonData))
 		if err != nil {
-			log.Println("Error creating request:", err)
+			mylog.Logger.Error(err.Error())
 			return err
 		}
 
@@ -128,28 +128,28 @@ func OpenAI2MinimaxHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 		client := &http.Client{}
 		response, err := client.Do(request)
 		if err != nil {
-			log.Println("Error sending request:", err)
+			mylog.Logger.Error(err.Error())
+
 			return err
 		}
 		defer response.Body.Close()
 
 		bodyData, err := io.ReadAll(response.Body)
 		if err != nil {
-			log.Println(err)
+			mylog.Logger.Error(err.Error())
 			return err
 		}
 
-		log.Println(string(bodyData))
+		mylog.Logger.Info(string(bodyData))
 
 		var minimaxresp minimax.MinimaxResponse
 		json.Unmarshal(bodyData, &minimaxresp)
-		log.Println(minimaxresp)
+		//mylog.Logger.Info((minimaxresp)
 		myresp := adapter.MinimaxResponseToOpenAIResponse(&minimaxresp)
 		myresp.Model = oaiReq.Model
-		log.Println("响应：", *myresp)
 
 		respData, _ := json.Marshal(*myresp)
-		log.Println("响应", string(respData))
+		mylog.Logger.Info(string(respData))
 
 		c.JSON(http.StatusOK, myresp)
 

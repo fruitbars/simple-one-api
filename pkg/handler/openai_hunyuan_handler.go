@@ -7,10 +7,10 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	hunyuan "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/hunyuan/v20230901"
-	"log"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
+	"simple-one-api/pkg/mylog"
 	mycommon "simple-one-api/pkg/utils"
 )
 
@@ -28,7 +28,7 @@ func OpenAI2HunYuanHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 	// 创建HunYuan客户端
 	client, err := hunyuan.NewClient(credential, "", cpf)
 	if err != nil {
-		log.Println("Error creating HunYuan client:", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
@@ -37,12 +37,12 @@ func OpenAI2HunYuanHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 
 	// 打印请求数据
 	djData, _ := json.Marshal(request)
-	log.Println("HunYuan request:", string(djData))
+	mylog.Logger.Info(string(djData))
 
 	// 发送请求并处理响应
 	response, err := client.ChatCompletions(request)
 	if err != nil {
-		log.Println("An API error has returned:", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
@@ -62,18 +62,19 @@ func handleHunYuanResponse(c *gin.Context, response *hunyuan.ChatCompletionsResp
 	for event := range response.Events {
 		oaiStreamResp, err := adapter.HunYuanResponseToOpenAIStreamResponse(event)
 		if err != nil {
-			log.Println("Error converting stream response:", err)
+			mylog.Logger.Error(err.Error())
 			return err
 		}
 		oaiStreamResp.Model = model
 		respData, err := json.Marshal(&oaiStreamResp)
 		if err != nil {
-			log.Println("Error marshaling stream response:", err)
+			mylog.Logger.Error(err.Error())
 			return err
 		}
+		mylog.Logger.Info(string(respData))
 		_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
 		if err != nil {
-			log.Println(err)
+			mylog.Logger.Error(err.Error())
 			return err
 		}
 		c.Writer.(http.Flusher).Flush()
@@ -85,7 +86,9 @@ func handleHunYuanResponse(c *gin.Context, response *hunyuan.ChatCompletionsResp
 func handleHunYuanNonStreamResponse(c *gin.Context, response *hunyuan.ChatCompletionsResponse, model string) error {
 	oaiResp := adapter.HunYuanResponseToOpenAIResponse(response)
 	oaiResp.Model = model
-	log.Println("Non-stream response:", oaiResp)
+
+	jdata, _ := json.Marshal(*oaiResp)
+	mylog.Logger.Info(string(jdata))
 	c.JSON(http.StatusOK, oaiResp)
 	return nil
 }

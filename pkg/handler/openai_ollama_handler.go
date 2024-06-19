@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
+	"go.uber.org/zap"
 	"io"
-	"log"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/llm/ollama"
+	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 )
 
@@ -34,12 +35,17 @@ func handleOllamaRequest(c *gin.Context, s *config.ModelDetails, ollamaRequest *
 
 	jsonStr, err := json.Marshal(ollamaRequest)
 
-	log.Println(string(jsonStr))
+	// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+	mylog.Logger.Info("JSON String",
+		zap.String("json_str", string(jsonStr))) // 记录 JSON 字符串
 
 	// 创建POST请求
 	req, err := http.NewRequest("POST", serverUrl, bytes.NewBuffer(jsonStr))
 	if err != nil {
-		log.Println("Error creating request: ", err)
+		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+		mylog.Logger.Error("Error creating request",
+			zap.Error(err)) // 记录错误对象
+
 		return err
 	}
 
@@ -50,25 +56,36 @@ func handleOllamaRequest(c *gin.Context, s *config.ModelDetails, ollamaRequest *
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println("Error sending request: ", err)
+		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+		mylog.Logger.Error("Error sending request",
+			zap.Error(err)) // 记录错误对象
+
 		return err
 	}
 	defer resp.Body.Close()
 
 	// 检查HTTP响应状态码
 	if resp.StatusCode != http.StatusOK {
-		log.Println("HTTP Error Response: ", resp.Status)
+		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+		mylog.Logger.Info("HTTP Error Response",
+			zap.String("status", resp.Status)) // 记录 HTTP 响应状态
+
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			log.Println(err)
+			// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+			mylog.Logger.Error("An error occurred",
+				zap.Error(err)) // 记录错误对象
+
 			return err
 		}
 
-		log.Println(string(body))
+		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+		mylog.Logger.Info("Response body",
+			zap.String("body", string(body))) // 记录响应体内容
 
 		return fmt.Errorf(string(body))
 	}
-	//	log.Println(ollamaRequest.Stream)
+	//	mylog.Println(ollamaRequest.Stream)
 
 	if ollamaRequest.Stream {
 		utils.SetEventStreamHeaders(c)
@@ -78,32 +95,41 @@ func handleOllamaRequest(c *gin.Context, s *config.ModelDetails, ollamaRequest *
 			line, err := reader.ReadString('\n')
 			if err != nil {
 				if err != io.EOF {
-					log.Println("Error reading stream: ", err)
+					mylog.Logger.Error("Error reading stream",
+						zap.Error(err)) // 记录错误对象
+
 				}
 
 				break
 			}
-			log.Println("ollama response", line)
+			mylog.Logger.Info("ollama response",
+				zap.String("line", line)) // 记录流响应行
 
 			var ollamaStreamResp ollama.ChatResponse
 			err = json.Unmarshal([]byte(line), &ollamaStreamResp)
 			if err != nil {
-				log.Println(err)
+				mylog.Logger.Error("An error occurred",
+					zap.Error(err)) // 记录错误对象
+
 			}
 
 			oaiRespStream := adapter.OllamaResponseToOpenAIStreamResponse(&ollamaStreamResp)
 			respData, err := json.Marshal(&oaiRespStream)
 			if err != nil {
-				log.Println("Error marshaling response:", err)
+				mylog.Logger.Error("Error marshaling response",
+					zap.Error(err)) // 记录错误对象
+
 				return err
 			}
 
-			log.Println(string(respData))
+			mylog.Logger.Info("Response data",
+				zap.String("resp_data", string(respData))) // 记录响应数据
 
 			_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
 			if err != nil {
-				log.Println(err)
-				return err
+				mylog.Logger.Error("An error occurred",
+					zap.Error(err)) // 记录错误对象
+				//return err
 			}
 			c.Writer.(http.Flusher).Flush()
 
@@ -112,10 +138,13 @@ func handleOllamaRequest(c *gin.Context, s *config.ModelDetails, ollamaRequest *
 		// 一次性读取完整响应
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			log.Println("Error reading response body: ", err)
+			mylog.Logger.Error("Error reading response body",
+				zap.Error(err)) // 记录错误对象
 			return err
 		}
-		log.Println("Response:", string(body))
+
+		mylog.Logger.Info("Response",
+			zap.String("body", string(body))) // 记录响应体内容
 
 		var ollamaResp ollama.ChatResponse
 		json.Unmarshal(body, &ollamaResp)

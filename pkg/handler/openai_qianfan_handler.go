@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
-	"log"
+	"go.uber.org/zap"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	baidu_qianfan "simple-one-api/pkg/llm/baidu-qianfan"
+	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 )
 
@@ -33,14 +34,19 @@ func handleQianFanStreamRequest(c *gin.Context, apiKey, secretKey, model string,
 
 		respData, err := json.Marshal(&oaiRespStream)
 		if err != nil {
-			log.Println("Error marshaling response:", err)
+			mylog.Logger.Error("Error marshaling response",
+				zap.Error(err)) // 记录错误对象
+
 			return
 		}
 
-		log.Println("Response HTTP data:", string(respData))
+		mylog.Logger.Info("Response HTTP data",
+			zap.String("http_data", string(respData))) // 记录 HTTP 响应数据
 
 		if qfResp.ErrorCode != 0 && oaiRespStream.Error != nil {
-			log.Println("Error response:", *oaiRespStream.Error)
+			mylog.Logger.Error("Error response",
+				zap.Any("error", *oaiRespStream.Error)) // 记录错误对象
+
 			c.JSON(http.StatusBadRequest, qfResp)
 			return
 		}
@@ -50,7 +56,9 @@ func handleQianFanStreamRequest(c *gin.Context, apiKey, secretKey, model string,
 	})
 
 	if err != nil {
-		log.Println("Error during SSE call:", err)
+		mylog.Logger.Error("Error during SSE call",
+			zap.Error(err)) // 记录错误对象
+
 		return err
 	}
 
@@ -60,13 +68,16 @@ func handleQianFanStreamRequest(c *gin.Context, apiKey, secretKey, model string,
 func handleQianFanStandardRequest(c *gin.Context, apiKey, secretKey, model string, qfReq *baidu_qianfan.QianFanRequest) error {
 	qfResp, err := baidu_qianfan.QianFanCall(apiKey, secretKey, model, qfReq)
 	if err != nil {
-		log.Println("Error during API call:", err)
+		mylog.Logger.Error("Error during API call",
+			zap.Error(err)) // 记录错误对象
+
 		return err
 	}
 
 	oaiResp := adapter.QianFanResponseToOpenAIResponse(qfResp)
 	oaiResp.Model = model
-	log.Println("Standard response:", oaiResp)
+	mylog.Logger.Info("Standard response",
+		zap.Any("response", oaiResp)) // 记录标准响应对象
 
 	c.JSON(http.StatusOK, oaiResp)
 	return nil

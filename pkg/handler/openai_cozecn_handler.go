@@ -9,13 +9,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
 	"io"
-	"log"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/llm/devplatform/cozecn"
+	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 	"strings"
+	"time"
 )
 
 var defaultCozecnURL = "https://api.coze.cn/open_api/v2/chat"
@@ -42,11 +43,11 @@ func OpenAI2CozecnHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 		}
 	}
 
-	log.Println(cozeServerURL)
+	mylog.Logger.Info(cozeServerURL)
 
 	// 使用统一的错误处理函数
 	if err := sendRequest(c, secretToken, cozeServerURL, cozecnReq, oaiReq); err != nil {
-		log.Printf("处理请求失败: %v\n", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
@@ -61,15 +62,19 @@ func sendRequest(c *gin.Context, token, url string, request interface{}, oaiReq 
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 3 * time.Minute,
+	}
 	resp, err := client.Do(req)
 	if err != nil {
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 	defer resp.Body.Close()
@@ -84,11 +89,13 @@ func handleCozecnResponse(c *gin.Context, resp *http.Response, oaiReq openai.Cha
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
 	var respJson cozecn.Response
 	if err := json.Unmarshal(body, &respJson); err != nil {
+		mylog.Logger.Error(err.Error())
 		return fmt.Errorf("json解码错误: %v", err)
 	}
 
@@ -111,11 +118,11 @@ func handleCozecnStreamResponse(c *gin.Context, oaiReq openai.ChatCompletionRequ
 		line := scanner.Text()
 		//log.Println(line)
 		if strings.HasPrefix(line, "data:") {
-			log.Println(line)
+			mylog.Logger.Info(line)
 			line = strings.TrimPrefix(line, "data:")
 			var response cozecn.StreamResponse
 			if err := json.Unmarshal([]byte(line), &response); err != nil {
-				log.Println(err)
+				mylog.Logger.Error(err.Error())
 				return fmt.Errorf("解析响应数据错误: %v", err)
 			}
 			//log.Println(response)
@@ -128,14 +135,14 @@ func handleCozecnStreamResponse(c *gin.Context, oaiReq openai.ChatCompletionRequ
 				oaiRespStream.Model = oaiReq.Model
 				respData, err := json.Marshal(&oaiRespStream)
 				if err != nil {
-					log.Println(err)
+					mylog.Logger.Error(err.Error())
 					return err
 				}
 
-				log.Println(string(respData))
+				mylog.Logger.Info(string(respData))
 				_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
 				if err != nil {
-					log.Println(err)
+					mylog.Logger.Error(err.Error())
 				}
 				c.Writer.(http.Flusher).Flush()
 
@@ -143,7 +150,7 @@ func handleCozecnStreamResponse(c *gin.Context, oaiReq openai.ChatCompletionRequ
 
 				return nil
 			case "error":
-				log.Printf("Chat 错误结束: %s\n", response.ErrorInformation.Msg)
+				mylog.Logger.Error(response.ErrorInformation.Msg)
 				return fmt.Errorf("错误码: %d, 错误信息: %s", response.ErrorInformation.Code, response.ErrorInformation.Msg)
 			default:
 				fmt.Printf("未知事件: %s\n", line)
@@ -153,6 +160,7 @@ func handleCozecnStreamResponse(c *gin.Context, oaiReq openai.ChatCompletionRequ
 	}
 
 	if err := scanner.Err(); err != nil {
+		mylog.Logger.Error(err.Error())
 		return fmt.Errorf("读取流式响应数据错误: %v", err)
 	}
 

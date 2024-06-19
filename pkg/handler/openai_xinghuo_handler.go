@@ -6,10 +6,11 @@ import (
 	"github.com/fruitbars/gosparkclient"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
-	"log"
+	"go.uber.org/zap"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
+	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 	"strings"
 )
@@ -46,18 +47,21 @@ func OpenAI2XingHuoHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 	xhReq := adapter.OpenAIRequestToXingHuoRequest(oaiReq)
 
 	xhDataJson, _ := json.Marshal(xhReq)
-	log.Println(string(xhDataJson))
+	mylog.Logger.Info(string(xhDataJson))
 
 	if oaiReq.Stream {
-		return handleStreamMode(c, client, xhReq, oaiReq.Model)
+		return handleXingHuoStreamMode(c, client, xhReq, oaiReq.Model)
 	}
 
-	return handleStandardMode(c, client, xhReq, oaiReq.Model)
+	return handleXingHuoStandardMode(c, client, xhReq, oaiReq.Model)
 }
 
 func getServerURLAndDomain(s *config.ModelDetails, model string) (string, string, error) {
 	defaultUrl, defaultDomain, err := getURLAndDomain(model)
 	if err != nil {
+		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+		mylog.Logger.Error("error", zap.Error(err)) // 记录错误对象
+
 		return "", "", err
 	}
 
@@ -74,13 +78,16 @@ func getServerURLAndDomain(s *config.ModelDetails, model string) (string, string
 	return serverUrl, domain, nil
 }
 
-func handleStreamMode(c *gin.Context, client *gosparkclient.SparkClient, xhReq *gosparkclient.SparkChatRequest, model string) error {
-	log.Println("stream mode")
+func handleXingHuoStreamMode(c *gin.Context, client *gosparkclient.SparkClient, xhReq *gosparkclient.SparkChatRequest, model string) error {
 	utils.SetEventStreamHeaders(c)
 
 	_, err := client.SparkChatWithCallback(*xhReq, func(response gosparkclient.SparkAPIResponse) {
 		if len(response.Payload.Choices.Text) > 0 {
-			log.Println(response.Header.Sid, response.Payload.Choices.Text[0].Content)
+			// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+			mylog.Logger.Info("Response details",
+				zap.String("sid", response.Header.Sid),                          // 记录 SID
+				zap.String("content", response.Payload.Choices.Text[0].Content)) // 记录内容
+
 		}
 
 		oaiRespStream := adapter.XingHuoResponseToOpenAIStreamResponse(&response)
@@ -88,20 +95,28 @@ func handleStreamMode(c *gin.Context, client *gosparkclient.SparkClient, xhReq *
 
 		respData, err := json.Marshal(&oaiRespStream)
 		if err != nil {
-			log.Println("Error marshaling response:", err)
+			mylog.Logger.Error("Error marshaling response:", zap.Error(err))
 			return
 		}
 
-		log.Println("Response HTTP data:", string(respData))
+		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+		mylog.Logger.Info("Response HTTP data",
+			zap.String("data", string(respData))) // 记录响应数据
 
 		if oaiRespStream.Error != nil {
-			log.Println("Error response:", *oaiRespStream.Error)
+			// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+			mylog.Logger.Error("Error response",
+				zap.Any("error", *oaiRespStream.Error)) // 记录错误对象
+
 			return
 		}
 
 		_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
 		if err != nil {
-			log.Println(err)
+			// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+			mylog.Logger.Error("An error occurred",
+				zap.Error(err)) // 记录错误对象
+
 			return
 		}
 		c.Writer.(http.Flusher).Flush()
@@ -110,17 +125,22 @@ func handleStreamMode(c *gin.Context, client *gosparkclient.SparkClient, xhReq *
 	return err
 }
 
-func handleStandardMode(c *gin.Context, client *gosparkclient.SparkClient, xhReq *gosparkclient.SparkChatRequest, model string) error {
+func handleXingHuoStandardMode(c *gin.Context, client *gosparkclient.SparkClient, xhReq *gosparkclient.SparkChatRequest, model string) error {
 	xhResp, err := client.SparkChatWithCallback(*xhReq, nil)
 	if err != nil {
-		log.Println("Error during API call:", err)
+		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+		mylog.Logger.Error("An error occurred",
+			zap.Error(err)) // 记录错误对象
+
 		return err
 	}
 
 	oaiResp := adapter.XingHuoResponseToOpenAIResponse(xhResp)
 	oaiResp.Model = model
 
-	log.Println("Standard response:", *oaiResp)
+	// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
+	mylog.Logger.Info("Standard response",
+		zap.Any("response", *oaiResp)) // 记录响应对象
 
 	c.JSON(http.StatusOK, oaiResp)
 	return nil

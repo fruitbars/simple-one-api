@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
+	"go.uber.org/zap"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
+	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 	"strings"
 )
@@ -73,13 +74,16 @@ func getConfig(s *config.ModelDetails, req openai.ChatCompletionRequest) (openai
 	serverURL := s.ServerURL
 	if serverURL == "" {
 		serverURL = getDefaultServerURL(req.Model)
-		log.Println("Using default server URL:", serverURL)
+		mylog.Logger.Info("Using default server URL",
+			zap.String("server_url", serverURL)) // 记录默认服务器 URL
 	}
 
 	if serverURL != "" {
 		if formattedURL, ok := validateAndFormatURL(serverURL); ok {
 			conf.BaseURL = formattedURL
-			log.Println("Formatted server URL is valid:", formattedURL)
+
+			mylog.Logger.Info("Formatted server URL is valid",
+				zap.String("formatted_url", formattedURL)) // 记录格式化后的服务器 URL 是否有效
 		} else {
 			return conf, errors.New("formatted server URL is invalid")
 		}
@@ -107,6 +111,8 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 	utils.SetEventStreamHeaders(c)
 	stream, err := client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
+		mylog.Logger.Error("An error occurred",
+			zap.Error(err))
 		return fmt.Errorf("ChatCompletionStream error: %w", err)
 	}
 	defer stream.Close()
@@ -116,19 +122,26 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 		if errors.Is(err, io.EOF) {
 			return nil
 		} else if err != nil {
-			log.Println(err)
+			mylog.Logger.Error("An error occurred",
+				zap.Error(err))
 			return err
 		}
 
 		response.Model = req.Model
 		respData, err := json.Marshal(&response)
 		if err != nil {
+			mylog.Logger.Error("An error occurred",
+				zap.Error(err))
 			return err
 		}
 
+		mylog.Logger.Info("Response data",
+			zap.String("resp_data", string(respData))) // 记录响应数据
+
 		_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
 		if err != nil {
-			log.Println(err)
+			mylog.Logger.Error("An error occurred",
+				zap.Error(err))
 			return err
 		}
 		c.Writer.(http.Flusher).Flush()
@@ -139,12 +152,23 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx context.Context, req openai.ChatCompletionRequest) error {
 	resp, err := client.CreateChatCompletion(ctx, req)
 	if err != nil {
-		log.Println(err)
+		mylog.Logger.Error("An error occurred",
+			zap.Error(err))
 		return err
 	}
 
 	myResp := adapter.OpenAIResponseToOpenAIResponse(&resp)
 	myResp.Model = req.Model
+
+	respJsonStr, err := json.Marshal(*myResp)
+	if err != nil {
+		mylog.Logger.Error("An error occurred",
+			zap.Error(err)) // 记录错误对象
+	}
+
+	mylog.Logger.Info("Response JSON String",
+		zap.String("resp_json_str", string(respJsonStr))) // 记录响应 JSON 字符串
+
 	c.JSON(http.StatusOK, myResp)
 	return nil
 }
@@ -155,6 +179,11 @@ func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.Cha
 	if err != nil {
 		return err
 	}
+
+	if strings.HasPrefix(s.ServerURL, "https://api.groq.com/openai/v1") {
+		adjustGroqReq(&req)
+	}
+
 	return handleOpenAIOpenAIRequest(conf, c, req)
 }
 
