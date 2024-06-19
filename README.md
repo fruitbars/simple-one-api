@@ -1,3 +1,7 @@
+<p align="right">
+   <strong>中文</strong> | <a href="./README.EN.md">English</a> 
+</p>
+
 # simple-one-api:通过标准的 OpenAI API 格式访问的各种国产大模型，开箱即用
 
 ## 简介
