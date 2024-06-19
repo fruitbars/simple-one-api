@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"simple-one-api/pkg/common"
 	"simple-one-api/pkg/mylog"
 
 	//"log"
@@ -38,32 +39,33 @@ func OpenAI2GeminiHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 	geminiReq := adapter.OpenAIRequestToGeminiRequest(oaiReq)
 	jsonData, err := json.Marshal(geminiReq)
 	if err != nil {
-		logError("marshalling data", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
 	apiKey := s.Credentials[config.KEYNAME_API_KEY]
 	geminiURL := fmt.Sprintf("%s/%s:%s%s", BaseURL, oaiReq.Model, getRequestType(oaiReq.Stream), apiKey)
 
-	mylog.Debug(geminiURL)
+	mylog.Logger.Debug(geminiURL)
 
 	req, err := http.NewRequest("POST", geminiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		logError("creating request", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		logError("sending request", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		errMsg, _ := io.ReadAll(resp.Body)
-		return errors.New(string(errMsg))
+	err = common.CheckStatusCode(resp)
+	if err != nil {
+
+		return err
 	}
 
 	if oaiReq.Stream {
@@ -82,7 +84,7 @@ func handleStreamResponse(c *gin.Context, resp *http.Response) error {
 			if err == io.EOF {
 				break
 			}
-			logError("reading response", err)
+			mylog.Logger.Error(err.Error())
 			return err
 		}
 
@@ -99,17 +101,20 @@ func handleStreamResponse(c *gin.Context, resp *http.Response) error {
 func handleRegularResponse(c *gin.Context, resp *http.Response) error {
 	responseBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logError("reading response", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
+	mylog.Logger.Info(string(responseBytes))
+
 	if resp.StatusCode != 200 {
+		mylog.Logger.Error(string(responseBytes))
 		return errors.New(string(responseBytes))
 	}
 
 	var geminiResp googlegemini.GeminiResponse
 	if err := json.Unmarshal(responseBytes, &geminiResp); err != nil {
-		logError("unmarshalling response", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
@@ -126,29 +131,23 @@ func processAndSendData(c *gin.Context, line string) error {
 	}
 	var response googlegemini.GeminiResponse
 	if err := json.Unmarshal([]byte(data), &response); err != nil {
-		logError("unmarshalling response", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
 	respData, err := json.Marshal(adapter.GeminiResponseToOpenAIStreamResponse(&response))
 	if err != nil {
-		logError("marshaling response", err)
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
-	mylog.Debug(string(respData))
+	mylog.Logger.Info(string(respData))
 
 	if _, err := c.Writer.WriteString("data: " + string(respData) + "\n\n"); err != nil {
-		logError("writing response", err)
-		return err
+		mylog.Logger.Warn(err.Error())
 	}
 	c.Writer.(http.Flusher).Flush()
 	return nil
-}
-
-// 日志错误
-func logError(message string, err error) {
-	mylog.Error("Error %s: %v\n", message, err)
 }
 
 // 获取请求类型，决定是流还是非流
