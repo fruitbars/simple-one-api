@@ -8,4 +8,4 @@ services:
       - "9090:9090"
     volumes:
       - /path/to/config.json:/app/config.json
-    restart: always
+    restart: unless-stopped

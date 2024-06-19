@@ -5,7 +5,7 @@
   "services": {
     "hunyuan": [
       {
-        "models": ["xxx"],
+        "models": ["hunyuan-lite"],
         "enabled": true,
         "credentials": {
           "secret_id": "xxx",

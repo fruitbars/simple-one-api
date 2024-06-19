@@ -6,7 +6,9 @@
 - DeepSeek
 - 智谱glm
 - 阿里DashScope
-- 字节火山方舟
+- 字节火山方舟 
+- 零一万物
+- groq
 
 ## 接入方式示例
 官方OpenAI直接可以接入，对于其他厂商的模型，我们只需要配置好模型名称以及该模型的服务地址即`server_url`即可。
@@ -57,3 +59,31 @@ DeepSeek接入可以参考文档[docs/deepseek模型申请使用流程.md](https
 }
 ```
 智谱详细接入可以参考文档[docs/智谱glm模型申请使用流程.md](https://github.com/fruitbars/simple-one-api/blob/main/docs/%E6%99%BA%E8%B0%B1glm%E6%A8%A1%E5%9E%8B%E7%94%B3%E8%AF%B7%E4%BD%BF%E7%94%A8%E6%B5%81%E7%A8%8B.md)
+
+### 零一万物接入simple-one-api
+文档中心：https://platform.lingyiwanwu.com/docs
+API 服务地址：https://api.lingyiwanwu.com/v1/chat/completions
+Key管理：https://platform.lingyiwanwu.com/apikeys
+
+```json
+{
+    "services": {
+        "openai": [
+            {
+                "models": [
+                    "yi-large",
+                    "yi-spark",
+                    "yi-medium",
+                    "yi-medium-200k",
+                    "yi-large-turbo"
+                ],
+                "enabled": true,
+                "credentials": {
+                    "api_key": "xxx"
+                },
+                "server_url": "https://api.lingyiwanwu.com/v1/chat/completions"
+            }
+        ]
+    }
+}
+```
