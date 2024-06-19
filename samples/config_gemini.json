@@ -1,0 +1,20 @@
+{
+  "server_port": ":9099",
+  "log_level": "prodj",
+  "load_balancing": "random",
+  "services": {
+    "gemini": [
+      {
+        "models": ["gemini-1.5-flash"],
+        "enabled": true,
+        "credentials": {
+          "api_key": "xxx"
+        },
+        "limit": {
+          "rpm": 15,
+          "timeout":120
+        }
+      }
+    ]
+  }
+}
