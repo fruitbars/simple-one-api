@@ -1,49 +1,53 @@
-// log/logger.go
-package log
+package mylog
 
 import (
-	"fmt"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"log"
 	"os"
-	"runtime"
-	"time"
 )
 
-// 创建一个全局的 logrus 实例
-var Logger = logrus.New()
+var Logger *zap.Logger
 
-func InitLog(logLevel logrus.Level) {
-	// 配置日志等级
-	Logger.SetLevel(logLevel)
-	// 配置日志格式
-	Logger.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp:    true,         // 输出完整的时间戳
-		TimestampFormat:  time.RFC3339, // 时间戳格式
-		DisableColors:    true,         // 禁用颜色输出
-		ForceColors:      true,         // 强制启用颜色输出，即使输出不支持
-		DisableTimestamp: false,        // 禁用时间戳
-		QuoteEmptyFields: true,         // 将空字段用引号括起来
-		CallerPrettyfier: func(f *runtime.Frame) (string, string) { // 自定义调用者信息
-			return fmt.Sprintf("func: %s", f.Function), fmt.Sprintf("file: %s", f.File)
-		},
-	})
-	// 配置输出到标准输出
-	Logger.SetOutput(os.Stdout)
-}
+func InitLog(mode string) {
 
-// 封装日志方法
-func Info(args ...interface{}) {
-	Logger.Info(args...)
-}
+	log.Println("level mode", mode)
+	var encoder zapcore.Encoder
+	var encoderConfig zapcore.EncoderConfig
+	var level zapcore.Level
 
-func Warn(args ...interface{}) {
-	Logger.Warn(args...)
-}
+	// 根据模式选择合适的编码器配置和日志级别
+	switch mode {
+	case "prod", "production", "prodj", "prodjson", "productionjson":
+		encoderConfig = zap.NewProductionEncoderConfig()
+		level = zapcore.WarnLevel
+	case "dev", "development":
+		encoderConfig = zap.NewDevelopmentEncoderConfig()
+		level = zapcore.DebugLevel
+	default:
+		encoderConfig = zap.NewDevelopmentEncoderConfig()
+		level = zapcore.DebugLevel
+	}
 
-func Error(args ...interface{}) {
-	Logger.Error(args...)
-}
+	// 设置时间键和时间格式
+	encoderConfig.TimeKey = "timestamp"
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
 
-func Debug(args ...interface{}) {
-	Logger.Debug(args...)
+	// 根据需要选择输出为JSON或控制台格式
+	if mode == "prodj" || mode == "prodjson" || mode == "productionjson" {
+		encoder = zapcore.NewJSONEncoder(encoderConfig)
+	} else {
+		encoder = zapcore.NewConsoleEncoder(encoderConfig)
+	}
+
+	// 创建日志核心
+	core := zapcore.NewCore(
+		encoder,
+		zapcore.Lock(os.Stdout),
+		zap.NewAtomicLevelAt(level),
+	)
+
+	// 构建日志器
+	Logger = zap.New(core, zap.AddCaller())
 }
