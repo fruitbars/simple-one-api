@@ -8,8 +8,6 @@
 
 **simple-one-api**主要是解决以上2点，旨在兼容多种大模型接口，并统一对外提供 OpenAI 接口。通过该项目，用户可以方便地集成和调用多种大模型，简化了不同平台接口差异带来的复杂性。
 
-
-
 ### 免费大模型列表
 
 | 大模型                | 免费版本                                                     | 免费限制                                                     | 控制台（api_key等）                                          | 文档地址                                                     |
@@ -21,40 +19,21 @@
 | 字节扣子(coze.cn)     | 豆包·Function call模型(32K)、通义千问-Max(8K)、MiniMax 6.5s(245K)、Moonshot（8K）、Moonshot（32K）、Moonshot（128K） | 当前扣子 API 免费供开发者使用，每个空间的 API 请求限额如下：QPS (每秒发送的请求数)：2<br/>QPM (每分钟发送的请求数)：60<br/>QPD (每天发送的请求数)：3000 | [访问链接](https://www.coze.cn/space)                        | [文档查看](https://www.coze.cn/docs/developer_guides/coze_api_overview) |
 | 字节火山方舟          | doubao系列、Moonshot系列等                                   | 2024年5月15日至8月30日期间，为您提供一次独特的机会，即高达5亿tokens的免费权益。 | [访问链接](https://www.volcengine.com/docs/82379/1263512)    | [文档查看](https://www.volcengine.com/docs/82379/1263512)    |
 | Llama Family          | "Atom-13B-Chat","Atom-7B-Chat","Atom-1B-Chat","Llama3-Chinese-8B-Instruct" | 1.每天 8-22 点：接口限速每分钟 20 次并发<br/>2.每天 22-次日 8 点：接口限速每分钟 50 次并发 | [访问链接](https://llama.family/docs/secret)                 | [文档查看](https://llama.family/docs/chat-completion-v1)     |
+| groq                  | gemma-7b-it、mixtral-8x7b-32768、llama3-70b-8192、llama3-8b-8192 | rpm为30，rpd为14400，TOKENS PER MINUTE也有限制               | [访问链接](https://console.groq.com/keys)                    | [文档查看](https://console.groq.com/docs/text-chat)          |
+| Google Gemini         | gemini-1.5-pro、gemini-1.5-flash、gemini-1.0-pro、gemini-pro-vision           | 15RPM（每分钟请求数）;100万 TPM（每分钟令牌）;1500 RPD（每天请求数）                | [访问链接](https://aistudio.google.com/app/apikey) | [文档查看](https://ai.google.dev/gemini-api/docs/models/gemini)                               |
 
-#### 备注信息
-- **讯飞星火大模型**:
-   - **tokens**: 总量无限
-   - **QPS**: 2
-   - **有效期**: 不限
-   - **文档地址**：[https://www.xfyun.cn/doc/spark/Web.html](https://www.xfyun.cn/doc/spark/Web.html)
-   - **申请流程**：[docs/讯飞星火spark-lite模型申请流程](docs/讯飞星火spark-lite模型申请流程.md)
-- **百度千帆大模型平台**:
-   - **Lite、Speed-8K**: RPM = 300，TPM = 300000
-   - **Speed-128K**: RPM = 60，TPM = 300000
-   - **文档地址**：[https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf)
-   - **申请流程**：[docs/百度千帆speed和lite模型申请流程](docs/百度千帆speed和lite模型申请流程.md)
-- **腾讯混元大模型**:
-   - **限制并发数**: 5 路
-   - **文档地址**：[https://cloud.tencent.com/document/api/1729/105701](https://cloud.tencent.com/document/api/1729/105701)
-   - **申请流程**：[docs/腾讯混元hunyuan-lite模型申请流程](docs/腾讯混元hunyuan-lite模型申请流程.md)
-- **Cloudflare_Workers_AI**
-  - **次数限制**: 免费可以每天使用1万次，一个月可以30万次；测试版本本的模型无限制
-  - **文档地址**：[https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/)
-  - **申请流程**：[docs/Cloudflare_Workers_AI申请使用流程.md](docs/Cloudflare_Workers_AI申请使用流程.md)
-- **字节扣子(coze.cn)**
-   - **次数限制**：QPS (每秒发送的请求数)：2，QPM (每分钟发送的请求数)：60，QPD (每天发送的请求数)：3000
-   - **文档地址**：https://www.coze.cn/docs/developer_guides/coze_api_overview
-   - **申请流程**：[docs/coze.cn申请API使用流程.md](docs/coze.cn申请API使用流程.md)
-- **字节火山方舟**
-  - **次数限制**：2024年5月15日至8月30日期间，提供5亿tokens的免费权益。
-  - **文档地址**：https://www.volcengine.com/docs/82379/1263512
-  - **申请流程**：[docs/火山方舟大模型接入指南.md](docs/火山方舟大模型接入指南.md)
-- **Llama Family**
-   - **次数限制**：1.每天 8-22 点：接口限速每分钟 20 次并发，2.每天 22-次日 8 点：接口限速每分钟 50 次并发
-   - **文档地址**：[https://llama.family/docs/chat-completion-v1](https://llama.family/docs/chat-completion-v1)
-   - **申请流程**：[docs/Llama Family接入指南.md](docs/Llama Family接入指南.md）
+#### 各个模型详细的申请和接入流程
+为了更加方便申请和接入，也整理了各个模型的接入指南，可以查阅：
 
+- **讯飞星火大模型**:[docs/讯飞星火spark-lite模型申请流程](docs/讯飞星火spark-lite模型申请流程.md)
+- **百度千帆大模型平台**:[docs/百度千帆speed和lite模型申请流程](docs/百度千帆speed和lite模型申请流程.md)
+- **腾讯混元大模型**:：[docs/腾讯混元hunyuan-lite模型申请流程](docs/腾讯混元hunyuan-lite模型申请流程.md)
+- **Cloudflare_Workers_AI**：[docs/Cloudflare_Workers_AI申请使用流程.md](docs/Cloudflare_Workers_AI申请使用流程.md)
+- **字节扣子(coze.cn)**：[docs/coze.cn申请API使用流程.md](docs/coze.cn申请API使用流程.md)
+- **字节火山方舟**：[docs/火山方舟大模型接入指南.md](docs/火山方舟大模型接入指南.md)
+- **Llama Family**：[docs/Llama Family接入指南.md](docs/llama_family接入指南.md)
+- **groq**: [docs/groq接入指南.md](docs/groq接入指南.md)
+- **Gemini**：[docs/Gemini接入指南.md](docs/Gemini接入指南.md)
 
 
 ## 功能
@@ -65,6 +44,7 @@
 - [x] [百度智能云千帆大模型平台](https://qianfan.cloud.baidu.com/)
 - [x] [讯飞星火大模型](https://xinghuo.xfyun.cn/sparkapi)
 - [x] [腾讯混元大模型](https://cloud.tencent.com/product/hunyuan)
+- [x] [Google Gemini](https://ai.google.dev/gemini-api/docs/models/gemini)
 - [x] OpenAI ChatGPT 系列模型
     - [x] [OpenAI](https://platform.openai.com/docs/guides/gpt/chat-completions-api)
     - [x] [Deep-Seek](https://platform.deepseek.com/api-docs/zh-cn/)
@@ -73,16 +53,15 @@
     - [x] [阿里通义DashScope](https://help.aliyun.com/zh/dashscope/developer-reference/compatibility-of-openai-with-dashscope)
     - [x] [Azure OpenAI](https://learn.microsoft.com/zh-cn/azure/ai-services/openai/reference)
     - [x] [Llama Family](https://llama.family/docs/chat-completion-v1)
-    
+    - [x] [groq](https://console.groq.com/docs/text-chat)
 - [x] [MiniMax](https://platform.minimaxi.com/document/guides/chat-model/pro)
 - [x] 字节coze
     - [x] [扣子(coze.cn)](https://www.coze.cn/docs/developer_guides/coze_api_overview)
     - [x] [扣子(coze.com)](https://www.coze.com/docs/developer_guides/coze_api_overview)
-
 - [x] [字节火山方舟](https://www.volcengine.com/docs/82379/1263482)
 - [x] [ollama](https://github.com/ollama/ollama/blob/main/docs/api.md)
 
-如果兼容OpenAI的接口，那么直接就可以使用了。参考文档[docs/兼容OpenAI模型协议接入指南.md](docs/兼容OpenAI模型协议接入指南.md)
+如果兼容某个参加已经支持OpenAI的接口，那么可以在simple-one-api中直接使用。参考文档[docs/兼容OpenAI模型协议接入指南.md](docs/兼容OpenAI模型协议接入指南.md)
 
 ### 支持的功能
 - 支持配置多个模型，可以随机负载均衡
@@ -93,6 +72,8 @@
 - 支持每一种模型服务设置服务的地址
 - 兼容支持OpenAI的接口，同时支持/v1和/v1/chat/completions两种路径
 - 对于不支持system的模型，simple-one-api会放到第一个prompt中直接兼容（更加统一，例如沉浸式翻译中如果system，不支持system的模型也能正常调用）
+- 支持全局代理模式
+- 支持每个service设置qps或qpm或者concurrency
 
 ### 更新日志
 
@@ -125,25 +106,22 @@ chmod +x quick_build.sh
 将会在当前目录生成`simple-one-api`
 
 **Windows**
-
+双击`quick_build.bat`执行
 ```bat
 quick_build.bat
 ```
 
 将会在当前目录生成`simple-one-api.exe`
 
-#### 交叉编译不同平台版本：
+**交叉编译不同平台版本**
 
-有时需要编译不同平台的版本，可以到`cmd/simple-one-api`进行编译。
-
-确保安装好go之后，进入到`cmd/simple-one-api`进行编译。
+有时需要编译不同平台的版本，比如windows、linux、macOS； 确保安装好go之后，执行`build.sh`
 
  ```shell
- cd cmd/simple-one-api
  chmod +x build.sh
  ./build.sh
  ```
-会自动编译出对于不同的平台的可执行文件。
+会自动编译出对于以上3中平台不同架构的可执行文件，生成在`build`目录中。
 
 
 
@@ -188,6 +166,18 @@ docker logs -f <container_id>
 ```
 其中，<container_id> 是容器的 ID，可以通过 docker ps 命令查看。
 
+#### Docker Compose 启动步骤
+
+1. **配置文件**：在`docker-compose.yml`中首先确保你已经将你的 `config.json` 文件的路径替换成了正确的绝对路径。
+2. **启动容器**：
+   使用 Docker Compose 启动服务，你可以在包含 `docker-compose.yml` 文件的目录下运行以下命令：
+   ```sh
+   docker-compose up -d
+   ```
+   这个命令会在后台启动 `simple-one-api` 服务。
+
+其他查看命令参考docker-compose的文档。
+
 ### 其他启动方式
 其他启动方式:
 - [nohup启动](docs/startup/nohup_startup.md)
@@ -205,7 +195,7 @@ docker logs -f <container_id>
 
 ```json
 {
-    "load_balancing": "first",
+    "load_balancing": "random",
     "services": {
       "xinghuo": [
         {
@@ -222,15 +212,19 @@ docker logs -f <container_id>
 }
 ```
 
+其他模型的配置文件示例可以参考
+
 ## 配置文件说明
 
 参考文档：[config.json详细说明](docs/config.json详细说明.md)
 
+各个厂商详细的配置说明：[https://github.com/fruitbars/simple-one-api/tree/main/docs](https://github.com/fruitbars/simple-one-api/tree/main/docs)
 
+各个厂商详细的示例config：[https://github.com/fruitbars/simple-one-api/tree/main/samples](https://github.com/fruitbars/simple-one-api/tree/main/samples)
 
 ### 比较完整的配置文件示例
 
-以下是一个完整的配置示例，涵盖了多个大模型平台和不同模型：
+具体文档查看[config.json详细说明.md](docs/config.json详细说明.md),以下是一个完整的配置示例，涵盖了多个大模型平台和不同模型：
 
 ```json
 {
@@ -300,7 +294,9 @@ docker logs -f <container_id>
 
 ### 是否支持并发限制？
 
-支持，参考如下配置，免费的讯飞星火spark-lite模型，有2qps限制，因此可以这么设置
+具体文档查看[config.json详细说明.md](docs/config.json详细说明.md)
+
+参考如下配置，免费的讯飞星火spark-lite模型，有2qps限制，因此可以这么设置：
 
 ```json
 {
@@ -325,6 +321,38 @@ docker logs -f <container_id>
     ]
   }
 }
+```
+
+### 如何设置代理
+
+目前只支持程序全局代理，假设我们有本地代理`http://127.0.0.1:7890`，可以按照如下方式设置
+
+```
+{
+  "server_port": ":9099",
+  "log_level": "prod",
+  "load_balancing": "random",
+  "proxy":{
+    "http_proxy":"http://127.0.0.1:7890",
+    "https_proxy":"http://127.0.0.1:7890"
+  },
+  "services": {
+    "gemini": [
+      {
+        "models": ["gemini-1.5-flash"],
+        "enabled": true,
+        "credentials": {
+          "api_key": "xxx"
+        },
+        "limit": {
+          "rpm": 15,
+          "timeout":120
+        }
+      }
+    ]
+  }
+}
+
 ```
 
 
