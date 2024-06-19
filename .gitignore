@@ -11,6 +11,16 @@ simple-one-api/build
 simple-one-api/myconfigs
 simple-one-api/docker_build_push.sh
 
+./simple-one-api
+./build
+./build/*
+./myconfigs
+./myconfigs/*
+./docker_build_push.sh
+README.CN.EN.md
+build/
+simple-one-api
+
 # 日志文件
 *.log
 
@@ -21,7 +31,8 @@ simple-one-api/docker_build_push.sh
 *.swp
 
 
-simple-one-api//README.CN.EN.md
+simple-one-api/README.CN.EN.md
+README.CN.EN.md
 # Go编译缓存目录
 
 ./simple-one-api
