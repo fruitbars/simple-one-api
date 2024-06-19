@@ -6,6 +6,10 @@
 *.dylib
 *.test
 *.out
+simple-one-api/simple-one-api
+simple-one-api/build
+simple-one-api/myconfigs
+simple-one-api/docker_build_push.sh
 
 # 日志文件
 *.log
@@ -16,20 +20,22 @@
 *.bak
 *.swp
 
+
+simple-one-api//README.CN.EN.md
 # Go编译缓存目录
-./README.CN.EN.md
+
 ./simple-one-api
 /go-build/
 /.gocache/
 cmd/simple-one-api/build
-cmd/simple-one-api/myconfigs
-cmd/simple-one-api/myconfigs/config.json
-cmd/simple-one-api/myconfigs/config_cozecn.json
-cmd/simple-one-api/myconfigs/config_cloudflare.json
+myconfigs
+myconfigs/config.json
+myconfigs/config_cozecn.json
+myconfigs/config_cloudflare.json
 cmd/simple-one-api/config_*.json
 cmd/simple-one-api/simple-one-api
 cmd/simple-one-api/build.zip
-cmd/simple-one-api/docker_build_push.sh
+docker_build_push.sh
 
 # 编译器生成的二进制文件
 main
