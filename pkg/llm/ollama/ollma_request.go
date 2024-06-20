@@ -3,7 +3,7 @@ package ollama
 type ChatRequest struct {
 	Model     string               `json:"model"`
 	Messages  []Message            `json:"messages"`
-	Stream    bool                 `json:"stream,omitempty"`
+	Stream    bool                 `json:"stream"`
 	Format    string               `json:"format,omitempty"`
 	Options   AdvancedModelOptions `json:"options,omitempty"`
 	KeepAlive string               `json:"keep_alive,omitempty"`
