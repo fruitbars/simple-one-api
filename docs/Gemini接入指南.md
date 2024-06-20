@@ -1,10 +1,8 @@
 # Gemini接入指南
 
-文档地址：https://ai.google.dev/gemini-api/docs/models/gemini
+文档地址：https://ai.google.dev/gemini-api/docs/api-overview
 
 后台地址：https://aistudio.google.com/app/apikey
-
-![img.png](asset/groqimg.png)
 
 ## 在simple-one-api中使用
 
