@@ -153,6 +153,7 @@ func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx cont
 	resp, err := client.CreateChatCompletion(ctx, req)
 	if err != nil {
 		mylog.Logger.Error("An error occurred",
+			zap.Any("req", req),
 			zap.Error(err))
 		return err
 	}
