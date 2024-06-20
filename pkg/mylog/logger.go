@@ -25,6 +25,7 @@ func InitLog(mode string) {
 		encoderConfig = zap.NewDevelopmentEncoderConfig()
 		level = zapcore.DebugLevel
 	default:
+		log.Println("level mode default prod")
 		encoderConfig = zap.NewDevelopmentEncoderConfig()
 		level = zapcore.WarnLevel
 	}
@@ -37,8 +38,10 @@ func InitLog(mode string) {
 	// 根据需要选择输出为JSON或控制台格式
 	if mode == "prodj" || mode == "prodjson" || mode == "productionjson" {
 		encoder = zapcore.NewJSONEncoder(encoderConfig)
+		log.Println("log json format")
 	} else {
 		encoder = zapcore.NewConsoleEncoder(encoderConfig)
+		log.Println("log plain-text format")
 	}
 
 	// 创建日志核心
