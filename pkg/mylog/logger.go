@@ -26,7 +26,7 @@ func InitLog(mode string) {
 		level = zapcore.DebugLevel
 	default:
 		encoderConfig = zap.NewDevelopmentEncoderConfig()
-		level = zapcore.DebugLevel
+		level = zapcore.WarnLevel
 	}
 
 	// 设置时间键和时间格式
