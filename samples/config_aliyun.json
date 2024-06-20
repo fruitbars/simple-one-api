@@ -1,5 +1,4 @@
 {
-  "server_port": ":9099",
   "load_balancing": "random",
   "services": {
     "openai": [

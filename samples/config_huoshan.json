@@ -1,5 +1,5 @@
 {
-  "server_port": ":9099",
+  "server_port": ":9090",
   "load_balancing": "random",
   "services": {
     "huoshan": [
