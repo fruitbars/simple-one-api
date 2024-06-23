@@ -19,6 +19,7 @@ var ServerPort string
 var APIKey string
 var Debug bool
 var LogLevel string
+var SuppertModels map[string]string
 
 type Limit struct {
 	QPS         int `json:"qps"`
@@ -64,6 +65,7 @@ type ModelDetails struct {
 // 创建模型到服务的映射
 func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 	modelToService := make(map[string][]ModelDetails)
+	SuppertModels = make(map[string]string)
 	for serviceName, serviceModels := range config.Services {
 		for _, model := range serviceModels {
 			if model.Enabled {
@@ -106,6 +108,17 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 						ServiceModel: model,
 					}
 					modelToService[modelName] = append(modelToService[modelName], detail)
+
+					//存储支持的模型名称列表
+					SuppertModels[modelName] = modelName
+					for k, v := range detail.ModelRedirect {
+						SuppertModels[k] = v
+
+						_, exists := SuppertModels[v]
+						if exists {
+							delete(SuppertModels, v)
+						}
+					}
 				}
 			}
 		}

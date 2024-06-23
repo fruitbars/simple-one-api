@@ -4,6 +4,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"log"
+	"simple-one-api/pkg/apis"
 	"simple-one-api/pkg/mylog"
 
 	//"log"
@@ -56,6 +57,10 @@ func main() {
 
 	// 添加POST请求方法处理
 	r.POST("/v1/chat/completions", handler.OpenAIHandler)
+	r.GET("/v1/models", apis.ModelsHandler)
+	r.GET("/v1/models/:model", apis.RetrieveModelHandler)
+
+	//r.POST("/v1/audio/speech", text2speech.CreateSpeechHandler)
 
 	// 启动服务器，使用配置中的端口
 	err = r.Run(config.ServerPort)
