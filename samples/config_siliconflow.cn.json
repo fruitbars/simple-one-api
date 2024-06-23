@@ -22,7 +22,7 @@
           "zhipuai/glm4-9B-chat"],
         "enabled": true,
         "credentials": {
-          "api_key": "sk-fphodokxnhdikuxuhwhritnjaypqbdzlgzgewnibjptetbwp"
+          "api_key": "xxx"
         },
         "model_redirect": {
           "deepseek-v2-chat": "deepseek-ai/deepseek-v2-chat",
@@ -30,6 +30,7 @@
         },
         "server_url":"https://api.siliconflow.cn/v1/chat/completions"
       }
+
     ]
   }
 }
