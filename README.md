@@ -14,17 +14,17 @@
 
 ### 免费大模型列表
 
-| 大模型                | 免费版本                                                     | 免费限制                                                     | 控制台（api_key等）                                          | 文档地址                                                     |
-| --------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| 讯飞星火大模型        | `spark-lite`                                                 | tokens：总量无限<br/>QPS：2<br/>有效期：不限                 | [访问链接](https://console.xfyun.cn/services/cbm)            | [文档查看](https://www.xfyun.cn/doc/spark/Web.html)          |
-| 百度千帆大模型平台    | `yi_34b_chat`, `ERNIE-Speed-8K`, `ERNIE-Speed-128K`, `ERNIE-Lite-8K`, `ERNIE-Lite-8K-0922`, `ERNIE-Tiny-8K` | Lite、Speed-8K：RPM = 300，TPM = 300000<br/>Speed-128K：RPM = 60，TPM = 300000 | [访问链接](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application) | [文档查看](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf) |
-| 腾讯混元大模型        | `hunyuan-lite`                                               | 限制并发数为 5 路                                            | [访问链接](https://console.cloud.tencent.com/cam/capi)       | [链接](https://cloud.tencent.com/document/api/1729/105701)   |
-| Cloudflare Workers AI | `所有模型`                                                   | 免费可以每天使用1万次，一个月可以30万次；测试版本本的模型无限制 | [访问链接](https://dash.cloudflare.com/)                     | [文档查看](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/) |
-| 字节扣子(coze.cn)     | 豆包·Function call模型(32K)、通义千问-Max(8K)、MiniMax 6.5s(245K)、Moonshot（8K）、Moonshot（32K）、Moonshot（128K） | 当前扣子 API 免费供开发者使用，每个空间的 API 请求限额如下：QPS (每秒发送的请求数)：2<br/>QPM (每分钟发送的请求数)：60<br/>QPD (每天发送的请求数)：3000 | [访问链接](https://www.coze.cn/space)                        | [文档查看](https://www.coze.cn/docs/developer_guides/coze_api_overview) |
-| 字节火山方舟          | doubao系列、Moonshot系列等                                   | 2024年5月15日至8月30日期间，为您提供一次独特的机会，即高达5亿tokens的免费权益。 | [访问链接](https://www.volcengine.com/docs/82379/1263512)    | [文档查看](https://www.volcengine.com/docs/82379/1263512)    |
-| Llama Family          | "Atom-13B-Chat","Atom-7B-Chat","Atom-1B-Chat","Llama3-Chinese-8B-Instruct" | 1.每天 8-22 点：接口限速每分钟 20 次并发<br/>2.每天 22-次日 8 点：接口限速每分钟 50 次并发 | [访问链接](https://llama.family/docs/secret)                 | [文档查看](https://llama.family/docs/chat-completion-v1)     |
-| groq                  | gemma-7b-it、mixtral-8x7b-32768、llama3-70b-8192、llama3-8b-8192 | rpm为30，rpd为14400，TOKENS PER MINUTE也有限制               | [访问链接](https://console.groq.com/keys)                    | [文档查看](https://console.groq.com/docs/text-chat)          |
-| Google Gemini         | gemini-1.5-pro、gemini-1.5-flash、gemini-1.0-pro、gemini-pro-vision           | 15RPM（每分钟请求数）;100万 TPM（每分钟令牌）;1500 RPD（每天请求数）                | [访问链接](https://aistudio.google.com/app/apikey) | [文档查看](https://ai.google.dev/gemini-api/docs/models/gemini)                               |
+| 大模型                   | 免费版本                                                                                                        | 免费限制                                                                                               | 控制台（api_key等）                                                                            | 文档地址                                                                                      |
+|-----------------------|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| 讯飞星火大模型               | `spark-lite`                                                                                                | tokens：总量无限<br/>QPS：2<br/>有效期：不限                                                                   | [访问链接](https://console.xfyun.cn/services/cbm)                                            | [文档查看](https://www.xfyun.cn/doc/spark/Web.html)                                           |
+| 百度千帆大模型平台             | `yi_34b_chat`, `ERNIE-Speed-8K`, `ERNIE-Speed-128K`, `ERNIE-Lite-8K`, `ERNIE-Lite-8K-0922`, `ERNIE-Tiny-8K` | Lite、Speed-8K：RPM = 300，TPM = 300000<br/>Speed-128K：RPM = 60，TPM = 300000                          | [访问链接](https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application) | [文档查看](https://cloud.baidu.com/doc/WENXINWORKSHOP/s/klqx7b1xf)                            |
+| 腾讯混元大模型               | `hunyuan-lite`                                                                                              | 限制并发数为 5 路                                                                                         | [访问链接](https://console.cloud.tencent.com/cam/capi)                                       | [链接](https://cloud.tencent.com/document/api/1729/105701)                                  |
+| Cloudflare Workers AI | `所有模型`                                                                                                      | 免费可以每天使用1万次，一个月可以30万次；测试版本本的模型无限制                                                                  | [访问链接](https://dash.cloudflare.com/)                                                     | [文档查看](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/) |
+| 字节扣子(coze.cn)         | 豆包·Function call模型(32K)、通义千问-Max(8K)、MiniMax 6.5s(245K)、Moonshot（8K）、Moonshot（32K）、Moonshot（128K）           | 当前扣子 API 免费供开发者使用，每个空间的 API 请求限额如下：QPS (每秒发送的请求数)：2<br/>QPM (每分钟发送的请求数)：60<br/>QPD (每天发送的请求数)：3000 | [访问链接](https://www.coze.cn/space)                                                        | [文档查看](https://www.coze.cn/docs/developer_guides/coze_api_overview)                       |
+| 字节火山方舟                | doubao系列、Moonshot系列等                                                                                        | 2024年5月15日至8月30日期间，为您提供一次独特的机会，即高达5亿tokens的免费权益。                                                   | [访问链接](https://www.volcengine.com/docs/82379/1263512)                                    | [文档查看](https://www.volcengine.com/docs/82379/1263512)                                     |
+| Llama Family          | "Atom-13B-Chat","Atom-7B-Chat","Atom-1B-Chat","Llama3-Chinese-8B-Instruct"                                  | 1.每天 8-22 点：接口限速每分钟 20 次并发<br/>2.每天 22-次日 8 点：接口限速每分钟 50 次并发                                       | [访问链接](https://llama.family/docs/secret)                                                 | [文档查看](https://llama.family/docs/chat-completion-v1)                                      |
+| groq                  | gemma-7b-it、mixtral-8x7b-32768、llama3-70b-8192、llama3-8b-8192                                               | rpm为30，rpd为14400，TOKENS PER MINUTE也有限制                                                             | [访问链接](https://console.groq.com/keys)                                                    | [文档查看](https://console.groq.com/docs/text-chat)                                           |
+| Google Gemini         | gemini-1.5-pro、gemini-1.5-flash、gemini-1.0-pro、gemini-pro-vision                                            | 15RPM（每分钟请求数）;100万 TPM（每分钟令牌）;1500 RPD（每天请求数）                                                      | [访问链接](https://aistudio.google.com/app/apikey)                                           | [文档查看](https://ai.google.dev/gemini-api/docs/models/gemini)                               |
 
 #### 各个模型详细的申请和接入流程
 为了更加方便申请和接入，也整理了各个模型的接入指南，可以查阅：
@@ -58,6 +58,7 @@
     - [x] [Azure OpenAI](https://learn.microsoft.com/zh-cn/azure/ai-services/openai/reference)
     - [x] [Llama Family](https://llama.family/docs/chat-completion-v1)
     - [x] [groq](https://console.groq.com/docs/text-chat)
+    - [x] [零一万物](https://platform.lingyiwanwu.com/docs)
 - [x] [MiniMax](https://platform.minimaxi.com/document/guides/chat-model/pro)
 - [x] 字节coze
     - [x] [扣子(coze.cn)](https://www.coze.cn/docs/developer_guides/coze_api_overview)
@@ -78,6 +79,7 @@
 - 对于不支持system的模型，simple-one-api会放到第一个prompt中直接兼容（更加统一，例如沉浸式翻译中如果system，不支持system的模型也能正常调用）
 - 支持全局代理模式
 - 支持每个service设置qps或qpm或者concurrency
+- 支持`/v1/models`和`/v1/models/:model`接口
 
 ### 更新日志
 
@@ -97,7 +99,7 @@ git clone https://github.com/fruitbars/simple-one-api.git
 
 #### 快速编译使用
 
-首先得确保你已经安装了go，版本需要是1.18以上，具体安装教程参考官网地址：[https://go.dev/doc/install](https://go.dev/doc/install)
+首先得确保你已经安装了go，版本需要是1.21以上，具体安装教程参考官网地址：[https://go.dev/doc/install](https://go.dev/doc/install)
 可以通过`go version`查看go的版本。
 
 **linux/macOS**
@@ -333,7 +335,7 @@ docker logs -f <container_id>
 
 ```
 {
-  "server_port": ":9099",
+  "server_port": ":9090",
   "log_level": "prod",
   "load_balancing": "random",
   "proxy":{
@@ -444,4 +446,4 @@ docker logs -f <container_id>
 
 ## 贡献
 
-我们欢迎任何形式的贡献。如果你有任何建议或发现了问题，请通过提交 issue 或 pull request 的方式与我们联系。
+我们欢迎任何形式的贡献。如果你有任何建议或发现了问题，请通过提交 issue 或 pull request 的方式与我们联系。œ
