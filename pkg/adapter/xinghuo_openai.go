@@ -5,6 +5,7 @@ import (
 	"github.com/fruitbars/gosparkclient"
 	"github.com/sashabaranov/go-openai"
 	"log"
+	"simple-one-api/pkg/mylog"
 	myopenai "simple-one-api/pkg/openai"
 	"time"
 )
@@ -58,9 +59,9 @@ func OpenAIRequestToXingHuoRequest(openAIReq openai.ChatCompletionRequest) *gosp
 		}
 
 	case map[string]interface{}:
-		log.Println("ToolChoice is an object, ignore")
+		mylog.Logger.Warn("ToolChoice is an object, ignore")
 	default:
-		log.Println("Unhandled type, ignore")
+		mylog.Logger.Warn("Unhandled type, ignore")
 	}
 
 	return &sparkChatReq

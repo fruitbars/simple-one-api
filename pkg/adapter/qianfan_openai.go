@@ -2,9 +2,10 @@ package adapter
 
 import (
 	"github.com/sashabaranov/go-openai"
-	"log"
+	"go.uber.org/zap"
 	"simple-one-api/pkg/common"
 	baiduqianfan "simple-one-api/pkg/llm/baidu-qianfan"
+	"simple-one-api/pkg/mylog"
 	myopenai "simple-one-api/pkg/openai"
 	"strings"
 )
@@ -54,7 +55,7 @@ func qianFanCheckMaxTokens(model string, maxtokens int) int {
 			return validateMaxTokens(maxtokens, config.Min, config.Max, config.DefaultMax)
 		}
 	}
-	log.Println("Unknown model prefix")
+	mylog.Logger.Warn("Unknown model prefix")
 	return 0
 }
 
@@ -152,7 +153,7 @@ func QianFanResponseToOpenAIResponse(qfResp *baiduqianfan.QianFanResponse) *myop
 	oaResp := myopenai.OpenAIResponse{
 		ID:                qfResp.ID,
 		Object:            qfResp.Object,
-		Created:           int64(qfResp.Created),
+		Created:           qfResp.Created,
 		Model:             "", // 假定使用的模型
 		SystemFingerprint: "", // 假定一个系统指纹
 		Usage: &myopenai.Usage{
@@ -180,7 +181,7 @@ func QianFanResponseToOpenAIResponse(qfResp *baiduqianfan.QianFanResponse) *myop
 	// 将 Choice 添加到 Choices 数组
 	oaResp.Choices = append(oaResp.Choices, choice)
 
-	log.Println(oaResp)
+	mylog.Logger.Info("resp", zap.Any("oaResp", oaResp))
 
 	return &oaResp
 }
@@ -188,8 +189,7 @@ func QianFanResponseToOpenAIResponse(qfResp *baiduqianfan.QianFanResponse) *myop
 func QianFanResponseToOpenAIStreamResponse(qfResp *baiduqianfan.QianFanResponse) *myopenai.OpenAIStreamResponse {
 	// 创建一个 OpenAIResponse 实例
 	if qfResp.ErrorCode != 0 && len(qfResp.ErrorMsg) > 0 {
-
-		log.Println("something error")
+		mylog.Logger.Error("something error")
 		return &myopenai.OpenAIStreamResponse{
 			//ID: qfResp.ID,
 			Error: &myopenai.ErrorDetail{
@@ -236,7 +236,7 @@ func QianFanResponseToOpenAIStreamResponse(qfResp *baiduqianfan.QianFanResponse)
 
 	oaResp.Choices = append(oaResp.Choices, choice)
 
-	log.Println(oaResp)
+	mylog.Logger.Info("resp", zap.Any("resp", oaResp))
 
 	return &oaResp
 }
