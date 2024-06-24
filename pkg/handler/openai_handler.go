@@ -35,6 +35,7 @@ var serviceHandlerMap = map[string]func(*gin.Context, *config.ModelDetails, open
 	"ollama":   OpenAI2OllamaHandler,
 	"groq":     OpenAI2GroqOpenAIHandler,
 	"gemini":   OpenAI2GeminiHandler,
+	"aliyun":   OpenAI2OpenAIHandler,
 }
 
 func LogRequestBody(c *gin.Context) {
