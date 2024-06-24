@@ -2,66 +2,42 @@ package adapter
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
-	cozecn2 "simple-one-api/pkg/llm/devplatform/cozecn"
+	"simple-one-api/pkg/common"
+	"simple-one-api/pkg/llm/devplatform/cozecn"
 	myopenai "simple-one-api/pkg/openai"
 	"strings"
 	"time"
 )
 
-func OpenAIRequestToCozecnRequest(oaiReq openai.ChatCompletionRequest) *cozecn2.CozeRequest {
-	var query string
-	var cozeMessages []cozecn2.Message
+func OpenAIRequestToCozecnRequest(oaiReq openai.ChatCompletionRequest) *cozecn.CozeRequest {
 
-	// Check if there are any messages
-	if len(oaiReq.Messages) > 0 {
-		hisMessagesLen := len(oaiReq.Messages)
-		// If the first message is of role "system", skip it
-		startIndex := 0
-		if strings.ToLower(oaiReq.Messages[0].Role) == "system" {
-			startIndex = 1
+	hisMessages := common.ConvertSystemMessages2NoSystem(oaiReq.Messages)
 
-			query = oaiReq.Messages[0].Content + "\n"
+	cozeMessages := make([]cozecn.Message, 0, len(hisMessages)-1)
+	query := oaiReq.Messages[len(hisMessages)-1].Content // 最后一条消息作为查询
 
-			hisMessagesLen--
+	for i := 0; i < len(hisMessages)-1; i++ {
+		msg := oaiReq.Messages[i]
+		mt := ""
+		if strings.ToLower(msg.Role) == "assistant" {
+			mt = "answer"
 		}
 
-		// Get the last message and use it as the query
-		lastMsg := oaiReq.Messages[len(oaiReq.Messages)-1]
-		query += lastMsg.Content
-		hisMessagesLen--
-
-		if hisMessagesLen > 0 {
-			hisMessages := oaiReq.Messages[startIndex : hisMessagesLen-1]
-
-			// Convert all previous messages to coze messages
-			if len(hisMessages) > 1 {
-				cozeMessages = make([]cozecn2.Message, hisMessagesLen)
-				for i, msg := range hisMessages {
-					mt := ""
-					if strings.ToLower(msg.Role) == "assistant" {
-						mt = "answer"
-					}
-
-					cozeMessages[i] = cozecn2.Message{
-						Role:        msg.Role,
-						Type:        mt,
-						Content:     msg.Content,
-						ContentType: "text",
-					}
-				}
-			}
-		}
-
+		cozeMessages = append(cozeMessages, cozecn.Message{
+			Role:        msg.Role,
+			Type:        mt,
+			Content:     msg.Content,
+			ContentType: "text",
+		})
 	}
 
 	user := oaiReq.User
 	if user == "" {
-		user = uuid.New().String()
+		user = "12345678"
 	}
 
-	return &cozecn2.CozeRequest{
+	return &cozecn.CozeRequest{
 		ConversationID: "123",        // Assuming a static conversation ID
 		BotID:          oaiReq.Model, // Assuming the model as the bot ID
 		User:           user,
@@ -71,7 +47,7 @@ func OpenAIRequestToCozecnRequest(oaiReq openai.ChatCompletionRequest) *cozecn2.
 	}
 }
 
-func CozecnReponseToOpenAIResponse(resp *cozecn2.Response) *myopenai.OpenAIResponse {
+func CozecnReponseToOpenAIResponse(resp *cozecn.Response) *myopenai.OpenAIResponse {
 	if resp.Code != 0 {
 		return &myopenai.OpenAIResponse{
 			ID: resp.ConversationID,
@@ -115,7 +91,7 @@ func CozecnReponseToOpenAIResponse(resp *cozecn2.Response) *myopenai.OpenAIRespo
 	}
 }
 
-func CozecnReponseToOpenAIResponseStream(resp *cozecn2.StreamResponse) *myopenai.OpenAIStreamResponse {
+func CozecnReponseToOpenAIResponseStream(resp *cozecn.StreamResponse) *myopenai.OpenAIStreamResponse {
 	var choices []myopenai.OpenAIStreamResponseChoice
 
 	if resp.Event == "message" {
