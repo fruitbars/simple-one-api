@@ -102,6 +102,14 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 				log.Printf("Models: %v, Timeout: %v, QPS: %v, QPM: %v, RPM: %v,Concurrency: %v\n",
 					model.Models, model.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.RPM, model.Limit.Concurrency)
 
+				if len(model.Models) == 0 {
+					dmv, exists := DefaultSupportModelMap[serviceName]
+					if exists {
+						model.Models = dmv
+						log.Println("use default support models:", dmv)
+					}
+				}
+
 				for _, modelName := range model.Models {
 					detail := ModelDetails{
 						ServiceName:  serviceName,
