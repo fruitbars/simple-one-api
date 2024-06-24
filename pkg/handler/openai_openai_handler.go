@@ -122,6 +122,7 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 	for {
 		response, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
+			mylog.Logger.Info(err.Error())
 			return nil
 		} else if err != nil {
 			mylog.Logger.Error("An error occurred",

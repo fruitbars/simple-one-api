@@ -21,6 +21,7 @@ var APIKey string
 var Debug bool
 var LogLevel string
 var SuppertModels map[string]string
+var GlobalModelRedirect map[string]string
 
 type Limit struct {
 	QPS         int `json:"qps"`
@@ -54,6 +55,7 @@ type Configuration struct {
 	} `json:"proxy"`
 	APIKey        string                    `json:"api_key"`
 	LoadBalancing string                    `json:"load_balancing"`
+	ModelRedirect map[string]string         `json:"model_redirect"`
 	Services      map[string][]ServiceModel `json:"services"`
 }
 
@@ -208,6 +210,9 @@ func InitConfig(configName string) error {
 	// 创建映射
 	ModelToService = createModelToServiceMap(conf)
 
+	GlobalModelRedirect = conf.ModelRedirect
+
+	log.Println("GlobalModelRedirect: ", GlobalModelRedirect)
 	//
 	ShowSupportModels()
 
@@ -296,6 +301,21 @@ func GetModelMapping(s *ModelDetails, model string) string {
 // GetModelMapping 函数，根据model在ModelMap中查找对应的映射，如果找不到则返回原始model
 func GetModelRedirect(s *ModelDetails, model string) string {
 	if redirectModel, exists := s.ModelRedirect[model]; exists {
+		return redirectModel
+	}
+	return model
+}
+
+// GetModelMapping 函数，根据model在ModelMap中查找对应的映射，如果找不到则返回原始model
+func GetGlobalModelRedirect(model string) string {
+	if redirectModel, exists := GlobalModelRedirect[KEYNAME_ALL]; exists {
+		if redirectModel == KEYNAME_ALL {
+			return KEYNAME_RANDOM
+		}
+		return redirectModel
+	}
+
+	if redirectModel, exists := GlobalModelRedirect[model]; exists {
 		return redirectModel
 	}
 	return model

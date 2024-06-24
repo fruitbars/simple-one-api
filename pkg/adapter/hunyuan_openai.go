@@ -6,8 +6,9 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
 	hunyuan "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/hunyuan/v20230901"
-	"log"
+	"go.uber.org/zap"
 	tecenthunyuan "simple-one-api/pkg/llm/tecent-hunyuan"
+	"simple-one-api/pkg/mylog"
 	myopenai "simple-one-api/pkg/openai"
 	"simple-one-api/pkg/utils"
 	"strings"
@@ -19,7 +20,8 @@ func OpenAIRequestToHunYuanRequest(oaiReq openai.ChatCompletionRequest) *hunyuan
 	model := oaiReq.Model
 	request.Model = common.StringPtr(model)
 
-	log.Println(oaiReq.Messages)
+	mylog.Logger.Info("messages", zap.Any("oaiReq.Messages", oaiReq.Messages))
+
 	for i, msg := range oaiReq.Messages {
 		//超级对齐，多余的system直接删除
 		if strings.ToLower(msg.Role) == "system" && i > 0 {

@@ -93,6 +93,11 @@ func handleOpenAIRequest(c *gin.Context, oaiReq openai.ChatCompletionRequest) {
 
 	clientModel := oaiReq.Model
 
+	//全局模型重定向名称
+	gRedirectModel := config.GetGlobalModelRedirect(clientModel)
+
+	oaiReq.Model = gRedirectModel
+
 	s, modelName, err := getModelDetails(oaiReq)
 	if err != nil {
 		mylog.Logger.Error(err.Error())
@@ -100,7 +105,15 @@ func handleOpenAIRequest(c *gin.Context, oaiReq openai.ChatCompletionRequest) {
 		return
 	}
 
+	//模型重定向名称
 	oaiReq.Model = config.GetModelRedirect(s, modelName)
+
+	mylog.Logger.Info("Service details",
+		zap.String("service_name", s.ServiceName),
+		zap.String("client_model", clientModel),
+		zap.String("g_redirect_model", gRedirectModel),
+		zap.String("real_model_name", modelName),
+		zap.String("last_model", oaiReq.Model))
 
 	timeout := s.Timeout
 	if timeout <= 0 {
@@ -176,13 +189,6 @@ func handleOpenAIRequest(c *gin.Context, oaiReq openai.ChatCompletionRequest) {
 
 	}
 
-	// 假设 logger 是一个已经配置好的 zap.Logger 实例
-	mylog.Logger.Info("Service details",
-		zap.String("service_name", s.ServiceName), // 假设 s.ServiceName 是 string 类型
-		zap.String("client_model", clientModel),   // 假设 clientModel 是 string 类型
-		zap.String("real_model_name", modelName),  // 假设 modelName 是 string 类型
-		zap.String("last_model", oaiReq.Model))    // 假设 oaiReq.Model 是 string 类型
-
 	if err := dispatchToServiceHandler(c, s, oaiReq); err != nil {
 		//mylog.Logger.Error(err.Error())
 		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
@@ -224,7 +230,7 @@ func validateAPIKey(c *gin.Context) error {
 }
 
 func getModelDetails(oaiReq openai.ChatCompletionRequest) (*config.ModelDetails, string, error) {
-	if oaiReq.Model == "random" {
+	if oaiReq.Model == config.KEYNAME_RANDOM {
 		return config.GetRandomEnabledModelDetailsV1()
 	}
 	s, err := config.GetModelService(oaiReq.Model)

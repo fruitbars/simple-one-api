@@ -9,3 +9,6 @@ const KEYNAME_APPID = "appid"
 const KEYNAME_API_SECRET = "api_secret"
 const KEYNAME_DOMAIN = "domain"
 const KEYNAME_ACCESS_KEY = "access_key"
+
+const KEYNAME_RANDOM = "random"
+const KEYNAME_ALL = "all"
