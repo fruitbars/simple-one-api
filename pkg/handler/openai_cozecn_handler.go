@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"simple-one-api/pkg/adapter"
@@ -47,7 +48,8 @@ func OpenAI2CozecnHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 
 	// 使用统一的错误处理函数
 	if err := sendRequest(c, secretToken, cozeServerURL, cozecnReq, oaiReq); err != nil {
-		mylog.Logger.Error(err.Error())
+		mylog.Logger.Error(err.Error(), zap.String("cozeServerURL", cozeServerURL),
+			zap.Any("cozecnReq", cozecnReq), zap.Any("oaiReq", oaiReq))
 		return err
 	}
 
