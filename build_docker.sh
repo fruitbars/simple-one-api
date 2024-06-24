@@ -1,25 +1,17 @@
 #!/bin/bash
 
-# 检查是否提供了版本号参数
+# 检查是否传入版本号参数
 if [ -z "$1" ]; then
-    echo "Usage: $0 <version>"
-    exit 1
+  echo "请传入版本号作为参数，例如：./build_and_push.sh v0.8.2"
+  exit 1
 fi
 
-# 定义镜像名称和版本
-IMAGE_NAME="simple-one-api"
-VERSION="$1"
-LATEST="latest"
+# 定义变量
+IMAGE_NAME="fruitbars/simple-one-api"
+TAG=$1
 
-# 创建并使用 Buildx builder
-docker buildx create --name multiarch-builder --use
-docker buildx inspect --bootstrap
+# 构建镜像
+docker build -t $IMAGE_NAME:$TAG .
 
-# 构建并推送多平台镜像
-docker buildx build --platform linux/amd64,linux/arm64 \
-    -t ${IMAGE_NAME}:${VERSION} \
-    -t ${IMAGE_NAME}:${LATEST} \
-    --load .
-
-# 清理 Buildx builder
-docker buildx rm multiarch-builder
+# 打印完成信息
+echo "Docker image $IMAGE_NAME:$TAG built"
