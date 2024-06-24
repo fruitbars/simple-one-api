@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"simple-one-api/pkg/adapter"
+	"simple-one-api/pkg/common"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/llm/devplatform/cozecn"
 	"simple-one-api/pkg/mylog"
@@ -81,6 +82,12 @@ func sendRequest(c *gin.Context, token, url string, request interface{}, oaiReq 
 	}
 	defer resp.Body.Close()
 
+	err = common.CheckStatusCode(resp)
+	if err != nil {
+
+		return err
+	}
+
 	return handleCozecnResponse(c, resp, oaiReq)
 }
 
@@ -94,6 +101,8 @@ func handleCozecnResponse(c *gin.Context, resp *http.Response, oaiReq openai.Cha
 		mylog.Logger.Error(err.Error())
 		return err
 	}
+
+	mylog.Logger.Info("response", zap.String("body", string(body)))
 
 	var respJson cozecn.Response
 	if err := json.Unmarshal(body, &respJson); err != nil {

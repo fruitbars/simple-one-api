@@ -91,12 +91,16 @@ func OpenAIHandler(c *gin.Context) {
 
 func handleOpenAIRequest(c *gin.Context, oaiReq openai.ChatCompletionRequest) {
 
+	clientModel := oaiReq.Model
+
 	s, modelName, err := getModelDetails(oaiReq)
 	if err != nil {
 		mylog.Logger.Error(err.Error())
 		sendErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	oaiReq.Model = config.GetModelRedirect(s, modelName)
 
 	timeout := s.Timeout
 	if timeout <= 0 {
@@ -172,18 +176,8 @@ func handleOpenAIRequest(c *gin.Context, oaiReq openai.ChatCompletionRequest) {
 
 	}
 
-	clientModel := oaiReq.Model
-	if clientModel == "random" {
-		oaiReq.Model = config.GetModelRedirect(s, clientModel)
-	}
-
-	//兼容之前的版本
-	if oaiReq.Model == clientModel {
-		oaiReq.Model = config.GetModelMapping(s, modelName)
-	}
-
 	// 假设 logger 是一个已经配置好的 zap.Logger 实例
-	mylog.Logger.Debug("Service details",
+	mylog.Logger.Info("Service details",
 		zap.String("service_name", s.ServiceName), // 假设 s.ServiceName 是 string 类型
 		zap.String("client_model", clientModel),   // 假设 clientModel 是 string 类型
 		zap.String("real_model_name", modelName),  // 假设 modelName 是 string 类型

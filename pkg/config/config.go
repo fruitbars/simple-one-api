@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"simple-one-api/pkg/utils"
+	"sort"
 	"time"
 )
 
@@ -120,12 +121,17 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 					//存储支持的模型名称列表
 					SuppertModels[modelName] = modelName
 					for k, v := range detail.ModelRedirect {
+						//support models
 						SuppertModels[k] = v
 
 						_, exists := SuppertModels[v]
 						if exists {
 							delete(SuppertModels, v)
 						}
+
+						//
+						modelToService[k] = append(modelToService[k], detail)
+						//delete(modelToService, modelName)
 					}
 				}
 			}
@@ -201,6 +207,9 @@ func InitConfig(configName string) error {
 
 	// 创建映射
 	ModelToService = createModelToServiceMap(conf)
+
+	//
+	ShowSupportModels()
 
 	return nil
 }
@@ -290,4 +299,15 @@ func GetModelRedirect(s *ModelDetails, model string) string {
 		return redirectModel
 	}
 	return model
+}
+
+func ShowSupportModels() {
+	keys := make([]string, 0, len(ModelToService))
+
+	for k := range SuppertModels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys) // 对keys进行排序
+
+	log.Println("other support models:", keys)
 }
