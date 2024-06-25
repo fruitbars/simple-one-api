@@ -225,7 +225,7 @@ func InitConfig(configName string) error {
 	if len(conf.MultiContentModels) > 0 {
 		SupportMultiContentModels = append(SupportMultiContentModels, conf.MultiContentModels...)
 	}
-	log.Println("VisionModels: ", SupportMultiContentModels)
+	log.Println("SupportMultiContentModels: ", SupportMultiContentModels)
 
 	return nil
 }
