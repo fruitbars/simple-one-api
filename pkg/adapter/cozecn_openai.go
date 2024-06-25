@@ -3,8 +3,8 @@ package adapter
 import (
 	"fmt"
 	"github.com/sashabaranov/go-openai"
-	"simple-one-api/pkg/common"
 	"simple-one-api/pkg/llm/devplatform/cozecn"
+	"simple-one-api/pkg/mycommon"
 	myopenai "simple-one-api/pkg/openai"
 	"strings"
 	"time"
@@ -12,7 +12,7 @@ import (
 
 func OpenAIRequestToCozecnRequest(oaiReq openai.ChatCompletionRequest) *cozecn.CozeRequest {
 
-	hisMessages := common.ConvertSystemMessages2NoSystem(oaiReq.Messages)
+	hisMessages := mycommon.ConvertSystemMessages2NoSystem(oaiReq.Messages)
 
 	cozeMessages := make([]cozecn.Message, 0, len(hisMessages)-1)
 	query := oaiReq.Messages[len(hisMessages)-1].Content // 最后一条消息作为查询

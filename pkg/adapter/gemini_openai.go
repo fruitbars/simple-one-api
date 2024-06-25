@@ -2,8 +2,8 @@ package adapter
 
 import (
 	"github.com/sashabaranov/go-openai"
-	"simple-one-api/pkg/common"
 	google_gemini "simple-one-api/pkg/llm/google-gemini"
+	"simple-one-api/pkg/mycommon"
 	myopenai "simple-one-api/pkg/openai"
 	"strings"
 	"time"
@@ -14,7 +14,7 @@ func OpenAIRequestToGeminiRequest(oaiReq openai.ChatCompletionRequest) *google_g
 	var Contents []google_gemini.ContentEntity
 
 	//hisMessagesLen := len(oaiReq.Messages)
-	hisMessages := common.ConvertSystemMessages2NoSystem(oaiReq.Messages)
+	hisMessages := mycommon.ConvertSystemMessages2NoSystem(oaiReq.Messages)
 
 	// 转换聊天消息为 Gemini 的内容条目
 	for _, msg := range hisMessages {

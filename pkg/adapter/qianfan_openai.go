@@ -3,8 +3,8 @@ package adapter
 import (
 	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
-	"simple-one-api/pkg/common"
 	baiduqianfan "simple-one-api/pkg/llm/baidu-qianfan"
+	"simple-one-api/pkg/mycommon"
 	"simple-one-api/pkg/mylog"
 	myopenai "simple-one-api/pkg/openai"
 	"strings"
@@ -63,7 +63,7 @@ func OpenAIRequestToQianFanRequest(oaiReq openai.ChatCompletionRequest) *baiduqi
 	var req baiduqianfan.QianFanRequest
 
 	for _, chatMsg := range req.Messages {
-		qianMsg := common.Message{
+		qianMsg := mycommon.Message{
 			Role:    chatMsg.Role,
 			Content: chatMsg.Content,
 		}

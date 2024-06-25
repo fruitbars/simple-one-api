@@ -3,6 +3,7 @@ package adapter
 import (
 	"encoding/json"
 	"github.com/sashabaranov/go-openai"
+	"simple-one-api/pkg/mylog"
 	myopenai "simple-one-api/pkg/openai"
 )
 
@@ -43,5 +44,24 @@ func OpenAIResponseToOpenAIResponse(resp *openai.ChatCompletionResponse) *myopen
 		SystemFingerprint: resp.SystemFingerprint,
 		Choices:           choices,
 		Usage:             &usage,
+	}
+}
+
+// OpenAIMultiContentRequestToOpenAIContentResponse 转换含多内容消息的请求到单内容响应。
+func OpenAIMultiContentRequestToOpenAIContentResponse(oaiReq *openai.ChatCompletionRequest) {
+	for i := range oaiReq.Messages {
+		msg := &oaiReq.Messages[i]
+		mylog.Logger.Info("1")
+		if len(msg.MultiContent) > 0 && msg.Content == "" {
+			mylog.Logger.Info("2")
+			for _, content := range msg.MultiContent {
+				mylog.Logger.Info(content.Text)
+				if content.Type == openai.ChatMessagePartTypeText {
+					msg.Content = content.Text
+					break
+				}
+			}
+			msg.MultiContent = nil
+		}
 	}
 }
