@@ -1,4 +1,4 @@
-package common
+package mycommon
 
 import (
 	"github.com/sashabaranov/go-openai"

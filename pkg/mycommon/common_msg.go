@@ -1,4 +1,4 @@
-package common
+package mycommon
 
 // Message 定义了对话中的消息结构体
 type Message struct {
