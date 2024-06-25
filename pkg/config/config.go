@@ -3,12 +3,15 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 	"log"
 	"math/rand"
 	"os"
+	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -22,6 +25,7 @@ var Debug bool
 var LogLevel string
 var SuppertModels map[string]string
 var GlobalModelRedirect map[string]string
+var SupportMultiContentModels = []string{"gpt-4o", "gpt-4-turbo", "glm-4v", "gemini-*"}
 
 type Limit struct {
 	QPS         int `json:"qps"`
@@ -33,16 +37,17 @@ type Limit struct {
 
 // ServiceModel 定义相关结构体
 type ServiceModel struct {
-	Models             []string          `json:"models"`
-	Enabled            bool              `json:"enabled"`
-	Credentials        map[string]string `json:"credentials"`
-	ServerURL          string            `json:"server_url"`
-	ModelMap           map[string]string `json:"model_map"`
-	ModelRedirect      map[string]string `json:"model_redirect"`
-	Limit              Limit             `json:"limit"`
-	Limiter            *rate.Limiter     `json:"-"`
-	Timeout            int               `json:"-"`
-	ConcurrencyLimiter chan struct{}     `json:"-"`
+	Models             []string            `json:"models"`
+	Enabled            bool                `json:"enabled"`
+	Credentials        map[string]string   `json:"credentials"`
+	CredentialList     []map[string]string `json:"credential_list"`
+	ServerURL          string              `json:"server_url"`
+	ModelMap           map[string]string   `json:"model_map"`
+	ModelRedirect      map[string]string   `json:"model_redirect"`
+	Limit              Limit               `json:"limit"`
+	Limiter            *rate.Limiter       `json:"-"`
+	Timeout            int                 `json:"-"`
+	ConcurrencyLimiter chan struct{}       `json:"-"`
 }
 
 type Configuration struct {
@@ -53,10 +58,11 @@ type Configuration struct {
 		HTTPProxy  string `json:"http_proxy"`
 		HTTPSProxy string `json:"https_proxy"`
 	} `json:"proxy"`
-	APIKey        string                    `json:"api_key"`
-	LoadBalancing string                    `json:"load_balancing"`
-	ModelRedirect map[string]string         `json:"model_redirect"`
-	Services      map[string][]ServiceModel `json:"services"`
+	APIKey             string                    `json:"api_key"`
+	LoadBalancing      string                    `json:"load_balancing"`
+	MultiContentModels []string                  `json:"multi_content_models"`
+	ModelRedirect      map[string]string         `json:"model_redirect"`
+	Services           map[string][]ServiceModel `json:"services"`
 }
 
 // ModelDetails 结构用于返回模型相关的服务信息
@@ -216,6 +222,11 @@ func InitConfig(configName string) error {
 	//
 	ShowSupportModels()
 
+	if len(conf.MultiContentModels) > 0 {
+		SupportMultiContentModels = append(SupportMultiContentModels, conf.MultiContentModels...)
+	}
+	log.Println("VisionModels: ", SupportMultiContentModels)
+
 	return nil
 }
 
@@ -293,16 +304,20 @@ func GetRandomEnabledModelDetailsV1() (*ModelDetails, string, error) {
 // GetModelMapping 函数，根据model在ModelMap中查找对应的映射，如果找不到则返回原始model
 func GetModelMapping(s *ModelDetails, model string) string {
 	if mappedModel, exists := s.ModelMap[model]; exists {
+		mylog.Logger.Info("model map found", zap.String("model", model), zap.String("mappedModel", mappedModel))
 		return mappedModel
 	}
+	mylog.Logger.Info("no model map found", zap.String("model", model))
 	return model
 }
 
 // GetModelMapping 函数，根据model在ModelMap中查找对应的映射，如果找不到则返回原始model
 func GetModelRedirect(s *ModelDetails, model string) string {
 	if redirectModel, exists := s.ModelRedirect[model]; exists {
+		mylog.Logger.Info("ModelRedirect model found", zap.String("model", model), zap.String("redirectModel", redirectModel))
 		return redirectModel
 	}
+	mylog.Logger.Info(" ModelRedirect no model found", zap.String("model", model))
 	return model
 }
 
@@ -310,14 +325,18 @@ func GetModelRedirect(s *ModelDetails, model string) string {
 func GetGlobalModelRedirect(model string) string {
 	if redirectModel, exists := GlobalModelRedirect[KEYNAME_ALL]; exists {
 		if redirectModel == KEYNAME_ALL {
-			return KEYNAME_RANDOM
+			redirectModel = KEYNAME_RANDOM
 		}
+		mylog.Logger.Info("GlobalModelRedirect model all found", zap.String("model", model), zap.String("redirectModel", redirectModel))
 		return redirectModel
 	}
 
 	if redirectModel, exists := GlobalModelRedirect[model]; exists {
+		mylog.Logger.Info("GlobalModelRedirect model found", zap.String("model", model), zap.String("redirectModel", redirectModel))
 		return redirectModel
 	}
+
+	mylog.Logger.Info(" GlobalModelRedirect no model found", zap.String("model", model))
 	return model
 }
 
@@ -330,4 +349,18 @@ func ShowSupportModels() {
 	sort.Strings(keys) // 对keys进行排序
 
 	log.Println("other support models:", keys)
+}
+
+func IsSupportMultiContent(model string) bool {
+	for _, item := range SupportMultiContentModels {
+		if strings.HasSuffix(item, "*") {
+			prefix := strings.TrimSuffix(item, "*")
+			if strings.HasPrefix(model, prefix) {
+				return true
+			}
+		} else if item == model {
+			return true
+		}
+	}
+	return false
 }
