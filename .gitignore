@@ -20,6 +20,8 @@ simple-one-api/docker_build_push.sh
 README.CN.EN.md
 build/
 simple-one-api
+docker_build_push_no_latest.sh
+image.png
 
 # 日志文件
 *.log
