@@ -16,7 +16,6 @@ import (
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Println("123")
 
 	// 获取程序的第一个参数作为配置文件名
 	var configName string
