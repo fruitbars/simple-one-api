@@ -1,56 +1,11 @@
 package adapter
 
 import (
-	"github.com/sashabaranov/go-openai"
 	google_gemini "simple-one-api/pkg/llm/google-gemini"
-	"simple-one-api/pkg/mycommon"
 	myopenai "simple-one-api/pkg/openai"
 	"strings"
 	"time"
 )
-
-func OpenAIRequestToGeminiRequest(oaiReq openai.ChatCompletionRequest) *google_gemini.GeminiRequest {
-	// 初始化 GeminiRequest 结构
-	var Contents []google_gemini.ContentEntity
-
-	//hisMessagesLen := len(oaiReq.Messages)
-	hisMessages := mycommon.ConvertSystemMessages2NoSystem(oaiReq.Messages)
-
-	// 转换聊天消息为 Gemini 的内容条目
-	for _, msg := range hisMessages {
-		role := msg.Role
-		if strings.ToLower(msg.Role) == "assistant" {
-			role = "model"
-		}
-		content := google_gemini.ContentEntity{
-			Role:  role,
-			Parts: []google_gemini.Part{{Text: msg.Content}},
-		}
-
-		Contents = append(Contents, content)
-	}
-
-	/*
-		geminiReq.SafetySettings = append(geminiReq.SafetySettings, google_gemini.SafetySetting{
-			Category:  "HARM_CATEGORY_DANGEROUS_CONTENT",
-			Threshold: "BLOCK_ONLY_HIGH",
-		})
-
-	*/
-	geminiReq := &google_gemini.GeminiRequest{
-		Contents:       Contents,
-		SafetySettings: []google_gemini.SafetySetting{},
-		GenerationConfig: google_gemini.GenerationConfig{
-			StopSequences:   oaiReq.Stop,
-			Temperature:     float64(oaiReq.Temperature),
-			MaxOutputTokens: oaiReq.MaxTokens,
-			TopP:            float64(oaiReq.TopP),
-			TopK:            oaiReq.TopLogProbs,
-		},
-	}
-
-	return geminiReq
-}
 
 func GeminiResponseToOpenAIResponse(qfResp *google_gemini.GeminiResponse) *myopenai.OpenAIResponse {
 	// 创建 OpenAIResponse 实例
@@ -124,7 +79,7 @@ func GeminiResponseToOpenAIStreamResponse(qfResp *google_gemini.GeminiResponse) 
 				Role:    role,
 				Content: content,
 			},
-			FinishReason: candidate.FinishReason,
+			//FinishReason: candidate.FinishReason,
 		}
 
 		Choices = append(Choices, choice)
