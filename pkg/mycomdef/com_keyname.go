@@ -1,4 +1,4 @@
-package mycommon
+package mycomdef
 
 const KEYNAME_MODEL = "model"
 const KEYNAME_ASSISTANT = "assistant"
