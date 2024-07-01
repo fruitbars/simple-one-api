@@ -3,19 +3,22 @@ package handler
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
-	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
-	baidu_qianfan "simple-one-api/pkg/llm/baidu-qianfan"
+	baiduqianfan "simple-one-api/pkg/llm/baidu-qianfan"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 )
 
-func OpenAI2QianFanHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
-	apiKey := s.Credentials[config.KEYNAME_API_KEY]
-	secretKey := s.Credentials[config.KEYNAME_SECRET_KEY]
+func OpenAI2QianFanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+
+	oaiReq := oaiReqParam.chatCompletionReq
+	//s := oaiReqParam.modelDetails
+	credentials := oaiReqParam.creds
+	apiKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
+	secretKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_SECRET_KEY)
 	qfReq := adapter.OpenAIRequestToQianFanRequest(oaiReq)
 
 	if oaiReq.Stream {
@@ -25,10 +28,10 @@ func OpenAI2QianFanHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 	}
 }
 
-func handleQianFanStreamRequest(c *gin.Context, apiKey, secretKey, model string, qfReq *baidu_qianfan.QianFanRequest) error {
+func handleQianFanStreamRequest(c *gin.Context, apiKey, secretKey, model string, qfReq *baiduqianfan.QianFanRequest) error {
 	utils.SetEventStreamHeaders(c)
 
-	err := baidu_qianfan.QianFanCallSSE(apiKey, secretKey, model, qfReq, func(qfResp *baidu_qianfan.QianFanResponse) {
+	err := baiduqianfan.QianFanCallSSE(apiKey, secretKey, model, qfReq, func(qfResp *baiduqianfan.QianFanResponse) {
 		oaiRespStream := adapter.QianFanResponseToOpenAIStreamResponse(qfResp)
 		oaiRespStream.Model = model
 
@@ -65,8 +68,8 @@ func handleQianFanStreamRequest(c *gin.Context, apiKey, secretKey, model string,
 	return nil
 }
 
-func handleQianFanStandardRequest(c *gin.Context, apiKey, secretKey, model string, qfReq *baidu_qianfan.QianFanRequest) error {
-	qfResp, err := baidu_qianfan.QianFanCall(apiKey, secretKey, model, qfReq)
+func handleQianFanStandardRequest(c *gin.Context, apiKey, secretKey, model string, qfReq *baiduqianfan.QianFanRequest) error {
+	qfResp, err := baiduqianfan.QianFanCall(apiKey, secretKey, model, qfReq)
 	if err != nil {
 		mylog.Logger.Error("Error during API call",
 			zap.Error(err)) // 记录错误对象

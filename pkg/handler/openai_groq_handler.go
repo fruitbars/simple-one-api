@@ -3,7 +3,6 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
-	"simple-one-api/pkg/config"
 )
 
 // https://console.groq.com/docs/openai
@@ -25,13 +24,16 @@ func adjustGroqReq(req *openai.ChatCompletionRequest) {
 }
 
 // OpenAI2GroqOpenAIHandler handles OpenAI to Azure OpenAI requests
-func OpenAI2GroqOpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.ChatCompletionRequest) error {
-	conf, err := getConfig(s, req)
+func OpenAI2GroqOpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	req := oaiReqParam.chatCompletionReq
+	s := oaiReqParam.modelDetails
+	//credentials := oaiReqParam.creds
+	conf, err := getConfig(s, oaiReqParam)
 	if err != nil {
 		return err
 	}
 
-	adjustGroqReq(&req)
+	adjustGroqReq(req)
 
 	return handleOpenAIOpenAIRequest(conf, c, req)
 }

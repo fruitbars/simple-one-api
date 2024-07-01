@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"io"
-	"simple-one-api/pkg/common"
+	"regexp"
+	"simple-one-api/pkg/mycommon"
 	"simple-one-api/pkg/mylog"
 
 	//"log"
@@ -16,7 +18,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sashabaranov/go-openai"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	googlegemini "simple-one-api/pkg/llm/google-gemini"
@@ -35,18 +36,27 @@ var httpClient = &http.Client{
 }
 
 // OpenAI2GeminiHandler 主要的处理函数
-func OpenAI2GeminiHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	oaiReq := oaiReqParam.chatCompletionReq
+	//s := oaiReqParam.modelDetails
+	credentials := oaiReqParam.creds
+
 	geminiReq := adapter.OpenAIRequestToGeminiRequest(oaiReq)
+
+	debugGeminiReq, _ := adapter.DeepCopyGeminiRequest(geminiReq)
+	mylog.Logger.Info("debugGeminiReq", zap.Any("debugGeminiReq", debugGeminiReq))
+
 	jsonData, err := json.Marshal(geminiReq)
 	if err != nil {
 		mylog.Logger.Error(err.Error())
 		return err
 	}
 
-	apiKey := s.Credentials[config.KEYNAME_API_KEY]
+	apiKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
 	geminiURL := fmt.Sprintf("%s/%s:%s%s", BaseURL, oaiReq.Model, getRequestType(oaiReq.Stream), apiKey)
 
 	mylog.Logger.Debug(geminiURL)
+	//mylog.Logger.Debug(string(jsonData))
 
 	req, err := http.NewRequest("POST", geminiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -57,14 +67,18 @@ func OpenAI2GeminiHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		mylog.Logger.Error(err.Error())
+		errStr := err.Error()
+		re := regexp.MustCompile(`key=[^&]*`)
+		outputErr := re.ReplaceAllString(errStr, "key=***")
+
+		mylog.Logger.Error(outputErr)
 		return err
 	}
 	defer resp.Body.Close()
 
-	err = common.CheckStatusCode(resp)
+	err = mycommon.CheckStatusCode(resp)
 	if err != nil {
-
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
@@ -129,6 +143,9 @@ func processAndSendData(c *gin.Context, line string) error {
 	if data == "" {
 		return nil
 	}
+
+	mylog.Logger.Debug("process genimi data:", zap.String("data", data))
+
 	var response googlegemini.GeminiResponse
 	if err := json.Unmarshal([]byte(data), &response); err != nil {
 		mylog.Logger.Error(err.Error())

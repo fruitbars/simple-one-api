@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
+	"simple-one-api/pkg/mycommon"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 	"strings"
@@ -69,8 +70,10 @@ func getDefaultServerURL(model string) string {
 }
 
 // getConfig generates the OpenAI client configuration based on model details and request
-func getConfig(s *config.ModelDetails, req openai.ChatCompletionRequest) (openai.ClientConfig, error) {
-	apiKey := s.Credentials[config.KEYNAME_API_KEY]
+func getConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.ClientConfig, error) {
+	req := oaiReqParam.chatCompletionReq
+	credentials := oaiReqParam.creds
+	apiKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
 	conf := openai.DefaultConfig(apiKey)
 
 	serverURL := s.ServerURL
@@ -97,7 +100,7 @@ func getConfig(s *config.ModelDetails, req openai.ChatCompletionRequest) (openai
 }
 
 // handleOpenAIRequest handles OpenAI requests, supporting both streaming and non-streaming modes
-func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req openai.ChatCompletionRequest) error {
+func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req *openai.ChatCompletionRequest) error {
 	openaiClient := openai.NewClientWithConfig(conf)
 	ctx := context.Background()
 
@@ -109,9 +112,9 @@ func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req ope
 }
 
 // handleStreamRequest handles streaming OpenAI requests
-func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx context.Context, req openai.ChatCompletionRequest) error {
+func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx context.Context, req *openai.ChatCompletionRequest) error {
 	utils.SetEventStreamHeaders(c)
-	stream, err := client.CreateChatCompletionStream(ctx, req)
+	stream, err := client.CreateChatCompletionStream(ctx, *req)
 	if err != nil {
 		mylog.Logger.Error("An error occurred",
 			zap.Error(err))
@@ -152,8 +155,8 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 }
 
 // handleStandardRequest handles non-streaming OpenAI requests
-func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx context.Context, req openai.ChatCompletionRequest) error {
-	resp, err := client.CreateChatCompletion(ctx, req)
+func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx context.Context, req *openai.ChatCompletionRequest) error {
+	resp, err := client.CreateChatCompletion(ctx, *req)
 	if err != nil {
 		mylog.Logger.Error("An error occurred",
 			zap.Any("req", req),
@@ -178,22 +181,36 @@ func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx cont
 }
 
 // OpenAI2OpenAIHandler handles OpenAI to OpenAI requests
-func OpenAI2OpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.ChatCompletionRequest) error {
-	conf, err := getConfig(s, req)
+func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	//oaiReq := oaiReqParam.chatCompletionReq
+	s := oaiReqParam.modelDetails
+	//credentials := oaiReqParam.creds
+	conf, err := getConfig(s, oaiReqParam)
 	if err != nil {
 		return err
 	}
 
 	if strings.HasPrefix(s.ServerURL, "https://api.groq.com/openai/v1") {
-		adjustGroqReq(&req)
+		adjustGroqReq(oaiReqParam.chatCompletionReq)
+	} else if strings.HasPrefix(s.ServerURL, "https://open.bigmodel.cn") {
+		mycommon.AdjustOpenAIRequestParams(oaiReqParam.chatCompletionReq)
+
+		if strings.Contains(oaiReqParam.chatCompletionReq.Model, "glm-4v") {
+			AdjustChatCompletionRequestForZhiPu(oaiReqParam.chatCompletionReq)
+		}
+	} else if strings.HasPrefix(s.ServerURL, "https://spark-api-open.xf-yun.com") {
+		oaiReqParam.chatCompletionReq.TopP = 0.0
 	}
 
-	return handleOpenAIOpenAIRequest(conf, c, req)
+	mylog.Logger.Debug("request:", zap.Any("req", oaiReqParam.chatCompletionReq))
+
+	return handleOpenAIOpenAIRequest(conf, c, oaiReqParam.chatCompletionReq)
 }
 
 // getAzureConfig generates the OpenAI client configuration for Azure based on model details and request
-func getAzureConfig(s *config.ModelDetails) (openai.ClientConfig, error) {
-	apiKey := s.Credentials[config.KEYNAME_API_KEY]
+func getAzureConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.ClientConfig, error) {
+	credentials := oaiReqParam.creds
+	apiKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
 	serverURL, err := formatAzureURL(s.ServerURL)
 	if err != nil {
 		serverURL = s.ServerURL
@@ -208,8 +225,11 @@ func getAzureConfig(s *config.ModelDetails) (openai.ClientConfig, error) {
 }
 
 // OpenAI2AzureOpenAIHandler handles OpenAI to Azure OpenAI requests
-func OpenAI2AzureOpenAIHandler(c *gin.Context, s *config.ModelDetails, req openai.ChatCompletionRequest) error {
-	conf, err := getAzureConfig(s)
+func OpenAI2AzureOpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	req := oaiReqParam.chatCompletionReq
+	s := oaiReqParam.modelDetails
+	//credentials := oaiReqParam.creds
+	conf, err := getAzureConfig(s, oaiReqParam)
 	if err != nil {
 		return err
 	}

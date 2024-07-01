@@ -18,24 +18,33 @@ import (
 
 const DefaultHuoShanServerURL = "https://ark.cn-beijing.volces.com/api/v3"
 
-func configureClient(s *config.ModelDetails) (*arkruntime.Client, error) {
+func configureClient(oaiReqParam *OAIRequestParam, model string) (*arkruntime.Client, error) {
+	s := oaiReqParam.modelDetails
+	credentials := oaiReqParam.creds
+
 	serverURL := s.ServerURL
 	if serverURL == "" {
 		serverURL = DefaultHuoShanServerURL
 	}
 
+	access_key, _ := utils.GetStringFromMap(credentials, config.KEYNAME_ACCESS_KEY)
+	secret_key, _ := utils.GetStringFromMap(credentials, config.KEYNAME_SECRET_KEY)
+
 	client := arkruntime.NewClientWithAkSk(
-		s.Credentials[config.KEYNAME_ACCESS_KEY],
-		s.Credentials[config.KEYNAME_SECRET_KEY],
+		access_key,
+		secret_key,
 		arkruntime.WithBaseUrl(serverURL),
 		arkruntime.WithRegion("cn-beijing"),
 	)
 	return client, nil
 }
 
-func OpenAI2HuoShanHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+func OpenAI2HuoShanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	oaiReq := oaiReqParam.chatCompletionReq
+	s := oaiReqParam.modelDetails
+	//credentials := oaiReqParam.creds
 
-	client, err := configureClient(s)
+	client, err := configureClient(oaiReqParam, oaiReq.Model)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return err
@@ -51,7 +60,7 @@ func OpenAI2HuoShanHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 	}
 }
 
-func prepareHuoshanRequest(oaiReq openai.ChatCompletionRequest, s *config.ModelDetails) model.ChatCompletionRequest {
+func prepareHuoshanRequest(oaiReq *openai.ChatCompletionRequest, s *config.ModelDetails) model.ChatCompletionRequest {
 	huoshanReq := model.ChatCompletionRequest{
 		Model:    oaiReq.Model,
 		Messages: []*model.ChatCompletionMessage{},

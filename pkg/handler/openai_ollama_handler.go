@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
@@ -54,7 +53,11 @@ func handleResponse(resp *http.Response) error {
 	return nil
 }
 
-func OpenAI2OllamaHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+func OpenAI2OllamaHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	oaiReq := oaiReqParam.chatCompletionReq
+	s := oaiReqParam.modelDetails
+	//credentials := oaiReqParam.creds
+
 	ollamaRequest := adapter.OpenAIRequestToOllamaRequest(oaiReq)
 	return handleOllamaRequest(c, s, ollamaRequest)
 }

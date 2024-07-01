@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
-	"github.com/sashabaranov/go-openai"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	hunyuan "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/hunyuan/v20230901"
@@ -11,14 +10,19 @@ import (
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/mylog"
-	mycommon "simple-one-api/pkg/utils"
+	"simple-one-api/pkg/utils"
 )
 
-func OpenAI2HunYuanHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+func OpenAI2HunYuanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	// 创建认证对象
+	oaiReq := oaiReqParam.chatCompletionReq
+	//s := oaiReqParam.modelDetails
+	credentials := oaiReqParam.creds
+	secretId, _ := utils.GetStringFromMap(credentials, config.KEYNAME_SECRET_ID)
+	secretKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_SECRET_KEY)
 	credential := common.NewCredential(
-		s.Credentials[config.KEYNAME_SECRET_ID],
-		s.Credentials[config.KEYNAME_SECRET_KEY],
+		secretId,
+		secretKey,
 	)
 
 	// 创建客户端配置
@@ -58,7 +62,7 @@ func handleHunYuanResponse(c *gin.Context, response *hunyuan.ChatCompletionsResp
 	}
 
 	// 流式响应
-	mycommon.SetEventStreamHeaders(c)
+	utils.SetEventStreamHeaders(c)
 	for event := range response.Events {
 		oaiStreamResp, err := adapter.HunYuanResponseToOpenAIStreamResponse(event)
 		if err != nil {

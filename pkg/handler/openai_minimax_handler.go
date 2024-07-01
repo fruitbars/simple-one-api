@@ -8,20 +8,23 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/sashabaranov/go-openai"
 	"io"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/llm/minimax"
 	"simple-one-api/pkg/mylog"
-	mycommon "simple-one-api/pkg/utils"
+	"simple-one-api/pkg/utils"
 	"strings"
 )
 
-func OpenAI2MinimaxHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
-	apiKey := s.Credentials[config.KEYNAME_API_KEY]
-	groupID := s.Credentials[config.KEYNAME_GROUP_ID]
+func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	oaiReq := oaiReqParam.chatCompletionReq
+	s := oaiReqParam.modelDetails
+	credentials := oaiReqParam.creds
+
+	apiKey := credentials[config.KEYNAME_API_KEY]
+	groupID := credentials[config.KEYNAME_GROUP_ID]
 
 	if s.ServerURL == "" {
 		//serverUrl = defaultUrl
@@ -62,7 +65,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 		defer response.Body.Close()
 
 		id := uuid.New()
-		mycommon.SetEventStreamHeaders(c)
+		utils.SetEventStreamHeaders(c)
 		// 处理SSE响应
 		reader := bufio.NewReader(response.Body)
 		for {

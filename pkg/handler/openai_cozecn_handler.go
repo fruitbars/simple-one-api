@@ -12,9 +12,9 @@ import (
 	"io"
 	"net/http"
 	"simple-one-api/pkg/adapter"
-	"simple-one-api/pkg/common"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/llm/devplatform/cozecn"
+	"simple-one-api/pkg/mycommon"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 	"strings"
@@ -24,13 +24,23 @@ import (
 var defaultCozecnURL = "https://api.coze.cn/open_api/v2/chat"
 var defaultCozecomURL = "https://api.coze.com/open_api/v2/chat"
 
-func OpenAI2CozecnHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+func getSecretToken(credentials map[string]interface{}, model string) string {
+	//credentials := mycommon.GetACredentials(s, model)
 	// 使用统一的api_key获取
-	secretToken := s.Credentials[config.KEYNAME_API_KEY]
+	secretToken, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
 	if secretToken == "" {
-		secretToken = s.Credentials[config.KEYNAME_TOKEN]
+		secretToken, _ = utils.GetStringFromMap(credentials, config.KEYNAME_TOKEN)
 	}
 
+	return secretToken
+}
+
+func OpenAI2CozecnHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	oaiReq := oaiReqParam.chatCompletionReq
+	s := oaiReqParam.modelDetails
+	credentials := oaiReqParam.creds
+
+	secretToken := getSecretToken(credentials, oaiReq.Model)
 	cozecnReq := adapter.OpenAIRequestToCozecnRequest(oaiReq)
 	cozeServerURL := s.ServerURL
 
@@ -57,7 +67,7 @@ func OpenAI2CozecnHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.
 	return nil
 }
 
-func sendRequest(c *gin.Context, token, url string, request interface{}, oaiReq openai.ChatCompletionRequest) error {
+func sendRequest(c *gin.Context, token, url string, request interface{}, oaiReq *openai.ChatCompletionRequest) error {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("json编码错误: %v", err)
@@ -82,7 +92,7 @@ func sendRequest(c *gin.Context, token, url string, request interface{}, oaiReq 
 	}
 	defer resp.Body.Close()
 
-	err = common.CheckStatusCode(resp)
+	err = mycommon.CheckStatusCode(resp)
 	if err != nil {
 
 		return err
@@ -91,7 +101,7 @@ func sendRequest(c *gin.Context, token, url string, request interface{}, oaiReq 
 	return handleCozecnResponse(c, resp, oaiReq)
 }
 
-func handleCozecnResponse(c *gin.Context, resp *http.Response, oaiReq openai.ChatCompletionRequest) error {
+func handleCozecnResponse(c *gin.Context, resp *http.Response, oaiReq *openai.ChatCompletionRequest) error {
 	if oaiReq.Stream {
 		return handleCozecnStreamResponse(c, oaiReq, resp.Body)
 	}
@@ -121,7 +131,7 @@ func handleCozecnResponse(c *gin.Context, resp *http.Response, oaiReq openai.Cha
 	return nil
 }
 
-func handleCozecnStreamResponse(c *gin.Context, oaiReq openai.ChatCompletionRequest, body io.Reader) error {
+func handleCozecnStreamResponse(c *gin.Context, oaiReq *openai.ChatCompletionRequest, body io.Reader) error {
 	scanner := bufio.NewScanner(body)
 	utils.SetEventStreamHeaders(c)
 
