@@ -2,20 +2,18 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"golang.org/x/time/rate"
+	"gopkg.in/yaml.v3"
 	"log"
-	"math/rand"
 	"os"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 	"sort"
 	"strings"
-	"time"
 )
-
-var defaultLimitTimeout int = 10
 
 var ModelToService map[string][]ModelDetails
 var LoadBalancingStrategy string
@@ -23,91 +21,72 @@ var ServerPort string
 var APIKey string
 var Debug bool
 var LogLevel string
-var SuppertModels map[string]string
+var SupportModels map[string]string
 var GlobalModelRedirect map[string]string
 var SupportMultiContentModels = []string{"gpt-4o", "gpt-4-turbo", "glm-4v", "gemini-*"}
 
 type Limit struct {
-	QPS         int `json:"qps"`
-	QPM         int `json:"qpm"`
-	RPM         int `json:"rpm"`
-	Concurrency int `json:"concurrency"`
-	Timeout     int `json:"timeout"`
+	QPS         float64 `json:"qps" yaml:"qps"`
+	QPM         float64 `json:"qpm" yaml:"qpm"`
+	RPM         float64 `json:"rpm" yaml:"rpm"`
+	Concurrency float64 `json:"concurrency" yaml:"concurrency"`
+	Timeout     int     `json:"timeout" yaml:"timeout"`
+}
+
+type Range struct {
+	Min float64 `json:"min" yaml:"min"`
+	Max float64 `json:"max" yaml:"max"`
+}
+
+type ModelParams struct {
+	TemperatureRange Range `json:"temperatureRange" yaml:"temperatureRange"`
+	TopPRange        Range `json:"topPRange" yaml:"topPRange"`
+	MaxTokens        int   `json:"maxTokens" yaml:"maxTokens"`
 }
 
 // ServiceModel 定义相关结构体
 type ServiceModel struct {
-	Models             []string            `json:"models"`
-	Enabled            bool                `json:"enabled"`
-	Credentials        map[string]string   `json:"credentials"`
-	CredentialList     []map[string]string `json:"credential_list"`
-	ServerURL          string              `json:"server_url"`
-	ModelMap           map[string]string   `json:"model_map"`
-	ModelRedirect      map[string]string   `json:"model_redirect"`
-	Limit              Limit               `json:"limit"`
-	Limiter            *rate.Limiter       `json:"-"`
-	Timeout            int                 `json:"-"`
-	ConcurrencyLimiter chan struct{}       `json:"-"`
+	Models         []string                 `json:"models" yaml:"models"`
+	Enabled        bool                     `json:"enabled" yaml:"enabled"`
+	Credentials    map[string]interface{}   `json:"credentials" yaml:"credentials"`
+	CredentialList []map[string]interface{} `json:"credential_list" yaml:"credential_list"`
+	ServerURL      string                   `json:"server_url" yaml:"server_url"`
+	ModelMap       map[string]string        `json:"model_map" yaml:"model_map"`
+	ModelRedirect  map[string]string        `json:"model_redirect" yaml:"model_redirect"`
+	Limit          Limit                    `json:"limit" yaml:"limit"`
+	Timeout        int                      `json:"-" yaml:"-"`
 }
 
 type Configuration struct {
-	ServerPort string `json:"server_port"`
-	Debug      bool   `json:"debug"`
-	LogLevel   string `json:"log_level"`
+	ServerPort string `json:"server_port" yaml:"server_port"`
+	Debug      bool   `json:"debug" yaml:"debug"`
+	LogLevel   string `json:"log_level" yaml:"log_level"`
 	Proxy      struct {
-		HTTPProxy  string `json:"http_proxy"`
-		HTTPSProxy string `json:"https_proxy"`
-	} `json:"proxy"`
-	APIKey             string                    `json:"api_key"`
-	LoadBalancing      string                    `json:"load_balancing"`
-	MultiContentModels []string                  `json:"multi_content_models"`
-	ModelRedirect      map[string]string         `json:"model_redirect"`
-	Services           map[string][]ServiceModel `json:"services"`
+		HTTPProxy  string `json:"http_proxy" yaml:"http_proxy"`
+		HTTPSProxy string `json:"https_proxy" yaml:"https_proxy"`
+	} `json:"proxy" yaml:"proxy"`
+	APIKey             string                    `json:"api_key" yaml:"api_key"`
+	LoadBalancing      string                    `json:"load_balancing" yaml:"load_balancing"`
+	MultiContentModels []string                  `json:"multi_content_models" yaml:"multi_content_models"`
+	ModelRedirect      map[string]string         `json:"model_redirect" yaml:"model_redirect"`
+	ParamsRange        map[string]ModelParams    `json:"params_range" yaml:"params_range"`
+	Services           map[string][]ServiceModel `json:"services" yaml:"services"`
 }
 
 // ModelDetails 结构用于返回模型相关的服务信息
 type ModelDetails struct {
-	ServiceName string
-	ServiceModel
+	ServiceName  string `json:"service_name" yaml:"service_name"`
+	ServiceModel `json:",inline" yaml:",inline"`
+	ServiceID    string `json:"service_id" yaml:"service_id"`
 }
 
 // 创建模型到服务的映射
 func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 	modelToService := make(map[string][]ModelDetails)
-	SuppertModels = make(map[string]string)
+	SupportModels = make(map[string]string)
 	for serviceName, serviceModels := range config.Services {
 		for _, model := range serviceModels {
 			if model.Enabled {
-				var limiter *rate.Limiter
-				var semaphore chan struct{}
-				if model.Limit.QPS > 0 {
-					limiter = rate.NewLimiter(rate.Limit(model.Limit.QPS), int(model.Limit.QPS)) // 设定令牌桶的容量等于QPS
-				} else if model.Limit.QPM > 0 {
-					limiter = rate.NewLimiter(rate.Every(1*time.Minute/time.Duration(model.Limit.QPM)), model.Limit.QPM*2)
-				} else if model.Limit.RPM > 0 {
-					model.Limit.QPM = model.Limit.RPM
-					limiter = rate.NewLimiter(rate.Every(1*time.Minute/time.Duration(model.Limit.RPM)), model.Limit.RPM*2)
-				} else {
-					if model.Limit.Concurrency > 0 {
-						log.Println("create semaphore chan ", model.Limit.Concurrency)
-						semaphore = make(chan struct{}, model.Limit.Concurrency)
-						log.Println(cap(semaphore))
-						for i := 0; i < model.Limit.Concurrency; i++ {
-							semaphore <- struct{}{} // 预填充通道，以便其可以被正确地使用
-						}
-					}
-				}
-
-				model.Limiter = limiter
-				model.ConcurrencyLimiter = semaphore
-
-				log.Println("Limiter", model.Limiter)
-				log.Println("ConcurrencyLimiter", model.ConcurrencyLimiter)
-
-				model.Timeout = defaultLimitTimeout
-				if model.Limit.Timeout > 0 {
-					model.Timeout = model.Limit.Timeout
-				}
 				log.Printf("Models: %v, Timeout: %v, QPS: %v, QPM: %v, RPM: %v,Concurrency: %v\n",
 					model.Models, model.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.RPM, model.Limit.Concurrency)
 
@@ -123,18 +102,19 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 					detail := ModelDetails{
 						ServiceName:  serviceName,
 						ServiceModel: model,
+						ServiceID:    uuid.New().String(),
 					}
 					modelToService[modelName] = append(modelToService[modelName], detail)
 
 					//存储支持的模型名称列表
-					SuppertModels[modelName] = modelName
+					SupportModels[modelName] = modelName
 					for k, v := range detail.ModelRedirect {
 						//support models
-						SuppertModels[k] = v
+						SupportModels[k] = v
 
-						_, exists := SuppertModels[v]
+						_, exists := SupportModels[v]
 						if exists {
-							delete(SuppertModels, v)
+							delete(SupportModels, v)
 						}
 
 						//
@@ -150,11 +130,9 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 
 // InitConfig 初始化配置
 func InitConfig(configName string) error {
-	if configName == "" {
-		configName = "config.json"
-	}
+	// 解析 JSON 数据到结构体
+	var conf Configuration
 
-	//configAbsolutePath, err := utils.GetAbsolutePath(configName)
 	configAbsolutePath, err := utils.ResolveRelativePathToAbsolute(configName)
 	if err != nil {
 		log.Println("Error getting absolute path:", err)
@@ -168,14 +146,29 @@ func InitConfig(configName string) error {
 		return err
 	}
 
-	log.Println("read config ok,", configAbsolutePath)
+	fname, ftype := utils.GetFileNameAndType(configName)
+	log.Println(fname, ftype)
 
-	// 解析 JSON 数据到结构体
-	var conf Configuration
-	err = json.Unmarshal(data, &conf)
-	if err != nil {
-		log.Println(err)
+	if ftype == "yml" || ftype == "yaml" {
+
+		err = yaml.Unmarshal(data, &conf)
+		if err != nil {
+			log.Println("Unable to decode into struct:", err)
+			return err
+		}
+
+	} else if ftype == "json" {
+
+		err = json.Unmarshal(data, &conf)
+		if err != nil {
+			log.Println(err)
+		}
+	} else {
+		log.Println("unsupport config type:", ftype)
+		return errors.New("unsupport config type")
 	}
+
+	log.Println(conf)
 
 	// 设置负载均衡策略，默认为 "first"
 	if conf.LoadBalancing == "" {
@@ -186,12 +179,18 @@ func InitConfig(configName string) error {
 
 	if conf.Proxy.HTTPProxy != "" {
 		log.Println("set HTTP_PROXY", conf.Proxy.HTTPProxy)
-		os.Setenv("HTTP_PROXY", conf.Proxy.HTTPProxy)
+		err := os.Setenv("HTTP_PROXY", conf.Proxy.HTTPProxy)
+		if err != nil {
+			//return err
+		}
 
 	}
 	if conf.Proxy.HTTPSProxy != "" {
 		log.Println("set HTTPS_PROXY", conf.Proxy.HTTPSProxy)
-		os.Setenv("HTTPS_PROXY", conf.Proxy.HTTPSProxy)
+		err := os.Setenv("HTTPS_PROXY", conf.Proxy.HTTPSProxy)
+		if err != nil {
+			//return err
+		}
 	}
 
 	if conf.APIKey != "" {
@@ -230,6 +229,7 @@ func InitConfig(configName string) error {
 	return nil
 }
 
+/*
 // GetAllModelService 根据模型名称获取服务和凭证信息
 func GetAllModelService(modelName string) ([]ModelDetails, error) {
 	if serviceDetails, found := ModelToService[modelName]; found {
@@ -238,10 +238,12 @@ func GetAllModelService(modelName string) ([]ModelDetails, error) {
 	return nil, fmt.Errorf("model %s not found in the configuration", modelName)
 }
 
+*/
+
 // GetModelService 根据模型名称获取启用的服务和凭证信息
 func GetModelService(modelName string) (*ModelDetails, error) {
 	if serviceDetails, found := ModelToService[modelName]; found {
-		enabledServices := []ModelDetails{}
+		var enabledServices []ModelDetails
 		for _, sd := range serviceDetails {
 			if sd.Enabled {
 				enabledServices = append(enabledServices, sd)
@@ -252,37 +254,33 @@ func GetModelService(modelName string) (*ModelDetails, error) {
 			return nil, fmt.Errorf("no enabled model %s found in the configuration", modelName)
 		}
 
-		switch LoadBalancingStrategy {
-		case "first":
-			return &enabledServices[0], nil
-		case "random":
-			return &enabledServices[rand.Intn(len(enabledServices))], nil
-		default:
-			return &enabledServices[rand.Intn(len(enabledServices))], nil
-		}
+		index := GetLBIndex(LoadBalancingStrategy, modelName, len(enabledServices))
+
+		return &enabledServices[index], nil
 	}
 	return nil, fmt.Errorf("model %s not found in the configuration", modelName)
 }
 
 func GetRandomEnabledModelDetails() (*ModelDetails, error) {
-	var enabledModels []ModelDetails
+
+	index := GetLBIndex(LoadBalancingStrategy, KEYNAME_RANDOM, len(ModelToService))
+
+	keys := make([]string, 0, len(ModelToService))
 
 	// 遍历 ModelToService 映射，收集所有 Enabled 为 true 的 ModelDetails
-	for _, models := range ModelToService {
-		for _, model := range models {
-			if model.ServiceModel.Enabled {
-				enabledModels = append(enabledModels, model)
-			}
-		}
+	for modelName := range ModelToService {
+		keys = append(keys, modelName)
 	}
 
-	// 检查是否有任何 Enabled 为 true 的 ModelDetails
-	if len(enabledModels) == 0 {
-		return nil, fmt.Errorf("no enabled ModelDetails found")
-	}
+	sort.Strings(keys)
 
-	// 随机选择一个 Enabled 为 true 的 ModelDetails
-	randomModel := enabledModels[rand.Intn(len(enabledModels))]
+	model := keys[index]
+
+	modelDetails := ModelToService[model]
+
+	index2 := GetLBIndex(LoadBalancingStrategy, model, len(modelDetails))
+
+	randomModel := modelDetails[index2]
 
 	return &randomModel, nil
 }
@@ -293,7 +291,7 @@ func GetRandomEnabledModelDetailsV1() (*ModelDetails, string, error) {
 		return nil, "", err
 	}
 
-	randomString := md.Models[rand.Intn(len(md.Models))]
+	randomString := md.Models[getRandomIndex(len(md.Models))]
 
 	//	log.Println(randomString)
 
@@ -311,7 +309,7 @@ func GetModelMapping(s *ModelDetails, model string) string {
 	return model
 }
 
-// GetModelMapping 函数，根据model在ModelMap中查找对应的映射，如果找不到则返回原始model
+// GetModelRedirect 函数，根据model在ModelMap中查找对应的映射，如果找不到则返回原始model
 func GetModelRedirect(s *ModelDetails, model string) string {
 	if redirectModel, exists := s.ModelRedirect[model]; exists {
 		mylog.Logger.Info("ModelRedirect model found", zap.String("model", model), zap.String("redirectModel", redirectModel))
@@ -321,7 +319,7 @@ func GetModelRedirect(s *ModelDetails, model string) string {
 	return model
 }
 
-// GetModelMapping 函数，根据model在ModelMap中查找对应的映射，如果找不到则返回原始model
+// GetGlobalModelRedirect 函数，根据model在ModelMap中查找对应的映射，如果找不到则返回原始model
 func GetGlobalModelRedirect(model string) string {
 	if redirectModel, exists := GlobalModelRedirect[KEYNAME_ALL]; exists {
 		if redirectModel == KEYNAME_ALL {
@@ -343,7 +341,7 @@ func GetGlobalModelRedirect(model string) string {
 func ShowSupportModels() {
 	keys := make([]string, 0, len(ModelToService))
 
-	for k := range SuppertModels {
+	for k := range SupportModels {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys) // 对keys进行排序
