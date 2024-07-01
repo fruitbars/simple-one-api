@@ -19,7 +19,7 @@ func ModelsHandler(c *gin.Context) {
 	var models []Model
 	keys := make([]string, 0, len(config.ModelToService))
 
-	for k := range config.SuppertModels {
+	for k := range config.SupportModels {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys) // 对keys进行排序
