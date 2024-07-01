@@ -199,7 +199,18 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 			AdjustChatCompletionRequestForZhiPu(oaiReqParam.chatCompletionReq)
 		}
 	} else if strings.HasPrefix(s.ServerURL, "https://spark-api-open.xf-yun.com") {
-		oaiReqParam.chatCompletionReq.TopP = 0.0
+		//oaiReqParam.chatCompletionReq.TopP = 0.0
+		if oaiReqParam.chatCompletionReq.Stream == true {
+			defaultTransport := http.DefaultTransport
+
+			// 创建自定义的 Transport
+			customTransport := &utils.CustomTransport{
+				Transport: defaultTransport,
+			}
+			conf.HTTPClient = &http.Client{
+				Transport: customTransport,
+			}
+		}
 	}
 
 	mylog.Logger.Debug("request:", zap.Any("req", oaiReqParam.chatCompletionReq))

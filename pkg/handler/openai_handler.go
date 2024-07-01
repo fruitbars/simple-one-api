@@ -218,6 +218,9 @@ func handleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 
 	}
 
+	//mylog.Logger.Debug("oaiReq", zap.Any("oaiReq", oaiReq))
+	oaiReq.Messages = mycommon.NormalizeMessages(oaiReq.Messages)
+
 	if err := dispatchToServiceHandler(c, oaiReqParam); err != nil {
 		//mylog.Logger.Error(err.Error())
 		sendErrorResponse(c, http.StatusInternalServerError, err.Error())

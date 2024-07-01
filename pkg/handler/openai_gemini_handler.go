@@ -27,7 +27,7 @@ import (
 // 定义常量
 const (
 	BaseURL        = "https://generativelanguage.googleapis.com/v1beta/models"
-	RequestTimeout = 5 * time.Minute
+	RequestTimeout = 1 * time.Minute
 )
 
 // 使用全局客户端
@@ -41,6 +41,7 @@ func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	//s := oaiReqParam.modelDetails
 	credentials := oaiReqParam.creds
 
+	//mylog.Logger.Info("oaiReq", zap.Any("oaiReq", oaiReq))
 	geminiReq := adapter.OpenAIRequestToGeminiRequest(oaiReq)
 
 	debugGeminiReq, _ := adapter.DeepCopyGeminiRequest(geminiReq)
@@ -71,7 +72,7 @@ func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		re := regexp.MustCompile(`key=[^&]*`)
 		outputErr := re.ReplaceAllString(errStr, "key=***")
 
-		mylog.Logger.Error(outputErr)
+		mylog.Logger.Error(outputErr, zap.Error(err))
 		return err
 	}
 	defer resp.Body.Close()
