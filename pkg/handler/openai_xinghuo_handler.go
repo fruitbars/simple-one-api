@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/fruitbars/gosparkclient"
 	"github.com/gin-gonic/gin"
-	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"net/http"
 	"simple-one-api/pkg/adapter"
@@ -20,6 +19,8 @@ func getURLAndDomain(modelName string) (string, string, error) {
 	modelNameLower := strings.ToLower(modelName)
 
 	switch modelNameLower {
+	case "4.0ultra":
+		return "wss://spark-api.xf-yun.com/v4.0/chat", "4.0Ultra", nil
 	case "spark3.5-max":
 		return "wss://spark-api.xf-yun.com/v3.5/chat", "generalv3.5", nil
 	case "spark-pro":
@@ -33,15 +34,20 @@ func getURLAndDomain(modelName string) (string, string, error) {
 	}
 }
 
-func OpenAI2XingHuoHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
-	appid := s.Credentials[config.KEYNAME_APPID]
-	apiKey := s.Credentials[config.KEYNAME_API_KEY]
-	apiSecret := s.Credentials[config.KEYNAME_API_SECRET]
+func OpenAI2XingHuoHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	oaiReq := oaiReqParam.chatCompletionReq
+	s := oaiReqParam.modelDetails
+	credentials := oaiReqParam.creds
+	appid, _ := utils.GetStringFromMap(credentials, config.KEYNAME_APPID)
+	apiKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
+	apiSecret, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_SECRET)
 
-	serverUrl, domain, err := getServerURLAndDomain(s, oaiReq.Model)
+	serverUrl, domain, err := getServerURLAndDomain(s.ServerURL, credentials, oaiReq.Model)
 	if err != nil {
 		return err
 	}
+
+	//mycommon.GetCredentialsLimit()
 
 	client := gosparkclient.NewSparkClientWithOptions(appid, apiKey, apiSecret, serverUrl, domain)
 	xhReq := adapter.OpenAIRequestToXingHuoRequest(oaiReq)
@@ -56,21 +62,18 @@ func OpenAI2XingHuoHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai
 	return handleXingHuoStandardMode(c, client, xhReq, oaiReq.Model)
 }
 
-func getServerURLAndDomain(s *config.ModelDetails, model string) (string, string, error) {
-	defaultUrl, defaultDomain, err := getURLAndDomain(model)
+func getServerURLAndDomain(configServerURL string, credentials map[string]interface{}, model string) (string, string, error) {
+
+	serverUrl, defaultDomain, err := getURLAndDomain(model)
 	if err != nil {
-		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
-		mylog.Logger.Error("error", zap.Error(err)) // 记录错误对象
-
-		return "", "", err
+		mylog.Logger.Warn("error", zap.Error(err)) // 记录错误对象
 	}
 
-	serverUrl := defaultUrl
-	if s.ServerURL != "" {
-		serverUrl = s.ServerURL
+	if configServerURL != "" {
+		serverUrl = configServerURL
 	}
 
-	domain := s.Credentials[config.KEYNAME_DOMAIN]
+	domain, _ := utils.GetStringFromMap(credentials, config.KEYNAME_DOMAIN)
 	if domain == "" {
 		domain = defaultDomain
 	}
@@ -128,9 +131,10 @@ func handleXingHuoStreamMode(c *gin.Context, client *gosparkclient.SparkClient, 
 func handleXingHuoStandardMode(c *gin.Context, client *gosparkclient.SparkClient, xhReq *gosparkclient.SparkChatRequest, model string) error {
 	xhResp, err := client.SparkChatWithCallback(*xhReq, nil)
 	if err != nil {
-		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
-		mylog.Logger.Error("An error occurred",
-			zap.Error(err)) // 记录错误对象
+
+		mylog.Logger.Error("An error occurred", zap.String("appid", client.AppID),
+			zap.String("apikey", client.ApiKey),
+			zap.Error(err))
 
 		return err
 	}
