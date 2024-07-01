@@ -9,7 +9,10 @@ import (
 	"go.uber.org/zap"
 	"io"
 	"net/http"
+	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
+	"simple-one-api/pkg/mycommon"
+	"simple-one-api/pkg/mylimiter"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 	"strings"
@@ -18,8 +21,14 @@ import (
 
 var defaultReqTimeout = 10
 
+type OAIRequestParam struct {
+	chatCompletionReq *openai.ChatCompletionRequest
+	modelDetails      *config.ModelDetails
+	creds             map[string]interface{}
+}
+
 // serviceHandlerMap maps service names to their corresponding handler functions
-var serviceHandlerMap = map[string]func(*gin.Context, *config.ModelDetails, openai.ChatCompletionRequest) error{
+var serviceHandlerMap = map[string]func(*gin.Context, *OAIRequestParam) error{
 	"qianfan":  OpenAI2QianFanHandler,
 	"hunyuan":  OpenAI2HunYuanHandler,
 	"xinghuo":  OpenAI2XingHuoHandler,
@@ -47,8 +56,8 @@ func LogRequestBody(c *gin.Context) {
 	}
 
 	// 将消息体转换为字符串并记录
-	requestBody := string(body)
-	mylog.Logger.Debug("Request body", zap.String("body", requestBody))
+	//requestBody := string(body)
+	//mylog.Logger.Debug("Request body", zap.String("body", requestBody))
 
 	// 重置请求体，以便后续处理程序可以读取它
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
@@ -73,6 +82,12 @@ func OpenAIHandler(c *gin.Context) {
 	}
 	LogRequestDetails(c)
 
+	if err := validateAPIKey(c); err != nil {
+		mylog.Logger.Error(err.Error())
+		sendErrorResponse(c, http.StatusUnauthorized, err.Error())
+		return
+	}
+
 	var oaiReq openai.ChatCompletionRequest
 	if err := c.ShouldBindJSON(&oaiReq); err != nil {
 		mylog.Logger.Error(err.Error())
@@ -80,16 +95,12 @@ func OpenAIHandler(c *gin.Context) {
 		return
 	}
 
-	if err := validateAPIKey(c); err != nil {
-		mylog.Logger.Error(err.Error())
-		sendErrorResponse(c, http.StatusUnauthorized, err.Error())
-		return
-	}
+	handleOpenAIRequest(c, &oaiReq)
 
-	handleOpenAIRequest(c, oaiReq)
+	return
 }
 
-func handleOpenAIRequest(c *gin.Context, oaiReq openai.ChatCompletionRequest) {
+func handleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 
 	clientModel := oaiReq.Model
 
@@ -98,7 +109,7 @@ func handleOpenAIRequest(c *gin.Context, oaiReq openai.ChatCompletionRequest) {
 
 	oaiReq.Model = gRedirectModel
 
-	s, modelName, err := getModelDetails(oaiReq)
+	s, serviceModelName, err := getModelDetails(oaiReq)
 	if err != nil {
 		mylog.Logger.Error(err.Error())
 		sendErrorResponse(c, http.StatusBadRequest, err.Error())
@@ -106,90 +117,108 @@ func handleOpenAIRequest(c *gin.Context, oaiReq openai.ChatCompletionRequest) {
 	}
 
 	//模型重定向名称
-	oaiReq.Model = config.GetModelRedirect(s, modelName)
+	mrModel := config.GetModelRedirect(s, serviceModelName)
+	mpModel := config.GetModelMapping(s, mrModel)
+
+	oaiReq.Model = mpModel
 
 	mylog.Logger.Info("Service details",
 		zap.String("service_name", s.ServiceName),
 		zap.String("client_model", clientModel),
 		zap.String("g_redirect_model", gRedirectModel),
-		zap.String("real_model_name", modelName),
+		zap.String("service_model_name", serviceModelName),
+		zap.String("redirect_model", mrModel),
+		zap.String("map_model", mpModel),
 		zap.String("last_model", oaiReq.Model))
 
-	timeout := s.Timeout
-	if timeout <= 0 {
-		timeout = defaultReqTimeout // default timeout if not specified
+	isSupportMC := config.IsSupportMultiContent(oaiReq.Model)
+	if len(oaiReq.Messages) > 0 && len(oaiReq.Messages[0].MultiContent) > 0 {
+		if !isSupportMC {
+			mylog.Logger.Warn("model support vision", zap.Bool("isSupportMC", isSupportMC))
+			//convert message
+			adapter.OpenAIMultiContentRequestToOpenAIContentRequest(oaiReq)
+			mylog.Logger.Info("", zap.Any("oaiReq", oaiReq))
+		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
-	defer cancel()
 
-	startWaitTime := time.Now()
+	creds, credsID := mycommon.GetACredentials(s, oaiReq.Model)
 
-	if s.Limiter != nil {
-		// 假设 logger 是一个已经配置好的 zap.Logger 实例
+	var limiter *mylimiter.Limiter
+	lt, ln, timeout := mycommon.GetServiceModelDetailsLimit(s)
+	if lt != "" && ln > 0 {
+		limiter = mylimiter.GetLimiter(s.ServiceID, lt, ln)
+	} else {
+		lt, ln, timeout = mycommon.GetCredentialLimit(creds)
+		if lt != "" && ln > 0 {
+			limiter = mylimiter.GetLimiter(credsID, lt, ln)
+		}
+	}
+
+	oaiReqParam := &OAIRequestParam{
+		chatCompletionReq: oaiReq,
+		modelDetails:      s,
+		creds:             creds,
+	}
+
+	if limiter != nil {
+		if timeout <= 0 {
+			timeout = defaultReqTimeout
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+		defer cancel()
+
+		startWaitTime := time.Now()
+
 		mylog.Logger.Info("Rate limits and timeout configuration",
-			zap.Int("qps_limit", s.Limit.QPS), // 假设 QPS 是 float64 类型
-			zap.Int("qpm_limit", s.Limit.QPM), // 假设 QPM 也是 float64 类型
-			zap.Int("timeout", timeout))       // 假设 timeout 是 time.Duration 类型
+			zap.String("limit type:", lt),
+			zap.Float64("limit num:", ln),
+			zap.Int("timeout", timeout))
 
-		err = s.Limiter.Wait(ctx)
-		elapsed := time.Since(startWaitTime)
+		if lt == "qps" {
+			err = limiter.Wait(ctx)
+			elapsed := time.Since(startWaitTime)
 
-		if err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				// Log a message if the request could not obtain a token within the specified timeout period.
-				// 假设 logger 是一个已经配置好的 zap.Logger 实例
-				mylog.Logger.Error("Failed to obtain token within the specified time",
-					zap.Error(err),                   // 记录错误对象
-					zap.Int("timeout", timeout),      // 假设 timeout 是 time.Duration 类型
-					zap.Duration("elapsed", elapsed)) // 假设 elapsed 是 time.Duration 类型
+			if err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					// Log a message if the request could not obtain a token within the specified timeout period.
+					// 假设 logger 是一个已经配置好的 zap.Logger 实例
+					mylog.Logger.Error("Failed to obtain token within the specified time",
+						zap.Error(err),                   // 记录错误对象
+						zap.Int("timeout", timeout),      // 假设 timeout 是 time.Duration 类型
+						zap.Duration("elapsed", elapsed)) // 假设 elapsed 是 time.Duration 类型
 
-			} else if errors.Is(err, context.Canceled) {
-				// Log a message if the operation was canceled.
-				mylog.Logger.Error("Operation canceled %v, actual waiting time: %v", zap.Error(err), zap.Duration("elapsed", elapsed))
-			} else {
-				// Log a message for any other unknown errors that occurred while waiting for a token.
-				mylog.Logger.Error("Unknown error occurred while waiting for a token: ", zap.Error(err), zap.Duration("elapsed", elapsed))
+				} else if errors.Is(err, context.Canceled) {
+					// Log a message if the operation was canceled.
+					mylog.Logger.Error("Operation canceled %v, actual waiting time: %v", zap.Error(err), zap.Duration("elapsed", elapsed))
+				} else {
+					// Log a message for any other unknown errors that occurred while waiting for a token.
+					mylog.Logger.Error("Unknown error occurred while waiting for a token: ", zap.Error(err), zap.Duration("elapsed", elapsed))
+				}
+
+				//waitDuration := time.Since(startWaitTime)
+				mylog.Logger.Debug("waited for: ", zap.Duration("elapsed", elapsed))
+				sendErrorResponse(c, http.StatusTooManyRequests, "Request rate limit exceeded")
+				return
 			}
-
-			//waitDuration := time.Since(startWaitTime)
-			mylog.Logger.Debug("waited for: ", zap.Duration("elapsed", elapsed))
-			sendErrorResponse(c, http.StatusTooManyRequests, "Request rate limit exceeded")
-			return
-		}
-		// 假设 logger 是一个已经配置好的 zap.Logger 实例
-		mylog.Logger.Debug("Wait duration",
-			zap.Duration("waited_for", time.Since(startWaitTime))) // 记录从 startWaitTime 到现在的时间差
-
-	} else if s.ConcurrencyLimiter != nil {
-		// 假设 logger 是一个已经配置好的 zap.Logger 实例
-		mylog.Logger.Debug("Concurrency limit set",
-			zap.Int("concurrency_limit", s.Limit.Concurrency)) // 假设 s.Limit.Concurrency 是 int 类型
-
-		select {
-		case <-s.ConcurrencyLimiter: // attempt to get a token from concurrency limiter
-			//log.Println("token acquired")
-			defer func() {
-				waitDuration := time.Since(startWaitTime)
-				mylog.Logger.Info("Timeout after waiting",
-					zap.Duration("wait_duration", waitDuration))
-				s.ConcurrencyLimiter <- struct{}{} // release token upon request completion
-			}()
-		case <-ctx.Done(): // handle timeout
-			waitDuration := time.Since(startWaitTime)
 			// 假设 logger 是一个已经配置好的 zap.Logger 实例
-			mylog.Logger.Info("Timeout after waiting",
-				zap.Duration("wait_duration", waitDuration)) // waitDuration 应该是一个 time.Duration 类型
+			mylog.Logger.Debug("Wait duration",
+				zap.Duration("waited_for", time.Since(startWaitTime)))
 
-			sendErrorResponse(c, http.StatusBadRequest, "Concurrency limit exceeded")
-			return
+		} else if lt == "concurrency" {
+
+			err := limiter.Acquire(ctx)
+			if err != nil {
+				mylog.Logger.Error(err.Error())
+			}
+			defer limiter.Release()
+
+			mylog.Logger.Debug("Concurrency wait time",
+				zap.Duration("waited_for", time.Since(startWaitTime)))
 		}
-		// 假设 logger 是一个已经配置好的 zap.Logger 实例
-		mylog.Logger.Debug("Concurrency wait time",
-			zap.Duration("waited_for", time.Since(startWaitTime))) // 记录从 startWaitTime 到现在所经历的时间
 
 	}
 
-	if err := dispatchToServiceHandler(c, s, oaiReq); err != nil {
+	if err := dispatchToServiceHandler(c, oaiReqParam); err != nil {
 		//mylog.Logger.Error(err.Error())
 		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
@@ -201,10 +230,11 @@ func handleOpenAIRequest(c *gin.Context, oaiReq openai.ChatCompletionRequest) {
 }
 
 // dispatchToServiceHandler dispatches the request to the appropriate service handler based on the service name
-func dispatchToServiceHandler(c *gin.Context, s *config.ModelDetails, oaiReq openai.ChatCompletionRequest) error {
+func dispatchToServiceHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	s := oaiReqParam.modelDetails
 	serviceName := strings.ToLower(s.ServiceName)
 	if handler, ok := serviceHandlerMap[serviceName]; ok {
-		return handler(c, s, oaiReq)
+		return handler(c, oaiReqParam)
 	}
 	return errors.New("service handler not found")
 }
@@ -229,7 +259,7 @@ func validateAPIKey(c *gin.Context) error {
 	return nil
 }
 
-func getModelDetails(oaiReq openai.ChatCompletionRequest) (*config.ModelDetails, string, error) {
+func getModelDetails(oaiReq *openai.ChatCompletionRequest) (*config.ModelDetails, string, error) {
 	if oaiReq.Model == config.KEYNAME_RANDOM {
 		return config.GetRandomEnabledModelDetailsV1()
 	}
