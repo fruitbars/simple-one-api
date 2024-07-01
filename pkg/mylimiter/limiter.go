@@ -1,9 +1,10 @@
-package limiter
+package mylimiter
 
 import (
 	"context"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
+	"simple-one-api/pkg/mycomdef"
 	"sync"
 )
 
@@ -21,12 +22,12 @@ var (
 func NewLimiter(limitType string, limitn float64) *Limiter {
 	lim := &Limiter{}
 	switch limitType {
-	case "qps":
+	case mycomdef.KEYNAME_QPS:
 		lim.QPSLimiter = rate.NewLimiter(rate.Limit(limitn), int(limitn))
-	case "qpm":
+	case mycomdef.KEYNAME_QPM, mycomdef.KEYNAME_RPM:
 		qps := float64(limitn) / 60.0
 		lim.QPSLimiter = rate.NewLimiter(rate.Limit(qps), int(qps*2))
-	case "concurrency":
+	case mycomdef.KEYNAME_CONCURRENCY:
 		lim.ConcurrencyLimiter = semaphore.NewWeighted(int64(limitn))
 	default:
 		// 对无效类型无操作，或者可以抛出错误
