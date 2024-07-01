@@ -27,7 +27,7 @@ func DeepCopyGeminiRequest(original *googlegemini.GeminiRequest) (*googlegemini.
 	for i, _ := range copyReq.Contents {
 		for j, _ := range copyReq.Contents[i].Parts {
 			if copyReq.Contents[i].Parts[j].InlineData != nil {
-				d := []byte("...")
+				d := "..."
 				copyReq.Contents[i].Parts[j].InlineData.Data = d
 			}
 
@@ -131,7 +131,7 @@ func createPartFromMessageContent(mc openai.ChatMessagePart) (*googlegemini.Part
 		}
 		blob := googlegemini.Blob{
 			MimeType: mimeType,
-			Data:     []byte(imgData),
+			Data:     imgData,
 		}
 		return &googlegemini.Part{InlineData: &blob}, nil
 	default:

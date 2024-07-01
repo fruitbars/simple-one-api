@@ -10,7 +10,7 @@ type Part struct {
 // Blob 表示内嵌的媒体字节数据
 type Blob struct {
 	MimeType string `json:"mimeType,omitempty"`
-	Data     []byte `json:"data,omitempty"`
+	Data     string `json:"data,omitempty"`
 }
 
 // Entry represents a single entry in the conversation.
