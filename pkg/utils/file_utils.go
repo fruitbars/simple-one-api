@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func GetAbsolutePath(path string) (string, error) {
@@ -30,4 +31,40 @@ func ResolveRelativePathToAbsolute(filename string) (string, error) {
 	absPath := filepath.Join(wd, filename)
 
 	return absPath, nil
+}
+
+func GetAbsolutePathDir(filename string) (string, error) {
+	// 如果文件名是绝对路径，直接返回其目录名
+	if filepath.IsAbs(filename) {
+		return filepath.Dir(filename), nil
+	}
+
+	// 获取当前工作目录
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("could not get current working directory: %w", err)
+	}
+
+	// 将相对路径转换为绝对路径
+	absPath := filepath.Join(wd, filename)
+
+	// 返回绝对路径的目录名
+	return filepath.Dir(absPath), nil
+}
+
+func GetFileNameAndType(filePath string) (string, string) {
+	// 使用filepath.Base获取文件名（包含后缀）
+	baseName := filepath.Base(filePath)
+
+	// 使用filepath.Ext获取文件的后缀名
+	fileType := filepath.Ext(baseName)
+
+	// 去掉后缀名中的点
+	fileType = strings.TrimPrefix(fileType, ".")
+
+	// 获取文件名（不包含后缀）
+	fileName := strings.TrimSuffix(baseName, fileType)
+	fileName = strings.TrimSuffix(fileName, ".")
+
+	return fileName, fileType
 }
