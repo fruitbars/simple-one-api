@@ -33,6 +33,48 @@ func ConvertSystemMessages2NoSystem(oaiReq []openai.ChatCompletionMessage) []ope
 	return oaiReq
 }
 
+func NormalizeMessages(oaiReqMessage []openai.ChatCompletionMessage) []openai.ChatCompletionMessage {
+	//var systemQuery string
+	if len(oaiReqMessage) == 0 {
+		return oaiReqMessage
+	}
+
+	// 处理第一条消息是 system 的情况
+	if strings.ToLower(oaiReqMessage[0].Role) == "system" {
+		if len(oaiReqMessage) == 1 {
+			oaiReqMessage[0].Role = "user"
+		}
+	}
+
+	// 创建一个新的切片来存储规范化的消息
+	var normalizedMessages []openai.ChatCompletionMessage
+
+	// 跟踪上一个角色
+	var lastRole string
+
+	// 遍历消息数组
+	for i, msg := range oaiReqMessage {
+		role := strings.ToLower(msg.Role)
+		if role == "system" && i > 0 {
+			// 移除非第一条出现的 system 消息
+			continue
+		}
+		if role == "user" || role == "assistant" {
+			// 检查角色是否交替出现
+			if role == lastRole {
+				continue
+			}
+			normalizedMessages = append(normalizedMessages, msg)
+			lastRole = role
+		} else {
+			// 保留不认识的角色
+			normalizedMessages = append(normalizedMessages, msg)
+		}
+	}
+
+	return normalizedMessages
+}
+
 // getImageURLData 分析给定的 URL 字符串，并返回其 base64 编码数据和 MIME 类型
 func GetImageURLData(dataStr string) (string, string, error) {
 	if strings.HasPrefix(dataStr, "data:") {
