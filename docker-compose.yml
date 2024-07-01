@@ -7,5 +7,5 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - /path/to/config.json:/app/config.json
+      - /Users/admin/GolandProjects/myopengoprjs/simple-one-api/myconfigs/:/app/
     restart: unless-stopped
