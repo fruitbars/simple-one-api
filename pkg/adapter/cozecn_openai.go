@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func OpenAIRequestToCozecnRequest(oaiReq openai.ChatCompletionRequest) *cozecn.CozeRequest {
+func OpenAIRequestToCozecnRequest(oaiReq *openai.ChatCompletionRequest) *cozecn.CozeRequest {
 
 	hisMessages := mycommon.ConvertSystemMessages2NoSystem(oaiReq.Messages)
 
