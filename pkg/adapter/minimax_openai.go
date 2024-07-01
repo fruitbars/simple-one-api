@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func OpenAIRequestToMinimaxRequest(openAIReq openai.ChatCompletionRequest) *minimax.MinimaxRequest {
+func OpenAIRequestToMinimaxRequest(openAIReq *openai.ChatCompletionRequest) *minimax.MinimaxRequest {
 	var req minimax.MinimaxRequest
 
 	req.Model = openAIReq.Model

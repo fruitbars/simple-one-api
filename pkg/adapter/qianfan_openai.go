@@ -59,7 +59,7 @@ func qianFanCheckMaxTokens(model string, maxtokens int) int {
 	return 0
 }
 
-func OpenAIRequestToQianFanRequest(oaiReq openai.ChatCompletionRequest) *baiduqianfan.QianFanRequest {
+func OpenAIRequestToQianFanRequest(oaiReq *openai.ChatCompletionRequest) *baiduqianfan.QianFanRequest {
 	var req baiduqianfan.QianFanRequest
 
 	for _, chatMsg := range req.Messages {

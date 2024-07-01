@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"github.com/fruitbars/gosparkclient"
 	"github.com/sashabaranov/go-openai"
+	"go.uber.org/zap"
 	"log"
 	"simple-one-api/pkg/mylog"
 	myopenai "simple-one-api/pkg/openai"
 	"time"
 )
 
-func OpenAIRequestToXingHuoRequest(openAIReq openai.ChatCompletionRequest) *gosparkclient.SparkChatRequest {
+func OpenAIRequestToXingHuoRequest(openAIReq *openai.ChatCompletionRequest) *gosparkclient.SparkChatRequest {
 	var sparkChatReq gosparkclient.SparkChatRequest
 
 	// 将 OpenAIRequest 的 Messages 转换为 SparkChatRequest 的 Message
@@ -61,7 +62,7 @@ func OpenAIRequestToXingHuoRequest(openAIReq openai.ChatCompletionRequest) *gosp
 	case map[string]interface{}:
 		mylog.Logger.Warn("ToolChoice is an object, ignore")
 	default:
-		mylog.Logger.Warn("Unhandled type, ignore")
+		mylog.Logger.Debug("Unhandled type, ignore", zap.Any("type", v))
 	}
 
 	return &sparkChatReq

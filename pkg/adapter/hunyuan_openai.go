@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-func OpenAIRequestToHunYuanRequest(oaiReq openai.ChatCompletionRequest) *hunyuan.ChatCompletionsRequest {
+func OpenAIRequestToHunYuanRequest(oaiReq *openai.ChatCompletionRequest) *hunyuan.ChatCompletionsRequest {
 	request := hunyuan.NewChatCompletionsRequest()
 
 	model := oaiReq.Model

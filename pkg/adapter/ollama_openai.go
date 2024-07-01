@@ -15,7 +15,7 @@ const (
 	lengthFinish = "length"
 )
 
-func OpenAIRequestToOllamaRequest(oaiReq openai.ChatCompletionRequest) *ollama.ChatRequest {
+func OpenAIRequestToOllamaRequest(oaiReq *openai.ChatCompletionRequest) *ollama.ChatRequest {
 	messages := make([]ollama.Message, len(oaiReq.Messages))
 	for i, msg := range oaiReq.Messages {
 		messages[i] = ollama.Message{
