@@ -62,14 +62,14 @@ ifeq ($(clean_up),1)
 endif
 
 compress-windows-amd64:
-	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.tar.gz -C $(BUILD_DIR)/windows-amd64/ $(BINARY_NAME).exe
+	zip -j $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.zip $(BUILD_DIR)/windows-amd64/$(BINARY_NAME).exe
 ifeq ($(clean_up),1)
 	rm -rf $(BUILD_DIR)/windows-amd64
 	@echo "Removed build directory for windows-amd64"
 endif
 
 compress-windows-arm64:
-	tar -czvf $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.tar.gz -C $(BUILD_DIR)/windows-arm64/ $(BINARY_NAME).exe
+	zip -j $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.zip $(BUILD_DIR)/windows-arm64/$(BINARY_NAME).exe
 ifeq ($(clean_up),1)
 	rm -rf $(BUILD_DIR)/windows-arm64
 	@echo "Removed build directory for windows-arm64"
