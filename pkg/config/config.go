@@ -24,6 +24,7 @@ var LogLevel string
 var SupportModels map[string]string
 var GlobalModelRedirect map[string]string
 var SupportMultiContentModels = []string{"gpt-4o", "gpt-4-turbo", "glm-4v", "gemini-*"}
+var GProxyConf *ProxyConf
 
 type Limit struct {
 	QPS         float64 `json:"qps" yaml:"qps"`
@@ -54,17 +55,24 @@ type ServiceModel struct {
 	ModelMap       map[string]string        `json:"model_map" yaml:"model_map"`
 	ModelRedirect  map[string]string        `json:"model_redirect" yaml:"model_redirect"`
 	Limit          Limit                    `json:"limit" yaml:"limit"`
-	Timeout        int                      `json:"-" yaml:"-"`
+	UseProxy       bool                     `json:"use_proxy" yaml:"use_proxy"`
+	//Timeout        int                      `json:"-" yaml:"-"`
+}
+
+type ProxyConf struct {
+	Strategy    string `json:"strategy" yaml:"strategy"`
+	Type        string `json:"type" yaml:"type"`
+	HTTPProxy   string `json:"http_proxy" yaml:"http_proxy"`
+	HTTPSProxy  string `json:"https_proxy" yaml:"https_proxy"`
+	Socks5Proxy string `json:"socks5_proxy" yaml:"socks5_proxy"`
+	Timeout     int    `json:"timeout" yaml:"timeout"`
 }
 
 type Configuration struct {
-	ServerPort string `json:"server_port" yaml:"server_port"`
-	Debug      bool   `json:"debug" yaml:"debug"`
-	LogLevel   string `json:"log_level" yaml:"log_level"`
-	Proxy      struct {
-		HTTPProxy  string `json:"http_proxy" yaml:"http_proxy"`
-		HTTPSProxy string `json:"https_proxy" yaml:"https_proxy"`
-	} `json:"proxy" yaml:"proxy"`
+	ServerPort         string                    `json:"server_port" yaml:"server_port"`
+	Debug              bool                      `json:"debug" yaml:"debug"`
+	LogLevel           string                    `json:"log_level" yaml:"log_level"`
+	Proxy              ProxyConf                 `json:"proxy" yaml:"proxy"`
 	APIKey             string                    `json:"api_key" yaml:"api_key"`
 	LoadBalancing      string                    `json:"load_balancing" yaml:"load_balancing"`
 	MultiContentModels []string                  `json:"multi_content_models" yaml:"multi_content_models"`
@@ -88,7 +96,7 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 		for _, model := range serviceModels {
 			if model.Enabled {
 				log.Printf("Models: %v, Timeout: %v, QPS: %v, QPM: %v, RPM: %v,Concurrency: %v\n",
-					model.Models, model.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.RPM, model.Limit.Concurrency)
+					model.Models, model.Limit.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.RPM, model.Limit.Concurrency)
 
 				if len(model.Models) == 0 {
 					dmv, exists := DefaultSupportModelMap[serviceName]
@@ -176,6 +184,8 @@ func InitConfig(configName string) error {
 	} else {
 		LoadBalancingStrategy = conf.LoadBalancing
 	}
+
+	GProxyConf = &(conf.Proxy)
 
 	if conf.Proxy.HTTPProxy != "" {
 		log.Println("set HTTP_PROXY", conf.Proxy.HTTPProxy)
