@@ -13,24 +13,26 @@ import (
 )
 
 // ProcessMessages 根据消息的角色处理聊天历史。
-func ConvertSystemMessages2NoSystem(oaiReq []openai.ChatCompletionMessage) []openai.ChatCompletionMessage {
+func ConvertSystemMessages2NoSystem(oaiReqMessage []openai.ChatCompletionMessage) []openai.ChatCompletionMessage {
 	var systemQuery string
-	if len(oaiReq) == 0 {
-		return oaiReq
+	if len(oaiReqMessage) == 0 {
+		return oaiReqMessage
 	}
 
 	// 如果第一条消息的角色是 "system"，根据条件处理消息
-	if strings.ToLower(oaiReq[0].Role) == "system" {
-		if len(oaiReq) == 1 {
-			oaiReq[0].Role = "user"
+	if strings.ToLower(oaiReqMessage[0].Role) == "system" {
+		if len(oaiReqMessage) == 1 {
+			oaiReqMessage[0].Role = "user"
 		} else {
-			systemQuery = oaiReq[0].Content
-			oaiReq = oaiReq[1:] // 移除系统消息
-			oaiReq[0].Content = systemQuery + "\n" + oaiReq[0].Content
+			systemQuery = oaiReqMessage[0].Content
+			oaiReqMessage = oaiReqMessage[1:] // 移除系统消息
+			oaiReqMessage[0].Content = systemQuery + "\n" + oaiReqMessage[0].Content
 		}
 	}
 
-	return oaiReq
+	mylog.Logger.Debug("ConvertSystemMessages2NoSystem", zap.Any("oaiReqMessage", oaiReqMessage))
+
+	return oaiReqMessage
 }
 
 func NormalizeMessages(oaiReqMessage []openai.ChatCompletionMessage) []openai.ChatCompletionMessage {

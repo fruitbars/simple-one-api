@@ -3,39 +3,48 @@ package adapter
 import (
 	"fmt"
 	"github.com/sashabaranov/go-openai"
+	"go.uber.org/zap"
 	"simple-one-api/pkg/llm/devplatform/cozecn"
 	"simple-one-api/pkg/mycommon"
+	"simple-one-api/pkg/mylog"
 	myopenai "simple-one-api/pkg/openai"
 	"strings"
 	"time"
 )
 
 func OpenAIRequestToCozecnRequest(oaiReq *openai.ChatCompletionRequest) *cozecn.CozeRequest {
-
 	hisMessages := mycommon.ConvertSystemMessages2NoSystem(oaiReq.Messages)
+	messageCount := len(hisMessages)
 
-	cozeMessages := make([]cozecn.Message, 0, len(hisMessages)-1)
-	query := oaiReq.Messages[len(hisMessages)-1].Content // 最后一条消息作为查询
+	// Directly get the content of the last message as the query
+	query := hisMessages[messageCount-1].Content
 
-	for i := 0; i < len(hisMessages)-1; i++ {
-		msg := oaiReq.Messages[i]
-		mt := ""
-		if strings.ToLower(msg.Role) == "assistant" {
-			mt = "answer"
+	var cozeMessages []cozecn.Message
+	if messageCount > 1 {
+		// Iterate through the messages except the last one
+		for i := 0; i < messageCount-1; i++ {
+			msg := hisMessages[i] // Corrected to use hisMessages instead of oaiReq.Messages
+			mt := ""
+			if strings.ToLower(msg.Role) == "assistant" {
+				mt = "answer"
+			}
+
+			cozeMessages = append(cozeMessages, cozecn.Message{
+				Role:        msg.Role,
+				Type:        mt,
+				Content:     msg.Content,
+				ContentType: "text",
+			})
 		}
-
-		cozeMessages = append(cozeMessages, cozecn.Message{
-			Role:        msg.Role,
-			Type:        mt,
-			Content:     msg.Content,
-			ContentType: "text",
-		})
 	}
 
+	// Set a default user if the user field is empty
 	user := oaiReq.User
 	if user == "" {
 		user = "12345678"
 	}
+
+	mylog.Logger.Debug("cozeMessages", zap.Any("cozeMessages", cozeMessages))
 
 	return &cozecn.CozeRequest{
 		ConversationID: "123",        // Assuming a static conversation ID

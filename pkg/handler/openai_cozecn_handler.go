@@ -56,7 +56,8 @@ func OpenAI2CozecnHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	}
 
 	mylog.Logger.Info(cozeServerURL)
-
+	mylog.Logger.Info("oaiReq", zap.Any("oaiReq", oaiReq))
+	mylog.Logger.Info("cozecnReq", zap.Any("cozecnReq", cozecnReq))
 	// 使用统一的错误处理函数
 	if err := sendRequest(c, secretToken, cozeServerURL, cozecnReq, oaiReq); err != nil {
 		mylog.Logger.Error(err.Error(), zap.String("cozeServerURL", cozeServerURL),
