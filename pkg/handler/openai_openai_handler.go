@@ -64,6 +64,8 @@ func getDefaultServerURL(model string) string {
 		return "https://api.deepseek.com/v1"
 	case strings.HasPrefix(model, "yi-"):
 		return "https://api.lingyiwanwu.com/v1/chat/completions"
+	case strings.HasPrefix(model, "gpt-"):
+		return "https://api.openai.com/v1/chat/completions"
 	default:
 		return ""
 	}
