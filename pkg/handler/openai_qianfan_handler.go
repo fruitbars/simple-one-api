@@ -21,17 +21,22 @@ func OpenAI2QianFanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	secretKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_SECRET_KEY)
 	qfReq := adapter.OpenAIRequestToQianFanRequest(oaiReq)
 
+	client := &http.Client{}
+	if oaiReqParam.httpTransport != nil {
+		client.Transport = oaiReqParam.httpTransport
+	}
+
 	if oaiReq.Stream {
-		return handleQianFanStreamRequest(c, apiKey, secretKey, oaiReq.Model, qfReq)
+		return handleQianFanStreamRequest(c, client, apiKey, secretKey, oaiReq.Model, qfReq)
 	} else {
-		return handleQianFanStandardRequest(c, apiKey, secretKey, oaiReq.Model, qfReq)
+		return handleQianFanStandardRequest(c, client, apiKey, secretKey, oaiReq.Model, qfReq)
 	}
 }
 
-func handleQianFanStreamRequest(c *gin.Context, apiKey, secretKey, model string, qfReq *baiduqianfan.QianFanRequest) error {
+func handleQianFanStreamRequest(c *gin.Context, client *http.Client, apiKey, secretKey, model string, qfReq *baiduqianfan.QianFanRequest) error {
 	utils.SetEventStreamHeaders(c)
 
-	err := baiduqianfan.QianFanCallSSE(apiKey, secretKey, model, qfReq, func(qfResp *baiduqianfan.QianFanResponse) {
+	err := baiduqianfan.QianFanCallSSE(client, apiKey, secretKey, model, qfReq, func(qfResp *baiduqianfan.QianFanResponse) {
 		oaiRespStream := adapter.QianFanResponseToOpenAIStreamResponse(qfResp)
 		oaiRespStream.Model = model
 
@@ -68,8 +73,8 @@ func handleQianFanStreamRequest(c *gin.Context, apiKey, secretKey, model string,
 	return nil
 }
 
-func handleQianFanStandardRequest(c *gin.Context, apiKey, secretKey, model string, qfReq *baiduqianfan.QianFanRequest) error {
-	qfResp, err := baiduqianfan.QianFanCall(apiKey, secretKey, model, qfReq)
+func handleQianFanStandardRequest(c *gin.Context, client *http.Client, apiKey, secretKey, model string, qfReq *baiduqianfan.QianFanRequest) error {
+	qfResp, err := baiduqianfan.QianFanCall(client, apiKey, secretKey, model, qfReq)
 	if err != nil {
 		mylog.Logger.Error("Error during API call",
 			zap.Error(err)) // 记录错误对象

@@ -21,11 +21,11 @@ func getURLAndDomain(modelName string) (string, string, error) {
 	switch modelNameLower {
 	case "4.0ultra":
 		return "wss://spark-api.xf-yun.com/v4.0/chat", "4.0Ultra", nil
-	case "spark3.5-max":
+	case "spark3.5-max", "generalv3.5":
 		return "wss://spark-api.xf-yun.com/v3.5/chat", "generalv3.5", nil
-	case "spark-pro":
+	case "spark-pro", "generalv3":
 		return "wss://spark-api.xf-yun.com/v3.1/chat", "generalv3", nil
-	case "spark-v2.0":
+	case "spark-v2.0", "generalv2":
 		return "wss://spark-api.xf-yun.com/v2.1/chat", "generalv2", nil
 	case "spark-lite":
 		return "wss://spark-api.xf-yun.com/v1.1/chat", "general", nil
@@ -50,6 +50,10 @@ func OpenAI2XingHuoHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	//mycommon.GetCredentialsLimit()
 
 	client := gosparkclient.NewSparkClientWithOptions(appid, apiKey, apiSecret, serverUrl, domain)
+	if oaiReqParam.httpTransport != nil {
+		client.Transport = oaiReqParam.httpTransport
+	}
+
 	xhReq := adapter.OpenAIRequestToXingHuoRequest(oaiReq)
 
 	xhDataJson, _ := json.Marshal(xhReq)

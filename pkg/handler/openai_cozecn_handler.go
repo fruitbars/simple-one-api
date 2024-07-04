@@ -54,12 +54,18 @@ func OpenAI2CozecnHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 			cozeServerURL = defaultCozecnURL
 		}
 	}
+	client := &http.Client{
+		Timeout: 3 * time.Minute,
+	}
+	if oaiReqParam.httpTransport != nil {
+		client.Transport = oaiReqParam.httpTransport
+	}
 
 	mylog.Logger.Info(cozeServerURL)
 	mylog.Logger.Info("oaiReq", zap.Any("oaiReq", oaiReq))
 	mylog.Logger.Info("cozecnReq", zap.Any("cozecnReq", cozecnReq))
 	// 使用统一的错误处理函数
-	if err := sendRequest(c, secretToken, cozeServerURL, cozecnReq, oaiReq); err != nil {
+	if err := sendRequest(c, client, secretToken, cozeServerURL, cozecnReq, oaiReq); err != nil {
 		mylog.Logger.Error(err.Error(), zap.String("cozeServerURL", cozeServerURL),
 			zap.Any("cozecnReq", cozecnReq), zap.Any("oaiReq", oaiReq))
 		return err
@@ -68,7 +74,7 @@ func OpenAI2CozecnHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	return nil
 }
 
-func sendRequest(c *gin.Context, token, url string, request interface{}, oaiReq *openai.ChatCompletionRequest) error {
+func sendRequest(c *gin.Context, client *http.Client, token, url string, request interface{}, oaiReq *openai.ChatCompletionRequest) error {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("json编码错误: %v", err)
@@ -83,9 +89,6 @@ func sendRequest(c *gin.Context, token, url string, request interface{}, oaiReq 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{
-		Timeout: 3 * time.Minute,
-	}
 	resp, err := client.Do(req)
 	if err != nil {
 		mylog.Logger.Error(err.Error())

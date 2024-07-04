@@ -68,3 +68,26 @@ func GetFileNameAndType(filePath string) (string, string) {
 
 	return fileName, fileType
 }
+
+// IsSimpleFileName checks if the given file name is just a simple file name without any directory path.
+func IsSimpleFileName(fileName string) bool {
+	// Check if the file name is an absolute path
+	if strings.HasPrefix(fileName, "/") {
+		return false
+	}
+
+	// Check if the file name contains any directory separators
+	if strings.Contains(fileName, "/") {
+		return false
+	}
+
+	return true
+}
+
+func FileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true
+}

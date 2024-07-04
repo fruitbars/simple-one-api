@@ -190,6 +190,10 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		return err
 	}
 
+	if oaiReqParam.httpTransport != nil {
+		conf.HTTPClient.Transport = oaiReqParam.httpTransport
+	}
+
 	if strings.HasPrefix(s.ServerURL, "https://api.groq.com/openai/v1") {
 		adjustGroqReq(oaiReqParam.chatCompletionReq)
 	} else if strings.HasPrefix(s.ServerURL, "https://open.bigmodel.cn") {
@@ -198,19 +202,18 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		if strings.Contains(oaiReqParam.chatCompletionReq.Model, "glm-4v") {
 			AdjustChatCompletionRequestForZhiPu(oaiReqParam.chatCompletionReq)
 		}
-	} else if strings.HasPrefix(s.ServerURL, "https://spark-api-open.xf-yun.com") {
-		//oaiReqParam.chatCompletionReq.TopP = 0.0
-		if oaiReqParam.chatCompletionReq.Stream == true {
-			defaultTransport := http.DefaultTransport
+	}
 
-			// 创建自定义的 Transport
-			customTransport := &utils.CustomTransport{
-				Transport: defaultTransport,
-			}
-			conf.HTTPClient = &http.Client{
-				Transport: customTransport,
-			}
-		}
+	defaultTransport := http.DefaultTransport
+	if oaiReqParam.httpTransport != nil {
+		defaultTransport = oaiReqParam.httpTransport
+	}
+
+	scTransport := &utils.SimpleCustomTransport{
+		Transport: defaultTransport,
+	}
+	conf.HTTPClient = &http.Client{
+		Transport: scTransport,
 	}
 
 	mylog.Logger.Debug("request:", zap.Any("req", oaiReqParam.chatCompletionReq))

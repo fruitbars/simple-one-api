@@ -57,6 +57,10 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 
 		// 使用http.Client发送请求
 		client := &http.Client{}
+		if oaiReqParam.httpTransport != nil {
+			client.Transport = oaiReqParam.httpTransport
+		}
+
 		response, err := client.Do(request)
 		if err != nil {
 			mylog.Logger.Error(err.Error())

@@ -55,8 +55,8 @@ type ServiceModel struct {
 	ModelMap       map[string]string        `json:"model_map" yaml:"model_map"`
 	ModelRedirect  map[string]string        `json:"model_redirect" yaml:"model_redirect"`
 	Limit          Limit                    `json:"limit" yaml:"limit"`
-	UseProxy       bool                     `json:"use_proxy" yaml:"use_proxy"`
-	//Timeout        int                      `json:"-" yaml:"-"`
+	UseProxy       *bool                    `json:"use_proxy,omitempty" yaml:"use_proxy,omitempty"`
+	Timeout        int                      `json:"timeout" yaml:"timeout"`
 }
 
 type ProxyConf struct {
@@ -95,8 +95,8 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 	for serviceName, serviceModels := range config.Services {
 		for _, model := range serviceModels {
 			if model.Enabled {
-				log.Printf("Models: %v, Timeout: %v, QPS: %v, QPM: %v, RPM: %v,Concurrency: %v\n",
-					model.Models, model.Limit.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.RPM, model.Limit.Concurrency)
+				log.Printf("Models: %v, service Timeout:%v,Limit Timeout: %v, QPS: %v, QPM: %v, RPM: %v,Concurrency: %v\n",
+					model.Models, model.Timeout, model.Limit.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.RPM, model.Limit.Concurrency)
 
 				if len(model.Models) == 0 {
 					dmv, exists := DefaultSupportModelMap[serviceName]
@@ -106,12 +106,18 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 					}
 				}
 
+				if model.Timeout <= 0 {
+					model.Timeout = ServiceTimeOut
+				}
+
 				for _, modelName := range model.Models {
 					detail := ModelDetails{
 						ServiceName:  serviceName,
 						ServiceModel: model,
 						ServiceID:    uuid.New().String(),
 					}
+
+					//modelNameLower := strings.ToLower(modelName)
 					modelToService[modelName] = append(modelToService[modelName], detail)
 
 					//存储支持的模型名称列表
@@ -138,6 +144,7 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 
 // InitConfig 初始化配置
 func InitConfig(configName string) error {
+
 	// 解析 JSON 数据到结构体
 	var conf Configuration
 
@@ -146,6 +153,17 @@ func InitConfig(configName string) error {
 		log.Println("Error getting absolute path:", err)
 		return err
 	}
+
+	if !utils.FileExists(configAbsolutePath) {
+		log.Println("config name:", configAbsolutePath, "not exist")
+		configName = "config/" + configName
+		configAbsolutePath, err = utils.ResolveRelativePathToAbsolute(configName)
+		if err != nil {
+			log.Println("Error getting absolute path:", err)
+			return err
+		}
+	}
+
 	log.Println("config name:", configAbsolutePath)
 	// 从文件读取配置数据
 	data, err := os.ReadFile(configAbsolutePath)
@@ -187,21 +205,24 @@ func InitConfig(configName string) error {
 
 	GProxyConf = &(conf.Proxy)
 
-	if conf.Proxy.HTTPProxy != "" {
-		log.Println("set HTTP_PROXY", conf.Proxy.HTTPProxy)
-		err := os.Setenv("HTTP_PROXY", conf.Proxy.HTTPProxy)
-		if err != nil {
-			//return err
-		}
+	/*
+		if conf.Proxy.HTTPProxy != "" {
+			log.Println("set HTTP_PROXY", conf.Proxy.HTTPProxy)
+			err := os.Setenv("HTTP_PROXY", conf.Proxy.HTTPProxy)
+			if err != nil {
+				//return err
+			}
 
-	}
-	if conf.Proxy.HTTPSProxy != "" {
-		log.Println("set HTTPS_PROXY", conf.Proxy.HTTPSProxy)
-		err := os.Setenv("HTTPS_PROXY", conf.Proxy.HTTPSProxy)
-		if err != nil {
-			//return err
 		}
-	}
+		if conf.Proxy.HTTPSProxy != "" {
+			log.Println("set HTTPS_PROXY", conf.Proxy.HTTPSProxy)
+			err := os.Setenv("HTTPS_PROXY", conf.Proxy.HTTPSProxy)
+			if err != nil {
+				//return err
+			}
+		}*/
+
+	log.Println(conf.Proxy)
 
 	if conf.APIKey != "" {
 		APIKey = conf.APIKey
@@ -370,5 +391,30 @@ func IsSupportMultiContent(model string) bool {
 			return true
 		}
 	}
+	return false
+}
+
+func IsProxyEnabled(s *ModelDetails) bool {
+	switch GProxyConf.Strategy {
+	case PROXY_STRATEGY_FORCEALL:
+		// 配置全部启用代理，即使服务内配置了false，也忽略
+		return true
+	case PROXY_STRATEGY_ALL:
+		// 配置全部启用代理，如果服务内配置了false，则不启动，其他情况全部启用
+		if s.UseProxy == nil || (s.UseProxy != nil && *s.UseProxy) {
+			return true
+		}
+	case PROXY_STRATEGY_DEFAULT:
+		// 配置根据配置启用代理，默认是关闭
+		if s.UseProxy != nil && *s.UseProxy {
+			return true
+		}
+	case PROXY_STRATEGY_DISABLED:
+		// 配置全部禁用代理
+		return false
+	default:
+		return false
+	}
+
 	return false
 }

@@ -14,6 +14,7 @@ import (
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
+	"time"
 )
 
 const DefaultHuoShanServerURL = "https://ark.cn-beijing.volces.com/api/v3"
@@ -27,15 +28,33 @@ func configureClient(oaiReqParam *OAIRequestParam, model string) (*arkruntime.Cl
 		serverURL = DefaultHuoShanServerURL
 	}
 
-	access_key, _ := utils.GetStringFromMap(credentials, config.KEYNAME_ACCESS_KEY)
-	secret_key, _ := utils.GetStringFromMap(credentials, config.KEYNAME_SECRET_KEY)
+	accessKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_ACCESS_KEY)
+	secretKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_SECRET_KEY)
 
+	// 创建自定义 HTTP client 使用上述 transport
+	httpHSClient := &http.Client{
+		//Transport: transport,
+		Timeout: 30 * time.Second,
+	}
+
+	if oaiReqParam.httpTransport != nil {
+		httpHSClient.Transport = oaiReqParam.httpTransport
+	}
+
+	// 定义一个 configOption 来设置自定义的 HTTP client
+	withCustomHTTPClient := func(config *arkruntime.ClientConfig) {
+		config.HTTPClient = httpHSClient
+	}
+
+	// 使用 NewClientWithAkSk 创建 Client，并应用自定义的 HTTP client 和其他配置
 	client := arkruntime.NewClientWithAkSk(
-		access_key,
-		secret_key,
+		accessKey,
+		secretKey,
 		arkruntime.WithBaseUrl(serverURL),
 		arkruntime.WithRegion("cn-beijing"),
+		withCustomHTTPClient, // 应用自定义 HTTP client 的配置
 	)
+
 	return client, nil
 }
 

@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func QianFanCall(api_key, secret_key, model string, qfReq *QianFanRequest) (*QianFanResponse, error) {
+func QianFanCall(client *http.Client, api_key, secret_key, model string, qfReq *QianFanRequest) (*QianFanResponse, error) {
 	mylog.Logger.Info("QianFanCall", zap.String("api_key", api_key), zap.String("secret_key", secret_key), zap.String("model", model), zap.Any("qfReq", qfReq))
 
 	accessToken := GetAccessToken(api_key, secret_key)
@@ -23,10 +23,10 @@ func QianFanCall(api_key, secret_key, model string, qfReq *QianFanRequest) (*Qia
 		return nil, err
 	}
 
-	return SendChatRequest(accessToken, model, qfReq)
+	return SendChatRequest(client, accessToken, model, qfReq)
 }
 
-func QianFanCallSSE(api_key, secret_key, model string, qfReq *QianFanRequest, callback func(qfResp *QianFanResponse)) error {
+func QianFanCallSSE(client *http.Client, api_key, secret_key, model string, qfReq *QianFanRequest, callback func(qfResp *QianFanResponse)) error {
 	mylog.Logger.Info("QianFanCall", zap.String("api_key", api_key), zap.String("secret_key", secret_key), zap.String("model", model), zap.Any("qfReq", qfReq))
 	accessToken := GetAccessToken(api_key, secret_key)
 	if accessToken == "" {
@@ -35,11 +35,11 @@ func QianFanCallSSE(api_key, secret_key, model string, qfReq *QianFanRequest, ca
 		return err
 	}
 
-	return SendChatRequestWithSSE(accessToken, model, qfReq, callback)
+	return SendChatRequestWithSSE(client, accessToken, model, qfReq, callback)
 }
 
 // SendChatRequestWithSSE 发送 SSE 请求并处理响应
-func SendChatRequestWithSSE(accessToken, model string, qfReq *QianFanRequest, callback func(qfResp *QianFanResponse)) error {
+func SendChatRequestWithSSE(client *http.Client, accessToken, model string, qfReq *QianFanRequest, callback func(qfResp *QianFanResponse)) error {
 	address := qianfanModelName2Address(model)
 	url := "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/" + address + "?access_token=" + accessToken
 
@@ -51,7 +51,7 @@ func SendChatRequestWithSSE(accessToken, model string, qfReq *QianFanRequest, ca
 
 	mylog.Logger.Info(string(jsonData))
 
-	client := &http.Client{}
+	//client := &http.Client{}
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonData))
 	if err != nil {
 		mylog.Logger.Error(err.Error())
@@ -104,7 +104,7 @@ func SendChatRequestWithSSE(accessToken, model string, qfReq *QianFanRequest, ca
 	return nil
 }
 
-func SendChatRequest(accessToken, model string, qfReq *QianFanRequest) (*QianFanResponse, error) {
+func SendChatRequest(client *http.Client, accessToken, model string, qfReq *QianFanRequest) (*QianFanResponse, error) {
 	address := qianfanModelName2Address(model)
 	url := "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/" + address + "?access_token=" + accessToken
 
@@ -116,7 +116,7 @@ func SendChatRequest(accessToken, model string, qfReq *QianFanRequest) (*QianFan
 
 	mylog.Logger.Info(string(jsonData))
 
-	client := &http.Client{}
+	//client := &http.Client{}
 	req, err := http.NewRequest("POST", url, bytes.NewReader(jsonData))
 	if err != nil {
 		mylog.Logger.Error(err.Error())

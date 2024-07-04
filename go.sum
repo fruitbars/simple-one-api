@@ -20,6 +20,8 @@ github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.m
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fruitbars/gosparkclient v0.0.0-20240614153428-f0c6a941cb20 h1:41/qbEoYau64H3L/tbHflxFDq3PKG6Vkt1E9xj2fdu0=
 github.com/fruitbars/gosparkclient v0.0.0-20240614153428-f0c6a941cb20/go.mod h1:PW7/nwgfwQzwPpC1zIWDx0oP6n8hivx399I6Fw69pj4=
+github.com/fruitbars/gosparkclient v0.0.0-20240704021048-a18435d9e679 h1:T3WJuhTrON7edtN0uFsoLcpF9ggguVOsgIcnVbZnD98=
+github.com/fruitbars/gosparkclient v0.0.0-20240704021048-a18435d9e679/go.mod h1:PW7/nwgfwQzwPpC1zIWDx0oP6n8hivx399I6Fw69pj4=
 github.com/gabriel-vasile/mimetype v1.4.3 h1:in2uUcidCuFcDKtdcBxlR0rJ1+fsokWf+uqxgUFjbI0=
 github.com/gabriel-vasile/mimetype v1.4.3/go.mod h1:d8uq/6HKRL6CGdk+aubisF/M5GcPfT7nKyLpA0lbSSk=
 github.com/gin-contrib/cors v1.7.2 h1:oLDHxdg8W/XDoN/8zamqk/Drgt4oVZDvaV0YmvVICQw=

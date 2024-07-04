@@ -5,7 +5,7 @@ toolchain go1.22.2
 module simple-one-api
 
 require (
-	github.com/fruitbars/gosparkclient v0.0.0-20240614153428-f0c6a941cb20
+	github.com/fruitbars/gosparkclient v0.0.0-20240704021048-a18435d9e679
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0

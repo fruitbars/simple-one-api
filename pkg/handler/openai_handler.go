@@ -25,6 +25,7 @@ type OAIRequestParam struct {
 	chatCompletionReq *openai.ChatCompletionRequest
 	modelDetails      *config.ModelDetails
 	creds             map[string]interface{}
+	httpTransport     *http.Transport
 }
 
 // serviceHandlerMap maps service names to their corresponding handler functions
@@ -216,6 +217,16 @@ func handleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 				zap.Duration("waited_for", time.Since(startWaitTime)))
 		}
 
+	}
+
+	if config.IsProxyEnabled(s) {
+		proxyType, proxyAddr, transport, err := config.GetConfProxyTransport()
+		if err != nil {
+			mylog.Logger.Error("GetConfProxyTransport", zap.Error(err))
+		} else {
+			mylog.Logger.Debug("GetConfProxyTransport", zap.String("proxyType", proxyType), zap.String("proxyAddr", proxyAddr))
+			oaiReqParam.httpTransport = transport
+		}
 	}
 
 	//mylog.Logger.Debug("oaiReq", zap.Any("oaiReq", oaiReq))

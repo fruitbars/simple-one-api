@@ -31,7 +31,7 @@ const (
 )
 
 // 使用全局客户端
-var httpClient = &http.Client{
+var geminiHttpClient = &http.Client{
 	Timeout: RequestTimeout,
 }
 
@@ -66,7 +66,11 @@ func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := httpClient.Do(req)
+	if oaiReqParam.httpTransport != nil {
+		geminiHttpClient.Transport = oaiReqParam.httpTransport
+	}
+
+	resp, err := geminiHttpClient.Do(req)
 	if err != nil {
 		errStr := err.Error()
 		re := regexp.MustCompile(`key=[^&]*`)

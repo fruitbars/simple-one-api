@@ -36,6 +36,10 @@ func OpenAI2HunYuanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		return err
 	}
 
+	if oaiReqParam.httpTransport != nil {
+		client.Client.WithHttpTransport(oaiReqParam.httpTransport)
+	}
+
 	// 创建HunYuan请求对象
 	request := adapter.OpenAIRequestToHunYuanRequest(oaiReq)
 
