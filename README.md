@@ -333,35 +333,8 @@ docker logs -f <container_id>
 
 ### 如何设置代理
 
-目前只支持程序全局代理，假设我们有本地代理`http://127.0.0.1:7890`，可以按照如下方式设置
-
-```
-{
-  "server_port": ":9090",
-  "log_level": "prod",
-  "load_balancing": "random",
-  "proxy":{
-    "http_proxy":"http://127.0.0.1:7890",
-    "https_proxy":"http://127.0.0.1:7890"
-  },
-  "services": {
-    "gemini": [
-      {
-        "models": ["gemini-1.5-flash"],
-        "enabled": true,
-        "credentials": {
-          "api_key": "xxx"
-        },
-        "limit": {
-          "rpm": 15,
-          "timeout":120
-        }
-      }
-    ]
-  }
-}
-
-```
+从v0.9.1开始，更新了代理方式，每个service支持独立代理
+参考文档《[simple‐one‐api代理配置说明](https://github.com/fruitbars/simple-one-api/wiki/simple%E2%80%90one%E2%80%90api%E4%BB%A3%E7%90%86%E9%85%8D%E7%BD%AE%E8%AF%B4%E6%98%8E )》
 
 
 
