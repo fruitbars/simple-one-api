@@ -29,8 +29,7 @@ func main() {
 	// 初始化配置
 	err = config.InitConfig(configName)
 	if err != nil {
-		mylog.Logger.Error(err.Error())
-		mylog.Logger.Error("exit")
+		log.Println(err)
 		return
 	}
 
