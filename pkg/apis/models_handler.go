@@ -34,6 +34,15 @@ func ModelsHandler(c *gin.Context) {
 		})
 	}
 
+	if len(models) > 0 {
+		models = append(models, Model{
+			ID:      "random",
+			Object:  "model",
+			Created: t.Unix(),
+			OwnedBy: "openai",
+		})
+	}
+
 	if len(models) == 0 {
 		c.IndentedJSON(http.StatusNotFound, gin.H{"error": "No models found"})
 		return
