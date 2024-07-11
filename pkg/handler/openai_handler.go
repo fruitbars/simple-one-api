@@ -46,6 +46,8 @@ var serviceHandlerMap = map[string]func(*gin.Context, *OAIRequestParam) error{
 	"groq":     OpenAI2GroqOpenAIHandler,
 	"gemini":   OpenAI2GeminiHandler,
 	"aliyun":   OpenAI2OpenAIHandler,
+	"vertexai": OpenAI2VertexAIHandler,
+	"claude":   OpenAI2ClaudeHandler,
 }
 
 func LogRequestBody(c *gin.Context) {
@@ -96,12 +98,12 @@ func OpenAIHandler(c *gin.Context) {
 		return
 	}
 
-	handleOpenAIRequest(c, &oaiReq)
+	HandleOpenAIRequest(c, &oaiReq)
 
 	return
 }
 
-func handleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
+func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 
 	clientModel := oaiReq.Model
 
