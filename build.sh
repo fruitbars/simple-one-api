@@ -22,6 +22,8 @@ while [[ "$#" -gt 0 ]]; do
             echo "  - windows-arm64"
             echo "  - linux-amd64"
             echo "  - linux-arm64"
+            echo "  - freebsd-amd64"
+            echo "  - freebsd-arm64"
             exit 0
             ;;
         --development)
