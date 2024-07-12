@@ -3,63 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google风格 DeepL 翻译器 (本地API端点)</title>
+    <title>大模型翻译器</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 900px; margin: 20px auto; padding: 0 20px; }
-        .container { display: flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        .container { display: flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; margin: 20px; }
         .column { flex: 1; padding: 20px; }
         .column + .column { border-left: 1px solid #ddd; }
-        textarea { width: 100%; height: 150px; border: none; resize: none; font-size: 16px; }
+        textarea { width: 100%; height: 300px; border: none; resize: none; font-size: 16px; padding: 10px; box-sizing: border-box; }
         .language-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        select { font-size: 14px; padding: 5px; }
-        button { background: none; border: none; cursor: pointer; font-size: 20px; }
-        #translateBtn { background-color: #4285f4; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        select, button { font-size: 14px; padding: 5px; }
+        #translateBtn, .copy-btn { background-color: #4285f4; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
         .options { margin-top: 10px; }
+        #statusIndicator { margin-top: 10px; font-style: italic; color: #666; }
+
+        .navbar {
+            background-color: #333;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000; /* 确保导航栏在最上层 */
+        }
+        .navbar a {
+            float: left;
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 20px;
+            text-decoration: none;
+        }
+        .navbar a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+        .content {
+            margin-top: 50px; /* Same as navbar height */
+            padding: 20px;
+        }
+
     </style>
 </head>
 <body>
-<h1>Google风格 DeepL 翻译器 (本地API端点)</h1>
-<div class="container">
-    <div class="column">
-        <div class="language-bar">
-            <select id="sourceLang">
-                <option value="ZH">中文</option>
-                <option value="EN" selected>英语</option>
-                <option value="JA">日语</option>
-                <option value="DE">德语</option>
-            </select>
-        </div>
-        <textarea id="sourceText" placeholder="输入文本"></textarea>
-    </div>
-    <div class="column">
-        <div class="language-bar">
-            <select id="targetLang">
-                <option value="ZH" selected>中文</option>
-                <option value="EN">英语</option>
-                <option value="JA">日语</option>
-                <option value="DE">德语</option>
-            </select>
-            <button onclick="swapLanguages()">⇄</button>
-        </div>
-        <textarea id="targetText" placeholder="翻译" readonly></textarea>
-    </div>
+<div class="navbar">
+    <a href="index.html">首页</a>
+    <a href="trans.html">Trans 页面</a>
 </div>
-<div class="options">
-    <label>
-        <input type="checkbox" id="streamMode"> 使用SSE流式模式
-    </label>
+<div class="content">
+    <h1>大模型翻译器</h1>
+    <div class="container">
+        <div class="column">
+            <div class="language-bar">
+                <select id="sourceLang">
+                    <option value="ZH" selected>中文</option>
+                    <option value="EN">英语</option>
+                    <option value="JA">日语</option>
+                    <option value="DE">德语</option>
+                </select>
+            </div>
+            <textarea id="sourceText" placeholder="输入文本">你好，大模型</textarea>
+        </div>
+        <div class="column">
+            <div class="language-bar">
+                <select id="targetLang">
+                    <option value="ZH">中文</option>
+                    <option value="EN" selected>英语</option>
+                    <option value="JA">日语</option>
+                    <option value="DE">德语</option>
+                </select>
+                <button onclick="swapLanguages()">⇄</button>
+                <button class="copy-btn" onclick="copyText()">复制</button> <!-- 复制按钮 -->
+            </div>
+            <textarea id="targetText" placeholder="翻译" readonly></textarea>
+        </div>
+    </div>
+    <div class="options">
+        <label>
+            <input type="checkbox" id="streamMode"> 使用SSE流式模式
+        </label>
+    </div>
+    <button id="translateBtn" onclick="translateText()">翻译</button>
+    <div id="statusIndicator"></div>
 </div>
-<button id="translateBtn" onclick="translateText()">翻译</button>
 
 <script>
     const API_ENDPOINT = 'http://' + window.location.host + '/v2/translate';
+    const statusIndicator = document.getElementById('statusIndicator');
+    const sourceTextArea = document.getElementById('sourceText');
+    const targetTextArea = document.getElementById('targetText');
+    const streamModeCheckbox = document.getElementById('streamMode');
+
+    function updateStatus(status) {
+        statusIndicator.textContent = status;
+    }
+
+    sourceTextArea.addEventListener('input', function() {
+        targetTextArea.value = ''; // 清空输出框
+        updateStatus('准备就绪');
+    });
+
+    streamModeCheckbox.addEventListener('change', function() {
+        localStorage.setItem('streamMode', streamModeCheckbox.checked);
+    });
+
+    function loadStreamMode() {
+        const streamMode = localStorage.getItem('streamMode') === 'true';
+        streamModeCheckbox.checked = streamMode;
+    }
 
     async function translateText() {
-        const sourceText = document.getElementById('sourceText').value;
+        const sourceText = sourceTextArea.value;
         const sourceLang = document.getElementById('sourceLang').value;
         const targetLang = document.getElementById('targetLang').value;
-        const targetTextArea = document.getElementById('targetText');
-        const streamMode = document.getElementById('streamMode').checked;
+        const streamMode = streamModeCheckbox.checked;
+
+        if (!sourceText.trim()) {
+            updateStatus('请输入要翻译的文本');
+            return;
+        }
+
+        updateStatus('准备中...');
+        targetTextArea.value = ''; // 在开始新的翻译前清空输出框
 
         const headers = {
             'Content-Type': 'application/json',
@@ -73,12 +136,13 @@
         });
 
         try {
+            updateStatus('翻译中...');
             if (streamMode) {
                 const response = await fetch(API_ENDPOINT, { method: 'POST', headers, body });
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let buffer = '';
-                let partialTranslation = '';
+                let fullTranslation = '';
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -93,8 +157,8 @@
                             try {
                                 const data = JSON.parse(line.slice(5));
                                 if (data.translations && data.translations[0]) {
-                                    partialTranslation = data.translations[0].text;
-                                    targetTextArea.value = partialTranslation;
+                                    fullTranslation += data.translations[0].text; // 累积翻译结果
+                                    targetTextArea.value = fullTranslation; // 更新显示的翻译结果
                                 }
                             } catch (e) {
                                 console.error('Error parsing SSE data:', e);
@@ -107,21 +171,32 @@
                 const data = await response.json();
                 targetTextArea.value = data.translations[0].text;
             }
+            updateStatus('翻译完成');
         } catch (error) {
             console.error('Translation error:', error);
             targetTextArea.value = '翻译出错，请稍后再试。';
+            updateStatus('翻译出错');
         }
     }
 
     function swapLanguages() {
         const sourceLang = document.getElementById('sourceLang');
         const targetLang = document.getElementById('targetLang');
-        const sourceText = document.getElementById('sourceText');
-        const targetText = document.getElementById('targetText');
 
         [sourceLang.value, targetLang.value] = [targetLang.value, sourceLang.value];
-        [sourceText.value, targetText.value] = [targetText.value, sourceText.value];
+        targetTextArea.value = ''; // 清空输出框
+        updateStatus('语言已交换');
     }
+
+    function copyText() {
+        navigator.clipboard.writeText(targetTextArea.value)
+            .then(() => updateStatus('已复制到剪贴板'))
+            .catch(err => updateStatus('复制失败: ' + err));
+    }
+
+    // 初始状态
+    updateStatus('准备就绪');
+    loadStreamMode(); // 加载上一次的streamMode选择
 </script>
 </body>
 </html>

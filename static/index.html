@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>大模型翻译器</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: white;
+            box-sizing: border-box;
+        }
+        .navbar {
+            background-color: #333;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000; /* 确保导航栏在最顶层 */
+        }
+        .navbar a {
+            float: left;
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 20px;
+            text-decoration: none;
+        }
+        .navbar a:hover {
+            background-color: #ddd;
+            color: black;
+        }
+        .content {
+            margin-top: 50px; /* 调整这个值以确保足够空间容纳导航栏 */
+            padding: 20px;
+            display: flex; /* 保持您原有的 flex 布局 */
+            height: calc(100% - 50px); /* 减去导航栏高度后的全高 */
+            box-sizing: border-box; /* 包括 padding 在内的总高度计算 */
+        }
+        #left-panel {
+            width: 30%;
+            margin-left: 20px;
+            background-color: white;
+            height: 100%;
+        }
+        #right-panel {
+            width: 70%;
+            overflow-y: auto;
+            background-color: white;
+            height: 100%;
+        }
+        #prompt, #system {
+            width: 95%;
+            height: 200px;
+        }
+        #output .response-bubble {
+            background-color: #f5f5f5;
+            border: 1px solid #ccc;
+            margin: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            color: #000;
+            font-size: 14px;
+        }
+        .bubble-number {
+            color: #ff0000;
+            font-weight: bold;
+        }
+        .dropdown-check-list {
+            display: inline-block;
+        }
+        .dropdown-check-list .anchor {
+            position: relative;
+            cursor: pointer;
+            display: inline-block;
+            padding: 5px 50px 5px 10px;
+            border: 1px solid #ccc;
+        }
+        .dropdown-check-list .anchor:after {
+            position: absolute;
+            content: "";
+            border-left: 2px solid black;
+            border-top: 2px solid black;
+            padding: 5px;
+            right: 10px;
+            top: 20%;
+            transform: rotate(-135deg);
+        }
+        .dropdown-check-list .anchor:active:after {
+            right: 8px;
+            top: 21%;
+        }
+        .dropdown-check-list ul.items {
+            padding: 2px;
+            display: none;
+            margin: 0;
+            border: 1px solid #ccc;
+            border-top: none;
+        }
+        .dropdown-check-list ul.items li {
+            white-space: nowrap; /* 确保文本不会换行 */
+        }
+        #selectedModels {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+<div class="navbar">
+    <a href="index.html">首页</a>
+    <a href="trans.html">Trans 页面</a>
+</div>
+<div class="content">
+    <div id="left-panel">
+        <h2>Settings</h2>
+        <form id="settingsForm">
+            <div>
+                <label for="prompt">Prompt:</label><br>
+                <textarea id="prompt" name="prompt">你好，大模型</textarea><br>
+            </div>
+            <div>
+                <label for="temperature">Temperature:</label>
+                <input type="text" id="temperature" name="temperature" value="0.5"><br><br>
+            </div>
+            <div>
+                <label for="max_tokens">Max Tokens:</label>
+                <input type="text" id="max_tokens" name="max_tokens" value="4096"><br><br>
+            </div>
+            <div>
+                <label for="top_p">Top P:</label>
+                <input type="text" id="top_p" name="top_p" value="0.5"><br><br>
+            </div>
+            <div>
+                <label>Selected Models:</label>
+                <div id="selectedModels">None</div>
+            </div>
+            <div>
+                <label for="modelSelect">Model:</label>
+                <div id="modelList" class="dropdown-check-list" tabindex="100">
+                    <span class="anchor" id="modelSelect">Select Models</span>
+                    <ul class="items" id="modelItems">
+                    </ul>
+                </div><br><br>
+            </div>
+            <div>
+                <label for="systemCheckbox">Show System Input:</label>
+                <input type="checkbox" id="systemCheckbox" name="systemCheckbox"><br>
+                <div id="systemSettings" style="display: none;">
+                    <label for="system">System:</label><br>
+                    <textarea id="system" name="system" rows="2" cols="50"></textarea><br><br>
+                </div>
+            </div>
+            <div>
+                <input type="button" value="Submit" id="submitBtn">
+            </div>
+            <div id="errorMessages" style="color: red;"></div> <!-- 新增显示错误信息的元素 -->
+        </form>
+    </div>
+    <div id="loadingIndicator" style="display: none; text-align: center;">
+        <img src="loading.gif" alt="Loading..." />
+    </div>
+    <div id="right-panel">
+        <h2>Output</h2>
+        <div id="output"></div>
+    </div>
+</div>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modelItems = document.getElementById('modelItems');
+        const modelAnchor = document.getElementById('modelSelect');
+        const modelList = document.getElementById('modelList');
+        const selectedModels = document.getElementById('selectedModels');
+
+        const submitBtn = document.getElementById('submitBtn');
+        const outputPanel = document.getElementById('output');
+        let websocket;
+
+        // WebSocket 连接建立函数
+        function setupWebSocket() {
+            websocket = new WebSocket('ws://' + window.location.host + '/multimodelcall');
+
+            websocket.onopen = function() {
+                console.log('WebSocket connection opened');
+                // 连接打开后才发送数据
+                sendData();
+            };
+
+            websocket.onmessage = function(event) {
+                console.log('Message from server ', event.data);
+                const data = JSON.parse(event.data);
+                handleStreamData(data);
+            };
+
+            websocket.onerror = function(error) {
+                console.error('WebSocket Error: ', error);
+            };
+
+            websocket.onclose = function() {
+                console.log('WebSocket connection closed');
+            };
+        }
+
+        modelAnchor.onclick = function(event) {
+            event.stopPropagation();
+            modelItems.style.display = (modelItems.style.display === 'block' ? 'none' : 'block');
+        };
+
+        document.addEventListener('click', function(event) {
+            if (!modelList.contains(event.target)) {
+                modelItems.style.display = 'none';
+            }
+        });
+
+        modelItems.onclick = function(event) {
+            event.stopPropagation();
+        };
+
+        fetch('/v1/models').then(response => response.json()).then(data => {
+            const models = data.data;
+            modelItems.innerHTML = '';
+            models.forEach(model => {
+                const li = document.createElement('li');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = model.id;
+                checkbox.name = 'model';
+                checkbox.value = model.id;
+
+                checkbox.addEventListener('change', function() {
+                    updateSelectedModelsDisplay();
+                });
+
+                const label = document.createElement('label');
+                label.htmlFor = model.id;
+                label.textContent = model.id;
+
+                li.appendChild(checkbox);
+                li.appendChild(label);
+                modelItems.appendChild(li);
+            });
+        }).catch(error => console.error('Error fetching models:', error));
+
+        function updateSelectedModelsDisplay() {
+            const checkedBoxes = document.querySelectorAll('input[name="model"]:checked');
+            const selected = Array.from(checkedBoxes).map(checkbox => checkbox.value);
+            selectedModels.textContent = selected.length > 0 ? selected.join(', ') : 'None';
+        }
+
+        function sendData() {
+            outputPanel.innerHTML = '';
+
+            const selectedModels = Array.from(document.querySelectorAll('input[name="model"]:checked')).map(el => el.value);
+            if (selectedModels.length === 0) {
+                const errorMessages = document.getElementById('errorMessages');
+                errorMessages.textContent = '错误：请至少选择一个模型。'; // 显示错误信息在左侧面板
+                return; // 终止函数执行
+            }
+
+            const formData = {
+                prompt: document.getElementById('prompt').value,
+                temperature: parseFloat(document.getElementById('temperature').value),
+                maxTokens: parseInt(document.getElementById('max_tokens').value),
+                topP: parseInt(document.getElementById('top_p').value),
+                models: Array.from(document.querySelectorAll('input[name="model"]:checked')).map(el => el.value),
+                system: document.getElementById('systemCheckbox').checked ? document.getElementById('system').value : '',
+            };
+
+            if (websocket.readyState === WebSocket.OPEN) {
+                websocket.send(JSON.stringify(formData));
+            } else {
+                console.error('WebSocket is not open. Ready state: ' + websocket.readyState);
+            }
+        }
+
+        submitBtn.addEventListener('click', function() {
+            setupWebSocket();
+        });
+
+        function handleStreamData(data) {
+            if (!data.model || !data.result || !data.msgid) return;
+
+            // 格式化 result 中的特殊字符
+            const formattedResult = data.result
+                .replace(/\n/g, '<br>')
+                .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
+                .replace(/ /g, '&nbsp;');
+
+            // 检查是否已经存在相同 Model 和 Message ID 的气泡
+            let existingBubble = Array.from(outputPanel.children).find(bubble => {
+                return bubble.dataset.model === data.model && bubble.dataset.msgid === data.msgid;
+            });
+
+            if (existingBubble) {
+                // 如果找到相同的气泡，追加结果
+                let resultsSpan = existingBubble.querySelector('.result');
+                // 逐渐追加内容
+                resultsSpan.innerHTML += formattedResult;
+            } else {
+                // 如果没有找到相同的气泡，创建新的气泡
+                const responseBubble = document.createElement('div');
+                responseBubble.classList.add('response-bubble');
+                responseBubble.dataset.model = data.model;
+                responseBubble.dataset.msgid = data.msgid;
+                responseBubble.innerHTML = `<strong>Model:</strong> ${data.model} <br> <strong>Message ID:</strong> ${data.msgid} <br> <strong>Result:</strong> <span class="result">${formattedResult}</span>`;
+                outputPanel.appendChild(responseBubble);
+            }
+        }
+
+
+
+    });
+</script>
+
+</body>
+</html>
