@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"io"
 	"regexp"
@@ -38,7 +39,7 @@ var geminiHttpClient = &http.Client{
 // OpenAI2GeminiHandler 主要的处理函数
 func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	oaiReq := oaiReqParam.chatCompletionReq
-	//s := oaiReqParam.modelDetails
+	s := oaiReqParam.modelDetails
 	credentials := oaiReqParam.creds
 
 	//mylog.Logger.Info("oaiReq", zap.Any("oaiReq", oaiReq))
@@ -53,8 +54,13 @@ func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		return err
 	}
 
+	serverURL := s.ServerURL
+	if serverURL == "" {
+		serverURL = BaseURL
+	}
+
 	apiKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
-	geminiURL := fmt.Sprintf("%s/%s:%s%s", BaseURL, oaiReq.Model, getRequestType(oaiReq.Stream), apiKey)
+	geminiURL := fmt.Sprintf("%s/%s:%s%s", serverURL, oaiReq.Model, getRequestType(oaiReq.Stream), apiKey)
 
 	mylog.Logger.Debug(geminiURL)
 	//mylog.Logger.Debug(string(jsonData))
@@ -88,13 +94,13 @@ func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	}
 
 	if oaiReq.Stream {
-		return handleStreamResponse(c, resp)
+		return handleStreamResponse(c, oaiReq, resp)
 	}
-	return handleRegularResponse(c, resp)
+	return handleRegularResponse(c, oaiReq, resp)
 }
 
 // 处理流响应
-func handleStreamResponse(c *gin.Context, resp *http.Response) error {
+func handleStreamResponse(c *gin.Context, chatCompletionReq *openai.ChatCompletionRequest, resp *http.Response) error {
 	utils.SetEventStreamHeaders(c)
 	reader := bufio.NewReader(resp.Body)
 	for {
@@ -108,7 +114,7 @@ func handleStreamResponse(c *gin.Context, resp *http.Response) error {
 		}
 
 		if strings.HasPrefix(line, "data: ") {
-			if err := processAndSendData(c, line); err != nil {
+			if err := processAndSendData(c, chatCompletionReq, line); err != nil {
 				return err
 			}
 		}
@@ -117,7 +123,7 @@ func handleStreamResponse(c *gin.Context, resp *http.Response) error {
 }
 
 // 处理常规响应
-func handleRegularResponse(c *gin.Context, resp *http.Response) error {
+func handleRegularResponse(c *gin.Context, chatCompletionReq *openai.ChatCompletionRequest, resp *http.Response) error {
 	responseBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		mylog.Logger.Error(err.Error())
@@ -137,12 +143,15 @@ func handleRegularResponse(c *gin.Context, resp *http.Response) error {
 		return err
 	}
 
-	c.JSON(http.StatusOK, adapter.GeminiResponseToOpenAIResponse(&geminiResp))
+	oaiResp := adapter.GeminiResponseToOpenAIResponse(&geminiResp)
+	oaiResp.Model = chatCompletionReq.Model
+
+	c.JSON(http.StatusOK, oaiResp)
 	return nil
 }
 
 // 处理并发送流数据
-func processAndSendData(c *gin.Context, line string) error {
+func processAndSendData(c *gin.Context, chatCompletionReq *openai.ChatCompletionRequest, line string) error {
 	data := strings.TrimPrefix(line, "data: ")
 	data = strings.TrimSpace(data)
 	if data == "" {
@@ -157,7 +166,9 @@ func processAndSendData(c *gin.Context, line string) error {
 		return err
 	}
 
-	respData, err := json.Marshal(adapter.GeminiResponseToOpenAIStreamResponse(&response))
+	oaiResp := adapter.GeminiResponseToOpenAIStreamResponse(&response)
+	oaiResp.Model = chatCompletionReq.Model
+	respData, err := json.Marshal(oaiResp)
 	if err != nil {
 		mylog.Logger.Error(err.Error())
 		return err
