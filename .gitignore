@@ -11,6 +11,8 @@ simple-one-api/build
 simple-one-api/myconfigs
 simple-one-api/docker_build_push.sh
 
+test/simple_client_test/simple_client_test
+
 ./simple-one-api
 ./build
 ./build/*
