@@ -1,253 +1,207 @@
 package handler
 
 import (
-	"context"
+	"bufio"
+	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
-	"net/url"
-	"regexp"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
+	"simple-one-api/pkg/llm/claude"
 	"simple-one-api/pkg/mycommon"
 	"simple-one-api/pkg/mylog"
+	myopenai "simple-one-api/pkg/openai"
 	"simple-one-api/pkg/utils"
 	"strings"
+	"time"
 )
 
-func formatAzureURL(inputURL string) (string, error) {
-	// 解析URL
-	parsedURL, err := url.Parse(inputURL)
-	if err != nil {
-		return "", err
-	}
+var defaultClaudeServerURL = "https://api.anthropic.com/v1/messages"
 
-	// 构建新的URL
-	formattedURL := &url.URL{
-		Scheme: parsedURL.Scheme,
-		Host:   parsedURL.Host,
-	}
-
-	return formattedURL.String(), nil
-}
-
-// validateAndFormatURL checks if the given URL matches the specified formats and returns the formatted URL
-func validateAndFormatURL(rawurl string) (string, bool) {
-	parsedURL, err := url.Parse(rawurl)
-	if err != nil {
-		return "", false
-	}
-
-	re := regexp.MustCompile(`/v([1-9]|[1-4][0-9]|50)(/chat/completions|/)?$`)
-	if re.MatchString(parsedURL.Path) {
-		if submatch := re.FindStringSubmatch(parsedURL.Path); submatch[2] == "/chat/completions" {
-			formattedURL := fmt.Sprintf("%s://%s%s", parsedURL.Scheme, parsedURL.Host, parsedURL.Path[:len(parsedURL.Path)-len("/chat/completions")])
-			return formattedURL, true
-		}
-		return rawurl, true
-	}
-	return rawurl, false
-}
-
-// getDefaultServerURL returns the default server URL based on the model prefix
-func getDefaultServerURL(model string) string {
-	model = strings.ToLower(model)
-	switch {
-	case strings.HasPrefix(model, "glm-"):
-		return "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-	case strings.HasPrefix(model, "deepseek-"):
-		return "https://api.deepseek.com/v1"
-	case strings.HasPrefix(model, "yi-"):
-		return "https://api.lingyiwanwu.com/v1/chat/completions"
-	case strings.HasPrefix(model, "gpt-"):
-		return "https://api.openai.com/v1/chat/completions"
-	default:
-		return ""
-	}
-}
-
-// getConfig generates the OpenAI client configuration based on model details and request
-func getConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.ClientConfig, error) {
-	req := oaiReqParam.chatCompletionReq
+func OpenAI2ClaudeHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
+	oaiReq := oaiReqParam.chatCompletionReq
+	s := oaiReqParam.modelDetails
 	credentials := oaiReqParam.creds
+
 	apiKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
-	conf := openai.DefaultConfig(apiKey)
 
-	serverURL := s.ServerURL
-	if serverURL == "" {
-		serverURL = getDefaultServerURL(req.Model)
-		mylog.Logger.Info("Using default server URL",
-			zap.String("server_url", serverURL)) // 记录默认服务器 URL
+	claudeReq := adapter.OpenAIRequestToClaudeRequest(oaiReq)
+
+	claudeServerURL := s.ServerURL
+
+	if claudeServerURL == "" {
+		claudeServerURL = defaultClaudeServerURL
 	}
 
-	if serverURL != "" {
-		if formattedURL, ok := validateAndFormatURL(serverURL); ok {
-			conf.BaseURL = formattedURL
-
-			mylog.Logger.Info("Formatted server URL is valid",
-				zap.String("formatted_url", formattedURL)) // 记录格式化后的服务器 URL 是否有效
-		} else {
-			return conf, errors.New("formatted server URL is invalid")
-		}
-	} else {
-		return conf, errors.New("server URL is empty")
+	client := &http.Client{
+		Timeout: 3 * time.Minute,
+	}
+	if oaiReqParam.httpTransport != nil {
+		client.Transport = oaiReqParam.httpTransport
 	}
 
-	return conf, nil
-}
-
-// handleOpenAIRequest handles OpenAI requests, supporting both streaming and non-streaming modes
-func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req *openai.ChatCompletionRequest) error {
-	openaiClient := openai.NewClientWithConfig(conf)
-	ctx := context.Background()
-
-	if req.Stream {
-		return handleOpenAIOpenAIStreamRequest(c, openaiClient, ctx, req)
-	}
-
-	return handleOpenAIStandardRequest(c, openaiClient, ctx, req)
-}
-
-// handleStreamRequest handles streaming OpenAI requests
-func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx context.Context, req *openai.ChatCompletionRequest) error {
-	utils.SetEventStreamHeaders(c)
-	stream, err := client.CreateChatCompletionStream(ctx, *req)
-	if err != nil {
-		mylog.Logger.Error("An error occurred",
-			zap.Error(err))
-		return fmt.Errorf("ChatCompletionStream error: %w", err)
-	}
-	defer stream.Close()
-
-	for {
-		response, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			mylog.Logger.Info(err.Error())
-			return nil
-		} else if err != nil {
-			mylog.Logger.Error("An error occurred",
-				zap.Error(err))
-			return err
-		}
-
-		response.Model = req.Model
-		respData, err := json.Marshal(&response)
-		if err != nil {
-			mylog.Logger.Error("An error occurred",
-				zap.Error(err))
-			return err
-		}
-
-		mylog.Logger.Info("Response data",
-			zap.String("resp_data", string(respData))) // 记录响应数据
-
-		_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
-		if err != nil {
-			mylog.Logger.Error("An error occurred",
-				zap.Error(err))
-			return err
-		}
-		c.Writer.(http.Flusher).Flush()
-	}
-}
-
-// handleStandardRequest handles non-streaming OpenAI requests
-func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx context.Context, req *openai.ChatCompletionRequest) error {
-	resp, err := client.CreateChatCompletion(ctx, *req)
-	if err != nil {
-		mylog.Logger.Error("An error occurred",
-			zap.Any("req", req),
-			zap.Error(err))
+	mylog.Logger.Info("OpenAI2ClaudeHandler", zap.Any("claudeReq", claudeReq))
+	// 使用统一的错误处理函数
+	if err := sendClaudeRequest(c, client, apiKey, claudeServerURL, claudeReq, oaiReq); err != nil {
+		mylog.Logger.Error(err.Error(), zap.String("claudeServerURL", claudeServerURL),
+			zap.Any("claudeReq", claudeReq), zap.Any("oaiReq", oaiReq))
 		return err
 	}
 
-	myResp := adapter.OpenAIResponseToOpenAIResponse(&resp)
-	myResp.Model = req.Model
-
-	respJsonStr, err := json.Marshal(*myResp)
-	if err != nil {
-		mylog.Logger.Error("An error occurred",
-			zap.Error(err)) // 记录错误对象
-	}
-
-	mylog.Logger.Info("Response JSON String",
-		zap.String("resp_json_str", string(respJsonStr))) // 记录响应 JSON 字符串
-
-	c.JSON(http.StatusOK, myResp)
 	return nil
 }
 
-// OpenAI2OpenAIHandler handles OpenAI to OpenAI requests
-func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
-	//oaiReq := oaiReqParam.chatCompletionReq
-	s := oaiReqParam.modelDetails
-	//credentials := oaiReqParam.creds
-	conf, err := getConfig(s, oaiReqParam)
+func sendClaudeRequest(c *gin.Context, client *http.Client, apiKey, url string, request interface{}, oaiReq *openai.ChatCompletionRequest) error {
+	jsonData, err := json.Marshal(request)
 	if err != nil {
+		return fmt.Errorf("json编码错误: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		mylog.Logger.Error(err.Error())
 		return err
 	}
 
-	if oaiReqParam.httpTransport != nil {
-		conf.HTTPClient.Transport = oaiReqParam.httpTransport
+	req.Header.Set("x-api-key", apiKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+	req.Header.Set("content-type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		mylog.Logger.Error(err.Error())
+		return err
+	}
+	defer resp.Body.Close()
+
+	err = mycommon.CheckStatusCode(resp)
+	if err != nil {
+		mylog.Logger.Error("sendClaudeRequest", zap.Error(err))
+		return err
 	}
 
-	if strings.HasPrefix(s.ServerURL, "https://api.groq.com/openai/v1") {
-		adjustGroqReq(oaiReqParam.chatCompletionReq)
-	} else if strings.HasPrefix(s.ServerURL, "https://open.bigmodel.cn") {
-		mycommon.AdjustOpenAIRequestParams(oaiReqParam.chatCompletionReq)
+	if oaiReq.Stream {
+		return handleClaudeStreamResponse(c, resp, oaiReq)
+	}
 
-		if strings.Contains(oaiReqParam.chatCompletionReq.Model, "glm-4v") {
-			AdjustChatCompletionRequestForZhiPu(oaiReqParam.chatCompletionReq)
+	return handleClaudeResponse(c, resp, oaiReq)
+}
+
+func handleClaudeResponse(c *gin.Context, resp *http.Response, oaiReq *openai.ChatCompletionRequest) error {
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		mylog.Logger.Error(err.Error())
+		return err
+	}
+
+	mylog.Logger.Info("response", zap.String("body", string(body)))
+
+	var claudeResp claude.ResponseBody
+	if err := json.Unmarshal(body, &claudeResp); err != nil {
+		mylog.Logger.Error(err.Error())
+		return fmt.Errorf("json解码错误: %v", err)
+	}
+
+	myresp := adapter.ClaudeReponseToOpenAIResponse(&claudeResp)
+	myresp.Model = oaiReq.Model
+	c.JSON(http.StatusOK, myresp)
+
+	return nil
+}
+
+func handleClaudeStreamResponse(c *gin.Context, resp *http.Response, oaiReq *openai.ChatCompletionRequest) error {
+	reader := bufio.NewReader(resp.Body)
+
+	var eventBuilder strings.Builder
+	var dataBuilder strings.Builder
+
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("读取流响应错误: %v", err)
+		}
+
+		lineStr := strings.TrimSpace(string(line))
+		if len(lineStr) == 0 {
+			// 完整的事件消息读取完毕，发送SSE消息
+			if eventBuilder.Len() > 0 && dataBuilder.Len() > 0 {
+				processClaudeStreamEvent(c, eventBuilder.String(), dataBuilder.String())
+				// 重置builders
+				eventBuilder.Reset()
+				dataBuilder.Reset()
+			}
+
+			continue
+		}
+
+		if strings.HasPrefix(lineStr, "event: ") {
+			eventBuilder.WriteString(strings.TrimPrefix(lineStr, "event: "))
+		} else if strings.HasPrefix(lineStr, "data: ") {
+			dataBuilder.WriteString(strings.TrimPrefix(lineStr, "data: "))
 		}
 	}
 
-	defaultTransport := http.DefaultTransport
-	if oaiReqParam.httpTransport != nil {
-		defaultTransport = oaiReqParam.httpTransport
-	}
-
-	scTransport := &utils.SimpleCustomTransport{
-		Transport: defaultTransport,
-	}
-	conf.HTTPClient = &http.Client{
-		Transport: scTransport,
-	}
-
-	mylog.Logger.Debug("request:", zap.Any("req", oaiReqParam.chatCompletionReq))
-
-	return handleOpenAIOpenAIRequest(conf, c, oaiReqParam.chatCompletionReq)
+	return nil
 }
 
-// getAzureConfig generates the OpenAI client configuration for Azure based on model details and request
-func getAzureConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.ClientConfig, error) {
-	credentials := oaiReqParam.creds
-	apiKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
-	serverURL, err := formatAzureURL(s.ServerURL)
-	if err != nil {
-		serverURL = s.ServerURL
+func processClaudeStreamEvent(c *gin.Context, eventType string, eventData string) error {
+	switch eventType {
+	case "message_start":
+		return handleClaudeEvent(c, eventData, claude.MsgMessageStart{}, adapter.ConvertMsgMessageStartToOpenAIStreamResponse)
+	case "content_block_delta":
+		return handleClaudeEvent(c, eventData, claude.MsgContentBlockDelta{}, adapter.ConvertMsgContentBlockDeltaToOpenAIStreamResponse)
+	case "content_block_start":
+		// 处理content_block_start事件
+	case "content_block_stop":
+		// 处理content_block_stop事件
+	case "message_delta":
+		// 处理message_delta事件
+	case "message_stop":
+		// 处理message_stop事件
+	case "ping":
+		// 处理ping事件
+	default:
+		// 可以添加日志来记录未知事件类型
+		mylog.Logger.Error("Unknown event type: " + eventType)
 	}
-	conf := openai.DefaultAzureConfig(apiKey, serverURL)
 
-	if s.ServerURL == "" {
-		return conf, errors.New("server URL is empty")
-	}
-
-	return conf, nil
+	return nil
 }
 
-// OpenAI2AzureOpenAIHandler handles OpenAI to Azure OpenAI requests
-func OpenAI2AzureOpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
-	req := oaiReqParam.chatCompletionReq
-	s := oaiReqParam.modelDetails
-	//credentials := oaiReqParam.creds
-	conf, err := getAzureConfig(s, oaiReqParam)
-	if err != nil {
+// handleEvent 处理事件的通用逻辑
+func handleClaudeEvent[T any](c *gin.Context, eventData string, eventStruct T, converter func(*T) *myopenai.OpenAIStreamResponse) error {
+	if err := json.Unmarshal([]byte(eventData), &eventStruct); err != nil {
+		mylog.Logger.Error(err.Error())
 		return err
 	}
-	return handleOpenAIOpenAIRequest(conf, c, req)
+
+	respStruct := converter(&eventStruct)
+	respData, err := json.Marshal(&respStruct)
+	if err != nil {
+		mylog.Logger.Error(err.Error())
+		return err
+	}
+
+	_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
+	if err != nil {
+		mylog.Logger.Error(err.Error())
+		return err
+	}
+
+	if flusher, ok := c.Writer.(http.Flusher); ok {
+		flusher.Flush()
+	} else {
+		return fmt.Errorf("response writer does not implement http.Flusher")
+	}
+
+	return nil
 }
