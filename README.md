@@ -40,6 +40,15 @@
 - **groq**: [docs/groq接入指南.md](docs/groq接入指南.md)
 - **Gemini**：[docs/Gemini接入指南.md](docs/Gemini接入指南.md)
 
+### 接入使用
+
+社群小伙伴反馈验证可用的客户端
+
+- [Next Chat](https://github.com/ChatGPTNextWeb/ChatGPT-Next-Web)
+- [Lobe chat](https://github.com/lobehub/lobe-chat)
+- [gpt_academic](https://github.com/binary-husky/gpt_academic)
+- [Chat x](https://apps.apple.com/us/app/chatx-ai-chat-client-top/id6446304087)
+
 
 ## 功能
 
@@ -50,6 +59,7 @@
 - [x] [讯飞星火大模型](https://xinghuo.xfyun.cn/sparkapi)
 - [x] [腾讯混元大模型](https://cloud.tencent.com/product/hunyuan)
 - [x] [Google Gemini](https://ai.google.dev/gemini-api/docs/models/gemini)
+- [x] [Claude.ai](https://docs.anthropic.com/en/api/messages)
 - [x] OpenAI ChatGPT 系列模型
     - [x] [OpenAI](https://platform.openai.com/docs/guides/gpt/chat-completions-api)
     - [x] [Deep-Seek](https://platform.deepseek.com/api-docs/zh-cn/)
@@ -220,7 +230,15 @@ docker logs -f <container_id>
 }
 ```
 
-其他模型的配置文件示例可以参考
+其他模型的配置文件示例可以参考:[https://github.com/fruitbars/simple-one-api/tree/main/samples](https://github.com/fruitbars/simple-one-api/tree/main/samples)
+
+
+
+**配置文件在线生成**
+
+感谢来自社群小伙伴提供在线生成配置
+
+[https://simple-one-api-ui.vercel.app/](https://simple-one-api-ui.vercel.app/)
 
 ## 配置文件说明
 
@@ -421,4 +439,4 @@ docker logs -f <container_id>
 
 ## 贡献
 
-我们欢迎任何形式的贡献。如果你有任何建议或发现了问题，请通过提交 issue 或 pull request 的方式与我们联系。œ
+我们欢迎任何形式的贡献。如果你有任何建议或发现了问题，请通过提交 issue 或 pull request 的方式与我们联系。
