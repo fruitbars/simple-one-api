@@ -2,6 +2,7 @@ package mycommon
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
@@ -11,6 +12,18 @@ import (
 	"strings"
 	"time"
 )
+
+func IsMultiContentMessage(oaiReqMessage []openai.ChatCompletionMessage) bool {
+	if len(oaiReqMessage) > 0 {
+		for i := 0; i < len(oaiReqMessage); i++ {
+			if len(oaiReqMessage[i].MultiContent) > 0 {
+				return true
+			}
+		}
+	}
+
+	return false
+}
 
 // ProcessMessages 根据消息的角色处理聊天历史。
 func ConvertSystemMessages2NoSystem(oaiReqMessage []openai.ChatCompletionMessage) []openai.ChatCompletionMessage {
@@ -134,4 +147,57 @@ func AdjustOpenAIRequestParams(oaiReq *openai.ChatCompletionRequest) {
 		zap.Float32("adjustedTopP", adjustedTopP),
 		zap.Int("MaxTokens", adjustedMaxTokens),
 	)
+}
+
+// DeepCopyChatCompletionRequest 创建一个 ChatCompletionRequest 的深度副本
+func DeepCopyChatCompletionRequest(r openai.ChatCompletionRequest) openai.ChatCompletionRequest {
+	newRequest := r
+	newRequest.Messages = make([]openai.ChatCompletionMessage, len(r.Messages))
+	for i, message := range r.Messages {
+		newRequest.Messages[i] = message
+		if len(newRequest.Messages[i].MultiContent) > 0 {
+			newRequest.Messages[i].MultiContent = make([]openai.ChatMessagePart, len(message.MultiContent))
+			for j, part := range message.MultiContent {
+				newRequest.Messages[i].MultiContent[j] = part
+				if part.ImageURL != nil {
+					newImageURL := *part.ImageURL
+					newRequest.Messages[i].MultiContent[j].ImageURL = &newImageURL
+				}
+			}
+		}
+	}
+	return newRequest
+}
+
+// LogChatCompletionRequest 记录ChatCompletionRequest到日志中
+func LogChatCompletionRequest(request openai.ChatCompletionRequest) {
+	mylog.Logger.Debug("LogChatCompletionRequest", zap.Any("req", request))
+	// 创建请求的深度副本
+	filteredRequest := DeepCopyChatCompletionRequest(request)
+
+	// 过滤MultiContent中的ImageURL
+	for i, message := range filteredRequest.Messages {
+		if len(message.MultiContent) > 0 {
+			for j, part := range message.MultiContent {
+				if part.Type == openai.ChatMessagePartTypeImageURL && part.ImageURL != nil {
+					if !strings.HasPrefix(part.ImageURL.URL, "http") {
+						// 如果URL不是http开头，移除该ImageURL
+						d := "..."
+						filteredRequest.Messages[i].MultiContent[j].ImageURL.URL = d
+					}
+				}
+			}
+		}
+	}
+
+	mylog.Logger.Debug("LogChatCompletionRequest", zap.Any("filteredRequest", filteredRequest))
+	// 将结构体转换为JSON字符串
+	jsonData, err := json.Marshal(filteredRequest)
+	if err != nil {
+		mylog.Logger.Error("LogChatCompletionRequest|Marshal", zap.Error(err))
+		return
+	}
+
+	mylog.Logger.Info("LogChatCompletionRequest", zap.String("request", string(jsonData)))
+
 }
