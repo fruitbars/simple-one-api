@@ -1,13 +1,11 @@
 package handler
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
-	"io"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
@@ -50,22 +48,6 @@ var serviceHandlerMap = map[string]func(*gin.Context, *OAIRequestParam) error{
 	"claude":   OpenAI2ClaudeHandler,
 }
 
-func LogRequestBody(c *gin.Context) {
-	// 读取请求消息体
-	body, err := c.GetRawData()
-	if err != nil {
-		mylog.Logger.Error(err.Error())
-		return
-	}
-
-	// 将消息体转换为字符串并记录
-	//requestBody := string(body)
-	//mylog.Logger.Debug("Request body", zap.String("body", requestBody))
-
-	// 重置请求体，以便后续处理程序可以读取它
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-}
-
 func LogRequestDetails(c *gin.Context) {
 	// 使用 zap 的字段记录功能来记录请求细节
 	mylog.Logger.Debug("HTTP request details",
@@ -74,8 +56,6 @@ func LogRequestDetails(c *gin.Context) {
 		zap.Any("parameters", c.Request.URL.Query()),
 		zap.Any("headers", c.Request.Header),
 	)
-
-	LogRequestBody(c)
 }
 
 // OpenAIHandler handles POST requests on /v1/chat/completions path
@@ -97,6 +77,8 @@ func OpenAIHandler(c *gin.Context) {
 		sendErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	mycommon.LogChatCompletionRequest(oaiReq)
 
 	HandleOpenAIRequest(c, &oaiReq)
 
@@ -134,13 +116,15 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 		zap.String("map_model", mpModel),
 		zap.String("last_model", oaiReq.Model))
 
-	isSupportMC := config.IsSupportMultiContent(oaiReq.Model)
-	if len(oaiReq.Messages) > 0 && len(oaiReq.Messages[0].MultiContent) > 0 {
+	if mycommon.IsMultiContentMessage(oaiReq.Messages) {
+		isSupportMC := config.IsSupportMultiContent(oaiReq.Model)
 		if !isSupportMC {
 			mylog.Logger.Warn("model support vision", zap.Bool("isSupportMC", isSupportMC))
 			//convert message
 			adapter.OpenAIMultiContentRequestToOpenAIContentRequest(oaiReq)
 			mylog.Logger.Info("", zap.Any("oaiReq", oaiReq))
+		} else {
+
 		}
 	}
 
@@ -186,8 +170,8 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 					// Log a message if the request could not obtain a token within the specified timeout period.
 					// 假设 logger 是一个已经配置好的 zap.Logger 实例
 					mylog.Logger.Error("Failed to obtain token within the specified time",
-						zap.Error(err),                   // 记录错误对象
-						zap.Int("timeout", timeout),      // 假设 timeout 是 time.Duration 类型
+						zap.Error(err),              // 记录错误对象
+						zap.Int("timeout", timeout), // 假设 timeout 是 time.Duration 类型
 						zap.Duration("elapsed", elapsed)) // 假设 elapsed 是 time.Duration 类型
 
 				} else if errors.Is(err, context.Canceled) {
@@ -199,12 +183,12 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 				}
 
 				//waitDuration := time.Since(startWaitTime)
-				mylog.Logger.Debug("waited for: ", zap.Duration("elapsed", elapsed))
+				mylog.Logger.Info("waited for: ", zap.Duration("elapsed", elapsed))
 				sendErrorResponse(c, http.StatusTooManyRequests, "Request rate limit exceeded")
 				return
 			}
 			// 假设 logger 是一个已经配置好的 zap.Logger 实例
-			mylog.Logger.Debug("Wait duration",
+			mylog.Logger.Info("Wait duration",
 				zap.Duration("waited_for", time.Since(startWaitTime)))
 
 		} else if lt == "concurrency" {
@@ -215,7 +199,7 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 			}
 			defer limiter.Release()
 
-			mylog.Logger.Debug("Concurrency wait time",
+			mylog.Logger.Info("Concurrency wait time",
 				zap.Duration("waited_for", time.Since(startWaitTime)))
 		}
 
@@ -235,7 +219,7 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 	oaiReq.Messages = mycommon.NormalizeMessages(oaiReq.Messages)
 
 	if err := dispatchToServiceHandler(c, oaiReqParam); err != nil {
-		//mylog.Logger.Error(err.Error())
+		mylog.Logger.Error(err.Error())
 		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
