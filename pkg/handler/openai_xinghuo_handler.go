@@ -89,13 +89,6 @@ func handleXingHuoStreamMode(c *gin.Context, client *gosparkclient.SparkClient, 
 	utils.SetEventStreamHeaders(c)
 
 	_, err := client.SparkChatWithCallback(*xhReq, func(response gosparkclient.SparkAPIResponse) {
-		if len(response.Payload.Choices.Text) > 0 {
-			// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
-			mylog.Logger.Info("Response details",
-				zap.String("sid", response.Header.Sid),                          // 记录 SID
-				zap.String("content", response.Payload.Choices.Text[0].Content)) // 记录内容
-
-		}
 
 		oaiRespStream := adapter.XingHuoResponseToOpenAIStreamResponse(&response)
 		oaiRespStream.Model = model
