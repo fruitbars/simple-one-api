@@ -136,6 +136,22 @@ func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleCha
 		}
 		if err != nil {
 			logError("Stream error", err)
+			errResp := MMResp{
+				Result: err.Error(),
+				MsgId:  msgId,
+				Model:  "chatResp.Model",
+			}
+
+			mylog.Logger.Error("", zap.Any("errResp", errResp))
+
+			mu.Lock()
+			if err := conn.WriteJSON(errResp); err != nil {
+				logError("Failed to write JSON response", err)
+				mu.Unlock()
+				break
+			}
+			mu.Unlock()
+
 			return
 		}
 
