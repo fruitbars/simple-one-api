@@ -201,3 +201,71 @@ func LogChatCompletionRequest(request openai.ChatCompletionRequest) {
 	mylog.Logger.Info("LogChatCompletionRequest", zap.String("request", string(jsonData)))
 
 }
+
+func ParseChatCompletionRequest(data []byte) (*openai.ChatCompletionRequest, error) {
+	var rawRequest struct {
+		Model       string            `json:"model"`
+		Messages    []json.RawMessage `json:"messages"`
+		Temperature float32           `json:"temperature,omitempty"`
+		Stream      bool              `json:"stream,omitempty"`
+	}
+
+	if err := json.Unmarshal(data, &rawRequest); err != nil {
+		return nil, err
+	}
+
+	request := &openai.ChatCompletionRequest{
+		Model:       rawRequest.Model,
+		Temperature: rawRequest.Temperature,
+		Stream:      rawRequest.Stream,
+	}
+
+	for _, rawMsg := range rawRequest.Messages {
+		var rawMessage struct {
+			Role    string          `json:"role"`
+			Content json.RawMessage `json:"content"`
+		}
+		if err := json.Unmarshal(rawMsg, &rawMessage); err != nil {
+			return nil, err
+		}
+
+		message := openai.ChatCompletionMessage{
+			Role: rawMessage.Role,
+		}
+
+		// 尝试将 Content 解析为字符串
+		var contentStr string
+		if err := json.Unmarshal(rawMessage.Content, &contentStr); err == nil {
+			message.Content = contentStr
+		} else {
+			// 尝试将 Content 解析为对象，并取出其中的 text 字段
+			var contentObj struct {
+				Type string `json:"type"`
+				Text string `json:"text"`
+			}
+			if err := json.Unmarshal(rawMessage.Content, &contentObj); err == nil {
+				if contentObj.Type == string(openai.ChatMessagePartTypeText) {
+					message.Content = contentObj.Text
+				} else {
+					return nil, fmt.Errorf("unexpected content type: %s", contentObj.Type)
+				}
+			} else {
+				// 尝试将 Content 解析为数组并保留原样
+				var contentArr []openai.ChatMessagePart
+				if err := json.Unmarshal(rawMessage.Content, &contentArr); err == nil {
+					messageBytes, err := json.Marshal(contentArr)
+					if err != nil {
+						return nil, fmt.Errorf("failed to marshal content array")
+					}
+					message.Content = string(messageBytes)
+				} else {
+					return nil, fmt.Errorf("failed to unmarshal content")
+				}
+			}
+		}
+
+		request.Messages = append(request.Messages, message)
+	}
+
+	return request, nil
+}

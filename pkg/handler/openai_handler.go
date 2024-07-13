@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
+	"io"
 	"net/http"
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
@@ -58,6 +60,22 @@ func LogRequestDetails(c *gin.Context) {
 	)
 }
 
+func getBodyDataCopy(c *gin.Context) ([]byte, error) {
+	body, err := c.GetRawData()
+	if err != nil {
+		//c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Unable to read request body"})
+		return nil, err
+	}
+
+	// 将原始数据保存到上下文
+	c.Set("rawData", body)
+
+	// 重新设置请求体，以便后续能够读取
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	return body, nil
+}
+
 // OpenAIHandler handles POST requests on /v1/chat/completions path
 func OpenAIHandler(c *gin.Context) {
 	if !validateRequestMethod(c, "POST") {
@@ -71,11 +89,29 @@ func OpenAIHandler(c *gin.Context) {
 		return
 	}
 
+	bodyData, getBodyerr := getBodyDataCopy(c)
+
 	var oaiReq openai.ChatCompletionRequest
 	if err := c.ShouldBindJSON(&oaiReq); err != nil {
 		mylog.Logger.Error(err.Error())
-		sendErrorResponse(c, http.StatusBadRequest, err.Error())
-		return
+		// 尝试重新解析请求体
+
+		if getBodyerr != nil {
+			mylog.Logger.Error(err.Error())
+			sendErrorResponse(c, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		mylog.Logger.Debug(string(bodyData))
+		parsedReq, parseErr := mycommon.ParseChatCompletionRequest(bodyData)
+		if parseErr != nil {
+			mylog.Logger.Error("ParseChatCompletionRequest error: " + parseErr.Error())
+			sendErrorResponse(c, http.StatusBadRequest, parseErr.Error())
+			return
+		}
+
+		// 将重新解析的结果赋值给 oaiReq
+		oaiReq = *parsedReq
 	}
 
 	mycommon.LogChatCompletionRequest(oaiReq)
@@ -170,8 +206,8 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 					// Log a message if the request could not obtain a token within the specified timeout period.
 					// 假设 logger 是一个已经配置好的 zap.Logger 实例
 					mylog.Logger.Error("Failed to obtain token within the specified time",
-						zap.Error(err),              // 记录错误对象
-						zap.Int("timeout", timeout), // 假设 timeout 是 time.Duration 类型
+						zap.Error(err),                   // 记录错误对象
+						zap.Int("timeout", timeout),      // 假设 timeout 是 time.Duration 类型
 						zap.Duration("elapsed", elapsed)) // 假设 elapsed 是 time.Duration 类型
 
 				} else if errors.Is(err, context.Canceled) {
