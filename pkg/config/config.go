@@ -336,7 +336,7 @@ func GetModelMapping(s *ModelDetails, model string) string {
 		mylog.Logger.Info("model map found", zap.String("model", model), zap.String("mappedModel", mappedModel))
 		return mappedModel
 	}
-	mylog.Logger.Info("no model map found", zap.String("model", model))
+	mylog.Logger.Debug("no model map found", zap.String("model", model))
 	return model
 }
 
@@ -346,7 +346,7 @@ func GetModelRedirect(s *ModelDetails, model string) string {
 		mylog.Logger.Info("ModelRedirect model found", zap.String("model", model), zap.String("redirectModel", redirectModel))
 		return redirectModel
 	}
-	mylog.Logger.Info(" ModelRedirect no model found", zap.String("model", model))
+	mylog.Logger.Debug(" ModelRedirect no model found", zap.String("model", model))
 	return model
 }
 
@@ -365,7 +365,7 @@ func GetGlobalModelRedirect(model string) string {
 		return redirectModel
 	}
 
-	mylog.Logger.Info(" GlobalModelRedirect no model found", zap.String("model", model))
+	mylog.Logger.Debug(" GlobalModelRedirect no model found", zap.String("model", model))
 	return model
 }
 
