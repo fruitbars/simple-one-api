@@ -23,6 +23,9 @@ func InitLog(mode string) {
 		level = zapcore.WarnLevel
 	case "dev", "development":
 		encoderConfig = zap.NewDevelopmentEncoderConfig()
+		level = zapcore.InfoLevel
+	case "debug":
+		encoderConfig = zap.NewDevelopmentEncoderConfig()
 		level = zapcore.DebugLevel
 	default:
 		log.Println("level mode default prod")
