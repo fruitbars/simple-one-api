@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
@@ -53,9 +54,13 @@ func HunYuanResponseToOpenAIStreamResponse(event tchttp.SSEvent) (*myopenai.Open
 	var sResponse tecenthunyuan.StreamResponse
 	json.Unmarshal(event.Data, &sResponse)
 
+	id := event.Id
+	if id == "" {
+		id = uuid.New().String()
+	}
 	//common.
 	openAIResp := &myopenai.OpenAIStreamResponse{
-		ID:      event.Id,
+		ID:      id,
 		Created: sResponse.Created,
 		//Usage:   sResponse.Usage,
 		//Error: sResponse.e,
@@ -68,7 +73,7 @@ func HunYuanResponseToOpenAIStreamResponse(event tchttp.SSEvent) (*myopenai.Open
 
 	for _, choice := range sResponse.Choices {
 		openAIResp.Choices = append(openAIResp.Choices, struct {
-			Index int `json:"index,omitempty"`
+			Index int `json:"index"`
 			Delta struct {
 				Role    string `json:"role,omitempty"`
 				Content string `json:"content,omitempty"`

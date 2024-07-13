@@ -55,7 +55,7 @@ func qianFanCheckMaxTokens(model string, maxtokens int) int {
 			return validateMaxTokens(maxtokens, config.Min, config.Max, config.DefaultMax)
 		}
 	}
-	mylog.Logger.Warn("Unknown model prefix")
+	mylog.Logger.Warn("Unknown model prefix", zap.String("model", model))
 	return 0
 }
 
@@ -216,7 +216,7 @@ func QianFanResponseToOpenAIStreamResponse(qfResp *baiduqianfan.QianFanResponse)
 
 	// 根据结果和是否结束设置 Choices
 	choice := struct {
-		Index int `json:"index,omitempty"`
+		Index int `json:"index"`
 		Delta struct {
 			Role    string `json:"role,omitempty"`
 			Content string `json:"content,omitempty"`

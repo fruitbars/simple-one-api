@@ -85,7 +85,7 @@ func MinimaxResponseToOpenAIStreamResponse(minimaxResp *minimax.MinimaxResponse)
 	for _, choice := range minimaxResp.Choices {
 		for _, msg := range choice.Messages {
 			openAIChoice := struct {
-				Index int `json:"index,omitempty"`
+				Index int `json:"index"`
 				Delta struct {
 					Role    string `json:"role,omitempty"`
 					Content string `json:"content,omitempty"`

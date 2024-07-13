@@ -110,7 +110,7 @@ func XingHuoResponseToOpenAIStreamResponse(qfResp *gosparkclient.SparkAPIRespons
 	// 转换 Choices
 	for _, choice := range qfResp.Payload.Choices.Text {
 		openAIResp.Choices = append(openAIResp.Choices, struct {
-			Index int `json:"index,omitempty"`
+			Index int `json:"index"`
 			Delta struct {
 				Role    string `json:"role,omitempty"`
 				Content string `json:"content,omitempty"`

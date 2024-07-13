@@ -3,9 +3,18 @@ package adapter
 import (
 	"encoding/json"
 	"github.com/sashabaranov/go-openai"
+	"simple-one-api/pkg/mycomdef"
 	myopenai "simple-one-api/pkg/openai"
 	"strings"
 )
+
+func CheckOpenAIStreamRespone(respStream *openai.ChatCompletionStreamResponse) {
+	for i := range respStream.Choices {
+		if respStream.Choices[i].Delta.Role == "" {
+			respStream.Choices[i].Delta.Role = mycomdef.KEYNAME_ASSISTANT
+		}
+	}
+}
 
 func OpenAIResponseToOpenAIResponse(resp *openai.ChatCompletionResponse) *myopenai.OpenAIResponse {
 	if resp == nil {
@@ -14,8 +23,12 @@ func OpenAIResponseToOpenAIResponse(resp *openai.ChatCompletionResponse) *myopen
 
 	var choices []myopenai.Choice
 	for _, choice := range resp.Choices {
+		role := choice.Message.Role
+		if role == "" {
+			role = mycomdef.KEYNAME_ASSISTANT
+		}
 		message := myopenai.ResponseMessage{
-			Role:    choice.Message.Role,
+			Role:    role,
 			Content: choice.Message.Content,
 		}
 		var logProbs json.RawMessage
