@@ -135,6 +135,11 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 			return err
 		}
 
+		mylog.Logger.Debug("CheckOpenAIStreamRespone1",
+			zap.Any("response", response))
+
+		adapter.CheckOpenAIStreamRespone(&response)
+
 		response.Model = req.Model
 		respData, err := json.Marshal(&response)
 		if err != nil {
