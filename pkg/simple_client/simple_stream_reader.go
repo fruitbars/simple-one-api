@@ -16,12 +16,14 @@ type CustomResponseWriter struct {
 	gin.ResponseWriter
 	writer io.Writer
 	status int
+	header http.Header
 	body   *bytes.Buffer
 }
 
 func NewCustomResponseWriter(w io.Writer) *CustomResponseWriter {
 	return &CustomResponseWriter{
 		writer: w,
+		header: http.Header{},
 		body:   bytes.NewBuffer([]byte{}),
 	}
 }
@@ -33,6 +35,7 @@ func (crw *CustomResponseWriter) Write(data []byte) (int, error) {
 
 func (crw *CustomResponseWriter) WriteHeader(statusCode int) {
 	crw.status = statusCode // Store status code
+	crw.writer.Write([]byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", statusCode, http.StatusText(statusCode))))
 }
 
 func (crw *CustomResponseWriter) WriteString(s string) (int, error) {
@@ -100,5 +103,7 @@ func (scs *SimpleChatCompletionStream) Recv() (*openai.ChatCompletionStreamRespo
 		return &response, nil
 	}
 
-	return &response, fmt.Errorf("unexpected data format: %s", data)
+	errData, _ := io.ReadAll(scs.reader)
+
+	return &response, fmt.Errorf("unexpected data format: %s", string(errData))
 }
