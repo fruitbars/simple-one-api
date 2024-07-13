@@ -78,7 +78,7 @@ func main() {
 	{
 		// 中间件检查路径是否以 /v1/chat/completions 结尾
 		v1.POST("/*path", func(c *gin.Context) {
-			if strings.HasSuffix(c.Request.URL.Path, "/v1/chat/completions") {
+			if strings.HasSuffix(c.Request.URL.Path, "/v1/chat/completions") || strings.HasSuffix(c.Request.URL.Path, "/v1") {
 				handler.OpenAIHandler(c)
 				return
 			}
