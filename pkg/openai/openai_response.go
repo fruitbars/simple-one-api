@@ -55,7 +55,7 @@ type OpenAIStreamResponse struct {
 }
 
 type OpenAIStreamResponseChoice struct {
-	Index int `json:"index,omitempty"`
+	Index int `json:"index"`
 	Delta struct {
 		Role    string `json:"role,omitempty"`
 		Content string `json:"content,omitempty"`
