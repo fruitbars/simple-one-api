@@ -7,6 +7,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/volcengine/volcengine-go-sdk/service/arkruntime"
 	"github.com/volcengine/volcengine-go-sdk/service/arkruntime/model"
+	huoshanutils "github.com/volcengine/volcengine-go-sdk/service/arkruntime/utils"
 	"github.com/volcengine/volcengine-go-sdk/volcengine"
 	"go.uber.org/zap"
 	"io"
@@ -96,7 +97,9 @@ func prepareHuoshanRequest(oaiReq *openai.ChatCompletionRequest, s *config.Model
 	return huoshanReq
 }
 
+/*
 func handleHuoShanStream(ctx context.Context, c *gin.Context, client *arkruntime.Client, huoshanReq model.ChatCompletionRequest) error {
+	mylog.Logger.Debug("handleHuoShanStream", zap.Any("huoshanReq", huoshanReq))
 	utils.SetEventStreamHeaders(c)
 	stream, err := client.CreateChatCompletionStream(ctx, huoshanReq)
 	if err != nil {
@@ -138,6 +141,54 @@ func handleHuoShanStream(ctx context.Context, c *gin.Context, client *arkruntime
 	})
 
 	return nil
+}
+
+*/
+
+func handleHuoShanStream(ctx context.Context, c *gin.Context, client *arkruntime.Client, huoshanReq model.ChatCompletionRequest) error {
+	mylog.Logger.Debug("Entering handleHuoShanStream", zap.Any("huoshanReq", huoshanReq))
+	utils.SetEventStreamHeaders(c)
+
+	stream, err := client.CreateChatCompletionStream(ctx, huoshanReq)
+	if err != nil {
+		mylog.Logger.Error("Failed to create chat completion stream", zap.Error(err))
+		handleErrorResponse(c, err)
+		return err
+	}
+	defer stream.Close()
+
+	return streamHuoshanResponses(c, stream)
+}
+
+func streamHuoshanResponses(c *gin.Context, stream *huoshanutils.ChatCompletionStreamReader) error {
+	for {
+		recv, err := stream.Recv()
+		if err == io.EOF {
+			return nil // 正常结束流
+		}
+		if err != nil {
+			mylog.Logger.Error("Error receiving stream data", zap.Error(err))
+			return err
+		}
+
+		jsonData, err := json.Marshal(recv)
+		if err != nil {
+			mylog.Logger.Error("JSON marshaling error", zap.Error(err))
+			return err
+		}
+
+		mylog.Logger.Info("Streaming JSON data", zap.ByteString("json_data", jsonData))
+		if _, err = c.Writer.WriteString("data: " + string(jsonData) + "\n\n"); err != nil {
+			mylog.Logger.Error("Write to client error", zap.Error(err))
+			return err
+		}
+
+		if flusher, ok := c.Writer.(http.Flusher); ok {
+			flusher.Flush()
+		} else {
+			mylog.Logger.Warn("Response writer does not support flush operation")
+		}
+	}
 }
 
 func handleSingleHuoShanRequest(ctx context.Context, c *gin.Context, client *arkruntime.Client, huoshanReq model.ChatCompletionRequest) error {
