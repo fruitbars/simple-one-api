@@ -28,6 +28,16 @@ func NewCustomResponseWriter(w io.Writer) *CustomResponseWriter {
 	}
 }
 
+func (crw *CustomResponseWriter) CloseNotify() <-chan bool {
+	if notifier, ok := crw.writer.(http.CloseNotifier); ok {
+		return notifier.CloseNotify()
+	}
+	// 如果 crw.writer 不支持 CloseNotifier，返回一个永不发送通知的通道
+	c := make(chan bool)
+	close(c)
+	return c
+}
+
 func (crw *CustomResponseWriter) Write(data []byte) (int, error) {
 	crw.body.Write(data) // Optionally store the body data
 	return crw.writer.Write(data)
