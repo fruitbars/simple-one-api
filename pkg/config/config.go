@@ -83,7 +83,7 @@ type Translation struct {
 
 type APIKeyConfig struct {
 	APIKey          string              `json:"api_key" yaml:"api_key"`
-	SupportedModels map[string][]string `json:"supported_models" yaml:"supported_models"` // 服务到可用模型的映射
+	SupportedModels map[string][]string `json:"supported_models" yaml:"supported_models"`
 }
 
 type Configuration struct {
@@ -442,14 +442,18 @@ func ValidateAPIKeyAndModel(apikey string, model string) (bool, string) {
 	}
 	keyConfig, exists := apiKeyMap[apikey]
 	if !exists {
+		mylog.Logger.Error("ValidateAPIKeyAndModel|Forbidden: invalid API key", zap.String("apikey", apikey))
 		return false, "Forbidden: invalid API key"
 	}
 
+	mylog.Logger.Debug("ValidateAPIKeyAndModel", zap.String("model", model))
+
 	// 检查所有服务和通配符的配置
 	for service, models := range keyConfig.SupportedModels {
-		mylog.Logger.Info(service)
+		mylog.Logger.Info(service, zap.Any("SupportedModels", models))
 		for _, m := range models {
 			if m == "*" || m == model {
+				mylog.Logger.Debug("ValidateAPIKeyAndModel", zap.String("model", model), zap.String("m", m))
 				return true, ""
 			}
 		}
