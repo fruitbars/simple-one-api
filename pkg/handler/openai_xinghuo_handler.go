@@ -29,6 +29,8 @@ func getURLAndDomain(modelName string) (string, string, error) {
 		return "wss://spark-api.xf-yun.com/v2.1/chat", "generalv2", nil
 	case "spark-lite", "general":
 		return "wss://spark-api.xf-yun.com/v1.1/chat", "general", nil
+	case "spark-pro-128k":
+		return "wss://spark-api.xf-yun.com/chat/pro-128k", "pro-128k", nil
 	default:
 		return "", "", fmt.Errorf("unsupported model name: %s", modelName)
 	}
