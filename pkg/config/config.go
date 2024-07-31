@@ -15,6 +15,8 @@ import (
 	"strings"
 )
 
+var GSOAConf *Configuration
+
 var ModelToService map[string][]ModelDetails
 var LoadBalancingStrategy string
 var ServerPort string
@@ -25,6 +27,9 @@ var SupportModels map[string]string
 var GlobalModelRedirect map[string]string
 var SupportMultiContentModels = []string{"gpt-4o", "gpt-4-turbo", "glm-4v", "gemini-*"}
 var GProxyConf *ProxyConf
+var GTranslation *Translation
+
+var apiKeyMap map[string]APIKeyConfig
 
 type Limit struct {
 	QPS         float64 `json:"qps" yaml:"qps"`
@@ -47,6 +52,7 @@ type ModelParams struct {
 
 // ServiceModel 定义相关结构体
 type ServiceModel struct {
+	Provider       string                   `json:"provider" yaml:"provider"`
 	Models         []string                 `json:"models" yaml:"models"`
 	Enabled        bool                     `json:"enabled" yaml:"enabled"`
 	Credentials    map[string]interface{}   `json:"credentials" yaml:"credentials"`
@@ -68,6 +74,18 @@ type ProxyConf struct {
 	Timeout     int    `json:"timeout" yaml:"timeout"`
 }
 
+type Translation struct {
+	Enable         bool   `json:"enable" yaml:"enable"`
+	PromptTemplate string `json:"promptTemplate" yaml:"prompt_template"`
+	Retry          int    `json:"retry" yaml:"retry"`
+	Concurrency    int    `json:"concurrency" yaml:"concurrency"`
+}
+
+type APIKeyConfig struct {
+	APIKey          string              `json:"api_key" yaml:"api_key"`
+	SupportedModels map[string][]string `json:"supported_models" yaml:"supported_models"` // 服务到可用模型的映射
+}
+
 type Configuration struct {
 	ServerPort         string                    `json:"server_port" yaml:"server_port"`
 	Debug              bool                      `json:"debug" yaml:"debug"`
@@ -79,6 +97,9 @@ type Configuration struct {
 	ModelRedirect      map[string]string         `json:"model_redirect" yaml:"model_redirect"`
 	ParamsRange        map[string]ModelParams    `json:"params_range" yaml:"params_range"`
 	Services           map[string][]ServiceModel `json:"services" yaml:"services"`
+	Translation        Translation               `json:"translation" yaml:"services"`
+	EnableWeb          bool                      `json:"enable_web" yaml:"enable_web"`
+	APIKeys            []APIKeyConfig            `json:"api_keys" yaml:"api_keys"`
 }
 
 // ModelDetails 结构用于返回模型相关的服务信息
@@ -203,30 +224,17 @@ func InitConfig(configName string) error {
 		LoadBalancingStrategy = conf.LoadBalancing
 	}
 
+	GSOAConf = &conf
+
 	GProxyConf = &(conf.Proxy)
-
-	/*
-		if conf.Proxy.HTTPProxy != "" {
-			log.Println("set HTTP_PROXY", conf.Proxy.HTTPProxy)
-			err := os.Setenv("HTTP_PROXY", conf.Proxy.HTTPProxy)
-			if err != nil {
-				//return err
-			}
-
-		}
-		if conf.Proxy.HTTPSProxy != "" {
-			log.Println("set HTTPS_PROXY", conf.Proxy.HTTPSProxy)
-			err := os.Setenv("HTTPS_PROXY", conf.Proxy.HTTPSProxy)
-			if err != nil {
-				//return err
-			}
-		}*/
 
 	log.Println(conf.Proxy)
 
 	if conf.APIKey != "" {
 		APIKey = conf.APIKey
 	}
+
+	initAPIKeyMap()
 
 	log.Println("read LoadBalancingStrategy ok,", LoadBalancingStrategy)
 
@@ -247,6 +255,8 @@ func InitConfig(configName string) error {
 	ModelToService = createModelToServiceMap(conf)
 
 	GlobalModelRedirect = conf.ModelRedirect
+
+	GTranslation = &conf.Translation
 
 	log.Println("GlobalModelRedirect: ", GlobalModelRedirect)
 	//
@@ -417,4 +427,32 @@ func IsProxyEnabled(s *ModelDetails) bool {
 	}
 
 	return false
+}
+
+func initAPIKeyMap() {
+	apiKeyMap = make(map[string]APIKeyConfig)
+	for _, keyConfig := range GSOAConf.APIKeys {
+		apiKeyMap[keyConfig.APIKey] = keyConfig
+	}
+}
+
+func ValidateAPIKeyAndModel(apikey string, model string) (bool, string) {
+	if len(apiKeyMap) == 0 {
+		return true, ""
+	}
+	keyConfig, exists := apiKeyMap[apikey]
+	if !exists {
+		return false, "Forbidden: invalid API key"
+	}
+
+	// 检查所有服务和通配符的配置
+	for service, models := range keyConfig.SupportedModels {
+		mylog.Logger.Info(service)
+		for _, m := range models {
+			if m == "*" || m == model {
+				return true, ""
+			}
+		}
+	}
+	return false, "Forbidden: model not supported"
 }
