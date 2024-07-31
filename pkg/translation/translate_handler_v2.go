@@ -1,206 +1,61 @@
 package translation
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
-	"io"
 	"net/http"
-	"regexp"
 	"simple-one-api/pkg/mylog"
-	"simple-one-api/pkg/simple_client"
 	"simple-one-api/pkg/utils"
-	"strconv"
-	"strings"
+	"sync"
 )
 
-type TranslationRequest struct {
+type TranslationV2Request struct {
 	Text       []string `json:"text" binding:"required"`
 	TargetLang string   `json:"target_lang" binding:"required"`
+	SourceLang string   `json:"source_lang,omitempty"`
 	Stream     bool     `json:"stream,omitempty"`
 }
 
-type TranslationResponse struct {
-	Translations []TranslationResult `json:"translations"`
+type TranslationV2Response struct {
+	Translations []TranslationV2Result `json:"translations"`
 }
 
-type TranslationResult struct {
+type TranslationV2Result struct {
 	DetectedSourceLanguage string `json:"detected_source_language"`
 	Text                   string `json:"text"`
 }
 
-// multiUnescapeJSON 尝试多次解码被多次转义的JSON字符串。
-func multiUnescapeJSON(escapedJSON string) (string, error) {
-	current := strings.Trim(escapedJSON, "`")
-	for {
-		decoded, err := strconv.Unquote("\"" + current + "\"")
-		if err != nil {
-			return current, err
-		}
-		if decoded == current {
-			return decoded, nil
-		}
-		current = decoded
-	}
-}
-
-// extractJSONFromMarkdown 提取并解码Markdown代码块中的JSON字符串。
-func extractJSONFromMarkdown(input string) ([]string, error) {
-	var results []string
-	r := regexp.MustCompile("(?s)```(?:json)?\\s*(.*?)\\s*```")
-	matches := r.FindAllStringSubmatch(input, -1)
-
-	for _, match := range matches {
-		jsonStr := match[1]
-		cleaned := strings.ReplaceAll(jsonStr, "\\n", "")
-		cleaned = strings.ReplaceAll(cleaned, "\\t", "")
-		cleaned = strings.TrimSpace(cleaned)
-
-		current := cleaned
-		for {
-			decoded, err := strconv.Unquote("\"" + current + "\"")
-			if err != nil {
-				break
-			}
-			if decoded == current {
-				current = decoded
-				break
-			}
-			current = decoded
-		}
-		results = append(results, current)
-	}
-	return results, nil
-}
-
-func createTranslationPrompt(reqJsonstr string) string {
-	return fmt.Sprintf("你是一个机器翻译接口，遵循以下输入输出协议，当接收到输入，直接给出输出即可，不要任何多余的回复\n输入协议(json格式)：\n```\n{\"text\":[\"Hello world!\",\"Good morning!\"],\"target_lang\":\"DE\"}\n```\n\n输出协议(json格式)：\n```\n{\n  \"translations\": [\n    {\n      \"detected_source_language\": \"EN\",\n      \"text\": \"Hallo, Welt!\"\n    },\n    {\n      \"detected_source_language\": \"EN\",\n      \"text\": \"Guten Morgen!\"\n    }\n  ]\n}\n```\n现在我的输入是：\n```%s```", reqJsonstr)
-}
-
-func createTranslationPromptStream(reqJsonstr string) string {
-	return fmt.Sprintf("你是一个机器翻译接口，遵循以下输入输出协议，当接收到输入，直接给出输出即可，不要任何多余的回复\n输入协议(json格式)：\n```\n{\"text\":[\"Hello world!\"],\"target_lang\":\"DE\"}\n```\n\n翻译结果直接输出：\n\nHallo, Welt!\n\n现在我的输入是：\n```\n%s\n```\n输出：\n", reqJsonstr)
-}
-
-func handleTranslationResponse(responseContent string) (*TranslationResponse, error) {
-	var response TranslationResponse
-	finalJSON, err := extractJSONFromMarkdown(responseContent)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal([]byte(finalJSON[0]), &response)
-	if err != nil {
-		return nil, err
-	}
-	return &response, nil
-}
-
-func translateStream(c *gin.Context, transReq *TranslationRequest) error {
-	reqJsonstr, err := json.Marshal(transReq)
-	if err != nil {
-		mylog.Logger.Error("Error marshalling request:", zap.Error(err))
-		return err
-	}
-
-	prompt := createTranslationPromptStream(string(reqJsonstr))
-
-	var req openai.ChatCompletionRequest
-	req.Stream = true
-	req.Model = "random"
-
-	message := openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleUser,
-		Content: prompt,
-	}
-
-	req.Messages = append(req.Messages, message)
-
-	client := simple_client.NewSimpleClient("")
-
-	chatStream, err := client.CreateChatCompletionStream(context.Background(), req)
-	if err != nil {
-		mylog.Logger.Error("Error creating chat completion stream:", zap.Error(err))
-		return err
-	}
-
+func translateStream(c *gin.Context, transReq *TranslationV2Request) error {
 	utils.SetEventStreamHeaders(c)
-	for {
-		chatResp, err := chatStream.Recv()
-		if errors.Is(err, io.EOF) {
-			mylog.Logger.Info("Stream finished")
-			return nil
+
+	cb := func(dstText string) {
+		var tr TranslationV2Response
+		tResult := TranslationV2Result{
+			Text: dstText,
 		}
+		tr.Translations = append(tr.Translations, tResult)
+
+		trJsonData, _ := json.Marshal(tr)
+
+		_, err := c.Writer.WriteString("data: " + string(trJsonData) + "\n\n")
 		if err != nil {
-			mylog.Logger.Error("Error receiving chat response:", zap.Error(err))
-			return err
+			mylog.Logger.Error("Error binding JSON:", zap.Error(err))
 		}
-
-		if chatResp == nil {
-			continue
-		}
-
-		mylog.Logger.Info("Received chat response", zap.Any("chatResp", chatResp))
-		if len(chatResp.Choices) > 0 {
-
-			translatedText := chatResp.Choices[0].Delta.Content
-			tr := TranslationResponse{
-				Translations: []TranslationResult{
-					{
-						DetectedSourceLanguage: "",
-						Text:                   translatedText,
-					},
-				},
-			}
-
-			trJsonData, _ := json.Marshal(tr)
-			_, err = c.Writer.WriteString("data: " + string(trJsonData) + "\n\n")
-			c.Writer.(http.Flusher).Flush()
-			//c.JSON(http.StatusOK, tr)
-		}
+		c.Writer.(http.Flusher).Flush()
 	}
+
+	_, err := LLMTranslateStream(transReq.Text[0], transReq.SourceLang, transReq.TargetLang, cb)
+	if err != nil {
+		mylog.Logger.Error("Error binding JSON:", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return err
+	}
+	return nil
 }
 
-func translate(transReq *TranslationRequest) (*TranslationResponse, error) {
-	reqJsonstr, err := json.Marshal(transReq)
-	if err != nil {
-		mylog.Logger.Error("Error marshalling request:", zap.Error(err))
-		return nil, err
-	}
-
-	prompt := createTranslationPrompt(string(reqJsonstr))
-
-	var req openai.ChatCompletionRequest
-	req.Stream = false
-	req.Model = "random"
-
-	message := openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleUser,
-		Content: prompt,
-	}
-
-	req.Messages = append(req.Messages, message)
-
-	client := simple_client.NewSimpleClient("")
-
-	resp, err := client.CreateChatCompletion(context.Background(), req)
-	if err != nil {
-		mylog.Logger.Error("Error creating chat completion:", zap.Error(err))
-		return nil, err
-	}
-
-	if len(resp.Choices) > 0 {
-		mylog.Logger.Info("Received chat response", zap.String("content", resp.Choices[0].Message.Content))
-		return handleTranslationResponse(resp.Choices[0].Message.Content)
-	}
-
-	return nil, nil
-}
-
-func TranslateHandler(c *gin.Context) {
-	var request TranslationRequest
+func TranslateV2Handler(c *gin.Context) {
+	var request TranslationV2Request
 	if err := c.ShouldBindJSON(&request); err != nil {
 		mylog.Logger.Error("Error binding JSON:", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -215,12 +70,36 @@ func TranslateHandler(c *gin.Context) {
 			return
 		}
 	} else {
-		transResp, err := translate(&request)
-		if err != nil {
-			mylog.Logger.Error("Error translating:", zap.Error(err))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+
+		var transResp TranslationV2Response
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		sem := make(chan struct{}, 5)
+
+		for _, srcText := range request.Text {
+			wg.Add(1)
+			sem <- struct{}{} // 占用一个并发槽
+
+			go func(text string) {
+				defer wg.Done()
+				defer func() { <-sem }() // 释放一个并发槽
+
+				var trv2 TranslationV2Result
+				dstText, err := LLMTranslate(text, "", request.TargetLang)
+				if err != nil {
+					mylog.Logger.Error("Error translating stream:", zap.Error(err))
+					return
+				}
+
+				trv2.Text = dstText
+
+				mu.Lock()
+				transResp.Translations = append(transResp.Translations, trv2)
+				mu.Unlock()
+			}(srcText)
 		}
+
+		wg.Wait()
 		c.JSON(http.StatusOK, transResp)
 	}
 }
