@@ -83,10 +83,17 @@ func OpenAIHandler(c *gin.Context) {
 	}
 	LogRequestDetails(c)
 
-	var apikey string
-	var err error
-	if apikey, err = validateAPIKey(c); err != nil {
+	apikey, err := utils.GetAPIKeyFromHeader(c)
+	if err != nil {
 		mylog.Logger.Error(err.Error())
+	}
+
+	mylog.Logger.Info("OpenAIHandler", zap.String("apikey", apikey))
+
+	isValid := validateAPIKey(apikey)
+	if !isValid {
+		err = errors.New("key is not valid")
+		mylog.Logger.Error("key is not valid", zap.String("apikey", apikey))
 		sendErrorResponse(c, http.StatusUnauthorized, err.Error())
 		return
 	}
@@ -116,7 +123,7 @@ func OpenAIHandler(c *gin.Context) {
 		oaiReq = *parsedReq
 	}
 
-	isValid, _ := config.ValidateAPIKeyAndModel(apikey, oaiReq.Model)
+	isValid, _ = config.ValidateAPIKeyAndModel(apikey, oaiReq.Model)
 	if !isValid {
 		err = errors.New("key not valid")
 		mylog.Logger.Error(err.Error())
@@ -293,16 +300,15 @@ func validateRequestMethod(c *gin.Context, method string) bool {
 	return true
 }
 
-func validateAPIKey(c *gin.Context) (string, error) {
+func validateAPIKey(apikey string) bool {
 	if config.APIKey == "" {
-		return "", nil
+		return true
 	}
 
-	apikey, err := utils.GetAPIKeyFromHeader(c)
-	if err != nil || config.APIKey != apikey {
-		return "", errors.New("invalid authorization")
+	if config.APIKey != apikey {
+		return false
 	}
-	return apikey, err
+	return true
 }
 
 func getModelDetails(oaiReq *openai.ChatCompletionRequest) (*config.ModelDetails, string, error) {
