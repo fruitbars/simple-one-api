@@ -35,10 +35,10 @@ func GetCredentialLimit(credentials map[string]interface{}) (limitType string, l
 		return mycomdef.KEYNAME_QPS, qps, timeout
 	}
 	if qpm, ok := limitData[mycomdef.KEYNAME_QPM].(float64); ok {
-		return mycomdef.KEYNAME_QPS, qpm / 60, timeout
+		return mycomdef.KEYNAME_QPM, qpm, timeout
 	}
 	if rpm, ok := limitData[mycomdef.KEYNAME_RPM].(float64); ok {
-		return mycomdef.KEYNAME_QPS, rpm / 60, timeout
+		return mycomdef.KEYNAME_QPM, rpm, timeout
 	}
 	if concurrency, ok := limitData[mycomdef.KEYNAME_CONCURRENCY].(float64); ok {
 		return mycomdef.KEYNAME_CONCURRENCY, concurrency, timeout
