@@ -94,13 +94,13 @@ func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	}
 
 	if oaiReq.Stream {
-		return handleStreamResponse(c, oaiReq, resp)
+		return handleStreamResponse(c, oaiReq, resp, oaiReqParam)
 	}
-	return handleRegularResponse(c, oaiReq, resp)
+	return handleRegularResponse(c, oaiReq, resp, oaiReqParam)
 }
 
 // 处理流响应
-func handleStreamResponse(c *gin.Context, chatCompletionReq *openai.ChatCompletionRequest, resp *http.Response) error {
+func handleStreamResponse(c *gin.Context, chatCompletionReq *openai.ChatCompletionRequest, resp *http.Response, oaiReqParam *OAIRequestParam) error {
 	utils.SetEventStreamHeaders(c)
 	reader := bufio.NewReader(resp.Body)
 	for {
@@ -114,7 +114,7 @@ func handleStreamResponse(c *gin.Context, chatCompletionReq *openai.ChatCompleti
 		}
 
 		if strings.HasPrefix(line, "data: ") {
-			if err := processAndSendData(c, chatCompletionReq, line); err != nil {
+			if err := processAndSendData(c, chatCompletionReq, line, oaiReqParam); err != nil {
 				return err
 			}
 		}
@@ -123,7 +123,7 @@ func handleStreamResponse(c *gin.Context, chatCompletionReq *openai.ChatCompleti
 }
 
 // 处理常规响应
-func handleRegularResponse(c *gin.Context, chatCompletionReq *openai.ChatCompletionRequest, resp *http.Response) error {
+func handleRegularResponse(c *gin.Context, chatCompletionReq *openai.ChatCompletionRequest, resp *http.Response, oaiReqParam *OAIRequestParam) error {
 	responseBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		mylog.Logger.Error(err.Error())
@@ -144,14 +144,14 @@ func handleRegularResponse(c *gin.Context, chatCompletionReq *openai.ChatComplet
 	}
 
 	oaiResp := adapter.GeminiResponseToOpenAIResponse(&geminiResp)
-	oaiResp.Model = chatCompletionReq.Model
+	oaiResp.Model = oaiReqParam.ClientModel
 
 	c.JSON(http.StatusOK, oaiResp)
 	return nil
 }
 
 // 处理并发送流数据
-func processAndSendData(c *gin.Context, chatCompletionReq *openai.ChatCompletionRequest, line string) error {
+func processAndSendData(c *gin.Context, chatCompletionReq *openai.ChatCompletionRequest, line string, oaiReqParam *OAIRequestParam) error {
 	data := strings.TrimPrefix(line, "data: ")
 	data = strings.TrimSpace(data)
 	if data == "" {
@@ -167,7 +167,7 @@ func processAndSendData(c *gin.Context, chatCompletionReq *openai.ChatCompletion
 	}
 
 	oaiResp := adapter.GeminiResponseToOpenAIStreamResponse(&response)
-	oaiResp.Model = chatCompletionReq.Model
+	oaiResp.Model = oaiReqParam.ClientModel
 	respData, err := json.Marshal(oaiResp)
 	if err != nil {
 		mylog.Logger.Error(err.Error())

@@ -102,19 +102,19 @@ func getConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.Cli
 }
 
 // handleOpenAIRequest handles OpenAI requests, supporting both streaming and non-streaming modes
-func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req *openai.ChatCompletionRequest) error {
+func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req *openai.ChatCompletionRequest, clientModel string) error {
 	openaiClient := openai.NewClientWithConfig(conf)
 	ctx := context.Background()
 
 	if req.Stream {
-		return handleOpenAIOpenAIStreamRequest(c, openaiClient, ctx, req)
+		return handleOpenAIOpenAIStreamRequest(c, openaiClient, ctx, req, clientModel)
 	}
 
-	return handleOpenAIStandardRequest(c, openaiClient, ctx, req)
+	return handleOpenAIStandardRequest(c, openaiClient, ctx, req, clientModel)
 }
 
 // handleStreamRequest handles streaming OpenAI requests
-func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx context.Context, req *openai.ChatCompletionRequest) error {
+func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx context.Context, req *openai.ChatCompletionRequest, clientModel string) error {
 	utils.SetEventStreamHeaders(c)
 	stream, err := client.CreateChatCompletionStream(ctx, *req)
 	if err != nil {
@@ -140,7 +140,7 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 
 		adapter.CheckOpenAIStreamRespone(&response)
 
-		response.Model = req.Model
+		response.Model = clientModel
 		respData, err := json.Marshal(&response)
 		if err != nil {
 			mylog.Logger.Error("An error occurred",
@@ -162,7 +162,7 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 }
 
 // handleStandardRequest handles non-streaming OpenAI requests
-func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx context.Context, req *openai.ChatCompletionRequest) error {
+func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx context.Context, req *openai.ChatCompletionRequest, clientModel string) error {
 	resp, err := client.CreateChatCompletion(ctx, *req)
 	if err != nil {
 		mylog.Logger.Error("An error occurred",
@@ -172,7 +172,7 @@ func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx cont
 	}
 
 	myResp := adapter.OpenAIResponseToOpenAIResponse(&resp)
-	myResp.Model = req.Model
+	myResp.Model = clientModel
 
 	respJsonStr, err := json.Marshal(*myResp)
 	if err != nil {
@@ -225,7 +225,8 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 
 	mylog.Logger.Debug("request:", zap.Any("req", oaiReqParam.chatCompletionReq))
 
-	return handleOpenAIOpenAIRequest(conf, c, oaiReqParam.chatCompletionReq)
+	clientModel := oaiReqParam.ClientModel
+	return handleOpenAIOpenAIRequest(conf, c, oaiReqParam.chatCompletionReq, clientModel)
 }
 
 // getAzureConfig generates the OpenAI client configuration for Azure based on model details and request
@@ -254,5 +255,6 @@ func OpenAI2AzureOpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) err
 	if err != nil {
 		return err
 	}
-	return handleOpenAIOpenAIRequest(conf, c, req)
+	clientModel := oaiReqParam.ClientModel
+	return handleOpenAIOpenAIRequest(conf, c, req, clientModel)
 }

@@ -26,6 +26,7 @@ type OAIRequestParam struct {
 	modelDetails      *config.ModelDetails
 	creds             map[string]interface{}
 	httpTransport     *http.Transport
+	ClientModel       string
 }
 
 // serviceHandlerMap maps service names to their corresponding handler functions
@@ -198,6 +199,7 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 		chatCompletionReq: oaiReq,
 		modelDetails:      s,
 		creds:             creds,
+		ClientModel:       clientModel,
 	}
 
 	if limiter != nil {

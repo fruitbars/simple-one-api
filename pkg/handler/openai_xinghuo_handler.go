@@ -61,11 +61,12 @@ func OpenAI2XingHuoHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	xhDataJson, _ := json.Marshal(xhReq)
 	mylog.Logger.Info(string(xhDataJson))
 
+	clientModel := oaiReqParam.ClientModel
 	if oaiReq.Stream {
-		return handleXingHuoStreamMode(c, client, xhReq, oaiReq.Model)
+		return handleXingHuoStreamMode(c, client, xhReq, clientModel)
 	}
 
-	return handleXingHuoStandardMode(c, client, xhReq, oaiReq.Model)
+	return handleXingHuoStandardMode(c, client, xhReq, clientModel)
 }
 
 func getServerURLAndDomain(configServerURL string, credentials map[string]interface{}, model string) (string, string, error) {

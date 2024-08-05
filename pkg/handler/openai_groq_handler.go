@@ -35,5 +35,6 @@ func OpenAI2GroqOpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) erro
 
 	adjustGroqReq(req)
 
-	return handleOpenAIOpenAIRequest(conf, c, req)
+	clientModel := oaiReqParam.ClientModel
+	return handleOpenAIOpenAIRequest(conf, c, req, clientModel)
 }

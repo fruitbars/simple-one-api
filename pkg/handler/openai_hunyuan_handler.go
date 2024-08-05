@@ -55,14 +55,14 @@ func OpenAI2HunYuanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	}
 
 	// 处理响应数据
-	return handleHunYuanResponse(c, response, oaiReq.Model)
+	return handleHunYuanResponse(c, response, oaiReq.Model, oaiReqParam)
 }
 
 // handleHunYuanResponse 处理HunYuan的响应数据
-func handleHunYuanResponse(c *gin.Context, response *hunyuan.ChatCompletionsResponse, model string) error {
+func handleHunYuanResponse(c *gin.Context, response *hunyuan.ChatCompletionsResponse, model string, oaiReqParam *OAIRequestParam) error {
 	if response.Response != nil {
 		// 非流式响应
-		return handleHunYuanNonStreamResponse(c, response, model)
+		return handleHunYuanNonStreamResponse(c, response, model, oaiReqParam)
 	}
 
 	// 流式响应
@@ -73,7 +73,7 @@ func handleHunYuanResponse(c *gin.Context, response *hunyuan.ChatCompletionsResp
 			mylog.Logger.Error(err.Error())
 			return err
 		}
-		oaiStreamResp.Model = model
+		oaiStreamResp.Model = oaiReqParam.ClientModel
 		respData, err := json.Marshal(&oaiStreamResp)
 		if err != nil {
 			mylog.Logger.Error(err.Error())
@@ -91,9 +91,9 @@ func handleHunYuanResponse(c *gin.Context, response *hunyuan.ChatCompletionsResp
 }
 
 // handleNonStreamResponse 处理非流式响应
-func handleHunYuanNonStreamResponse(c *gin.Context, response *hunyuan.ChatCompletionsResponse, model string) error {
+func handleHunYuanNonStreamResponse(c *gin.Context, response *hunyuan.ChatCompletionsResponse, model string, oaiReqParam *OAIRequestParam) error {
 	oaiResp := adapter.HunYuanResponseToOpenAIResponse(response)
-	oaiResp.Model = model
+	oaiResp.Model = oaiReqParam.ClientModel
 
 	jdata, _ := json.Marshal(*oaiResp)
 	mylog.Logger.Info(string(jdata))

@@ -74,9 +74,9 @@ func OpenAI2HuoShanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	ctx := context.Background()
 
 	if oaiReq.Stream {
-		return handleHuoShanStream(ctx, c, client, huoshanReq)
+		return handleHuoShanStream(ctx, c, client, huoshanReq, oaiReqParam)
 	} else {
-		return handleSingleHuoShanRequest(ctx, c, client, huoshanReq)
+		return handleSingleHuoShanRequest(ctx, c, client, huoshanReq, oaiReqParam)
 	}
 }
 
@@ -97,55 +97,7 @@ func prepareHuoshanRequest(oaiReq *openai.ChatCompletionRequest, s *config.Model
 	return huoshanReq
 }
 
-/*
-func handleHuoShanStream(ctx context.Context, c *gin.Context, client *arkruntime.Client, huoshanReq model.ChatCompletionRequest) error {
-	mylog.Logger.Debug("handleHuoShanStream", zap.Any("huoshanReq", huoshanReq))
-	utils.SetEventStreamHeaders(c)
-	stream, err := client.CreateChatCompletionStream(ctx, huoshanReq)
-	if err != nil {
-		handleErrorResponse(c, err)
-		return err
-	}
-	defer stream.Close()
-
-	c.Stream(func(w io.Writer) bool {
-		recv, err := stream.Recv()
-		if err == io.EOF {
-			return false
-		}
-		if err != nil {
-			// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
-			mylog.Logger.Error("Stream chat error",
-				zap.Error(err)) // 记录错误对象
-
-			return false
-		}
-
-		jsonData, _ := json.Marshal(recv)
-
-		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
-		mylog.Logger.Info("JSON Data",
-			zap.String("json_data", string(jsonData))) // 记录 JSON 数据字符串
-
-		_, err = c.Writer.WriteString("data: " + string(jsonData) + "\n\n")
-		if err != nil {
-			// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
-			mylog.Logger.Error("An error occurred",
-				zap.Error(err)) // 记录错误对象
-
-			//return false
-		}
-		c.Writer.(http.Flusher).Flush()
-
-		return true
-	})
-
-	return nil
-}
-
-*/
-
-func handleHuoShanStream(ctx context.Context, c *gin.Context, client *arkruntime.Client, huoshanReq model.ChatCompletionRequest) error {
+func handleHuoShanStream(ctx context.Context, c *gin.Context, client *arkruntime.Client, huoshanReq model.ChatCompletionRequest, oaiReqParam *OAIRequestParam) error {
 	mylog.Logger.Debug("Entering handleHuoShanStream", zap.Any("huoshanReq", huoshanReq))
 	utils.SetEventStreamHeaders(c)
 
@@ -157,10 +109,10 @@ func handleHuoShanStream(ctx context.Context, c *gin.Context, client *arkruntime
 	}
 	defer stream.Close()
 
-	return streamHuoshanResponses(c, stream)
+	return streamHuoshanResponses(c, stream, oaiReqParam)
 }
 
-func streamHuoshanResponses(c *gin.Context, stream *huoshanutils.ChatCompletionStreamReader) error {
+func streamHuoshanResponses(c *gin.Context, stream *huoshanutils.ChatCompletionStreamReader, oaiReqParam *OAIRequestParam) error {
 	for {
 		recv, err := stream.Recv()
 		if err == io.EOF {
@@ -170,6 +122,8 @@ func streamHuoshanResponses(c *gin.Context, stream *huoshanutils.ChatCompletionS
 			mylog.Logger.Error("Error receiving stream data", zap.Error(err))
 			return err
 		}
+
+		recv.Model = oaiReqParam.ClientModel
 
 		jsonData, err := json.Marshal(recv)
 		if err != nil {
@@ -191,12 +145,14 @@ func streamHuoshanResponses(c *gin.Context, stream *huoshanutils.ChatCompletionS
 	}
 }
 
-func handleSingleHuoShanRequest(ctx context.Context, c *gin.Context, client *arkruntime.Client, huoshanReq model.ChatCompletionRequest) error {
+func handleSingleHuoShanRequest(ctx context.Context, c *gin.Context, client *arkruntime.Client, huoshanReq model.ChatCompletionRequest, oaiReqParam *OAIRequestParam) error {
 	resp, err := client.CreateChatCompletion(ctx, huoshanReq)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return err
 	}
+
+	resp.Model = oaiReqParam.ClientModel
 
 	// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
 	mylog.Logger.Info("Response received",

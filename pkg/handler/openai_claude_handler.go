@@ -47,7 +47,7 @@ func OpenAI2ClaudeHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 
 	mylog.Logger.Info("OpenAI2ClaudeHandler", zap.Any("claudeReq", claudeReq))
 	// 使用统一的错误处理函数
-	if err := sendClaudeRequest(c, client, apiKey, claudeServerURL, claudeReq, oaiReq); err != nil {
+	if err := sendClaudeRequest(c, client, apiKey, claudeServerURL, claudeReq, oaiReq, oaiReqParam); err != nil {
 		mylog.Logger.Error(err.Error(), zap.String("claudeServerURL", claudeServerURL),
 			zap.Any("claudeReq", claudeReq), zap.Any("oaiReq", oaiReq))
 		return err
@@ -56,7 +56,7 @@ func OpenAI2ClaudeHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	return nil
 }
 
-func sendClaudeRequest(c *gin.Context, client *http.Client, apiKey, url string, request interface{}, oaiReq *openai.ChatCompletionRequest) error {
+func sendClaudeRequest(c *gin.Context, client *http.Client, apiKey, url string, request interface{}, oaiReq *openai.ChatCompletionRequest, oaiReqParam *OAIRequestParam) error {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("json编码错误: %v", err)
@@ -86,13 +86,13 @@ func sendClaudeRequest(c *gin.Context, client *http.Client, apiKey, url string, 
 	}
 
 	if oaiReq.Stream {
-		return handleClaudeStreamResponse(c, resp, oaiReq)
+		return handleClaudeStreamResponse(c, resp, oaiReq, oaiReqParam)
 	}
 
-	return handleClaudeResponse(c, resp, oaiReq)
+	return handleClaudeResponse(c, resp, oaiReq, oaiReqParam)
 }
 
-func handleClaudeResponse(c *gin.Context, resp *http.Response, oaiReq *openai.ChatCompletionRequest) error {
+func handleClaudeResponse(c *gin.Context, resp *http.Response, oaiReq *openai.ChatCompletionRequest, oaiReqParam *OAIRequestParam) error {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -109,13 +109,13 @@ func handleClaudeResponse(c *gin.Context, resp *http.Response, oaiReq *openai.Ch
 	}
 
 	myresp := adapter.ClaudeReponseToOpenAIResponse(&claudeResp)
-	myresp.Model = oaiReq.Model
+	myresp.Model = oaiReqParam.ClientModel
 	c.JSON(http.StatusOK, myresp)
 
 	return nil
 }
 
-func handleClaudeStreamResponse(c *gin.Context, resp *http.Response, oaiReq *openai.ChatCompletionRequest) error {
+func handleClaudeStreamResponse(c *gin.Context, resp *http.Response, oaiReq *openai.ChatCompletionRequest, oaiReqParam *OAIRequestParam) error {
 	reader := bufio.NewReader(resp.Body)
 
 	var eventBuilder strings.Builder
@@ -134,7 +134,7 @@ func handleClaudeStreamResponse(c *gin.Context, resp *http.Response, oaiReq *ope
 		if len(lineStr) == 0 {
 			// 完整的事件消息读取完毕，发送SSE消息
 			if eventBuilder.Len() > 0 && dataBuilder.Len() > 0 {
-				processClaudeStreamEvent(c, eventBuilder.String(), dataBuilder.String())
+				processClaudeStreamEvent(c, eventBuilder.String(), dataBuilder.String(), oaiReqParam.ClientModel)
 				// 重置builders
 				eventBuilder.Reset()
 				dataBuilder.Reset()
@@ -153,12 +153,12 @@ func handleClaudeStreamResponse(c *gin.Context, resp *http.Response, oaiReq *ope
 	return nil
 }
 
-func processClaudeStreamEvent(c *gin.Context, eventType string, eventData string) error {
+func processClaudeStreamEvent(c *gin.Context, eventType string, eventData string, clientModel string) error {
 	switch eventType {
 	case "message_start":
-		return handleClaudeEvent(c, eventData, claude.MsgMessageStart{}, adapter.ConvertMsgMessageStartToOpenAIStreamResponse)
+		return handleClaudeEvent(c, eventData, claude.MsgMessageStart{}, adapter.ConvertMsgMessageStartToOpenAIStreamResponse, clientModel)
 	case "content_block_delta":
-		return handleClaudeEvent(c, eventData, claude.MsgContentBlockDelta{}, adapter.ConvertMsgContentBlockDeltaToOpenAIStreamResponse)
+		return handleClaudeEvent(c, eventData, claude.MsgContentBlockDelta{}, adapter.ConvertMsgContentBlockDeltaToOpenAIStreamResponse, clientModel)
 	case "content_block_start":
 		// 处理content_block_start事件
 	case "content_block_stop":
@@ -178,13 +178,14 @@ func processClaudeStreamEvent(c *gin.Context, eventType string, eventData string
 }
 
 // handleEvent 处理事件的通用逻辑
-func handleClaudeEvent[T any](c *gin.Context, eventData string, eventStruct T, converter func(*T) *myopenai.OpenAIStreamResponse) error {
+func handleClaudeEvent[T any](c *gin.Context, eventData string, eventStruct T, converter func(*T) *myopenai.OpenAIStreamResponse, clientModel string) error {
 	if err := json.Unmarshal([]byte(eventData), &eventStruct); err != nil {
 		mylog.Logger.Error(err.Error())
 		return err
 	}
 
 	respStruct := converter(&eventStruct)
+	respStruct.Model = clientModel
 	respData, err := json.Marshal(&respStruct)
 	if err != nil {
 		mylog.Logger.Error(err.Error())

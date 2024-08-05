@@ -59,10 +59,10 @@ func OpenAI2OllamaHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	//credentials := oaiReqParam.creds
 
 	ollamaRequest := adapter.OpenAIRequestToOllamaRequest(oaiReq)
-	return handleOllamaRequest(c, s, ollamaRequest)
+	return handleOllamaRequest(c, s, ollamaRequest, oaiReqParam)
 }
 
-func handleOllamaRequest(c *gin.Context, s *config.ModelDetails, ollamaRequest *ollama.ChatRequest) error {
+func handleOllamaRequest(c *gin.Context, s *config.ModelDetails, ollamaRequest *ollama.ChatRequest, oaiReqParam *OAIRequestParam) error {
 	jsonStr, err := json.Marshal(ollamaRequest)
 	if err != nil {
 		mylog.Logger.Error("Error marshaling JSON", zap.Error(err))
@@ -86,10 +86,11 @@ func handleOllamaRequest(c *gin.Context, s *config.ModelDetails, ollamaRequest *
 		return err
 	}
 
-	return processOllamaResponseBody(c, resp, ollamaRequest.Stream)
+	return processOllamaResponseBody(c, resp, ollamaRequest.Stream, oaiReqParam)
 }
 
-func processOllamaResponseBody(c *gin.Context, resp *http.Response, stream bool) error {
+func processOllamaResponseBody(c *gin.Context, resp *http.Response, stream bool, oaiReqParam *OAIRequestParam) error {
+	clientModel := oaiReqParam.ClientModel
 	if stream {
 		utils.SetEventStreamHeaders(c)
 		reader := bufio.NewReader(resp.Body)
@@ -110,6 +111,7 @@ func processOllamaResponseBody(c *gin.Context, resp *http.Response, stream bool)
 			}
 
 			oaiRespStream := adapter.OllamaResponseToOpenAIStreamResponse(&ollamaStreamResp)
+			oaiRespStream.Model = clientModel
 			respData, err := json.Marshal(&oaiRespStream)
 			if err != nil {
 				mylog.Logger.Error("Error marshaling response", zap.Error(err))
@@ -138,6 +140,7 @@ func processOllamaResponseBody(c *gin.Context, resp *http.Response, stream bool)
 		}
 
 		myresp := adapter.OllamaResponseToOpenAIResponse(&ollamaResp)
+		myresp.Model = clientModel
 		c.JSON(http.StatusOK, myresp)
 	}
 	return nil

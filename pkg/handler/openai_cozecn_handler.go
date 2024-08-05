@@ -65,7 +65,7 @@ func OpenAI2CozecnHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	mylog.Logger.Info("oaiReq", zap.Any("oaiReq", oaiReq))
 	mylog.Logger.Info("cozecnReq", zap.Any("cozecnReq", cozecnReq))
 	// 使用统一的错误处理函数
-	if err := sendRequest(c, client, secretToken, cozeServerURL, cozecnReq, oaiReq); err != nil {
+	if err := sendRequest(c, client, secretToken, cozeServerURL, cozecnReq, oaiReq, oaiReqParam); err != nil {
 		mylog.Logger.Error(err.Error(), zap.String("cozeServerURL", cozeServerURL),
 			zap.Any("cozecnReq", cozecnReq), zap.Any("oaiReq", oaiReq))
 		return err
@@ -74,7 +74,7 @@ func OpenAI2CozecnHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	return nil
 }
 
-func sendRequest(c *gin.Context, client *http.Client, token, url string, request interface{}, oaiReq *openai.ChatCompletionRequest) error {
+func sendRequest(c *gin.Context, client *http.Client, token, url string, request interface{}, oaiReq *openai.ChatCompletionRequest, oaiReqParam *OAIRequestParam) error {
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("json编码错误: %v", err)
@@ -102,12 +102,12 @@ func sendRequest(c *gin.Context, client *http.Client, token, url string, request
 		return err
 	}
 
-	return handleCozecnResponse(c, resp, oaiReq)
+	return handleCozecnResponse(c, resp, oaiReq, oaiReqParam)
 }
 
-func handleCozecnResponse(c *gin.Context, resp *http.Response, oaiReq *openai.ChatCompletionRequest) error {
+func handleCozecnResponse(c *gin.Context, resp *http.Response, oaiReq *openai.ChatCompletionRequest, oaiReqParam *OAIRequestParam) error {
 	if oaiReq.Stream {
-		return handleCozecnStreamResponse(c, oaiReq, resp.Body)
+		return handleCozecnStreamResponse(c, oaiReq, resp.Body, oaiReqParam)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -129,13 +129,13 @@ func handleCozecnResponse(c *gin.Context, resp *http.Response, oaiReq *openai.Ch
 	}
 
 	myresp := adapter.CozecnReponseToOpenAIResponse(&respJson)
-	myresp.Model = oaiReq.Model
+	myresp.Model = oaiReqParam.ClientModel
 	c.JSON(http.StatusOK, myresp)
 
 	return nil
 }
 
-func handleCozecnStreamResponse(c *gin.Context, oaiReq *openai.ChatCompletionRequest, body io.Reader) error {
+func handleCozecnStreamResponse(c *gin.Context, oaiReq *openai.ChatCompletionRequest, body io.Reader, oaiReqParam *OAIRequestParam) error {
 	scanner := bufio.NewScanner(body)
 	utils.SetEventStreamHeaders(c)
 
@@ -157,7 +157,7 @@ func handleCozecnStreamResponse(c *gin.Context, oaiReq *openai.ChatCompletionReq
 					continue
 				}
 				oaiRespStream := adapter.CozecnReponseToOpenAIResponseStream(&response)
-				oaiRespStream.Model = oaiReq.Model
+				oaiRespStream.Model = oaiReqParam.ClientModel
 				respData, err := json.Marshal(&oaiRespStream)
 				if err != nil {
 					mylog.Logger.Error(err.Error())

@@ -101,7 +101,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 
 			oaiRespStream := adapter.MinimaxResponseToOpenAIStreamResponse(&minimaxresp)
 			oaiRespStream.ID = id.String()
-			oaiRespStream.Model = oaiReq.Model
+			oaiRespStream.Model = oaiReqParam.ClientModel
 			respData, err := json.Marshal(&oaiRespStream)
 			if err != nil {
 				mylog.Logger.Error(err.Error())
@@ -153,7 +153,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		json.Unmarshal(bodyData, &minimaxresp)
 		//mylog.Logger.Info((minimaxresp)
 		myresp := adapter.MinimaxResponseToOpenAIResponse(&minimaxresp)
-		myresp.Model = oaiReq.Model
+		myresp.Model = oaiReqParam.ClientModel
 
 		respData, _ := json.Marshal(*myresp)
 		mylog.Logger.Info(string(respData))

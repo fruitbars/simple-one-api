@@ -26,19 +26,21 @@ func OpenAI2QianFanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		client.Transport = oaiReqParam.httpTransport
 	}
 
+	clientModel := oaiReqParam.ClientModel
+
 	if oaiReq.Stream {
-		return handleQianFanStreamRequest(c, client, apiKey, secretKey, oaiReq.Model, qfReq)
+		return handleQianFanStreamRequest(c, client, apiKey, secretKey, oaiReq.Model, clientModel, qfReq)
 	} else {
-		return handleQianFanStandardRequest(c, client, apiKey, secretKey, oaiReq.Model, qfReq)
+		return handleQianFanStandardRequest(c, client, apiKey, secretKey, oaiReq.Model, clientModel, qfReq)
 	}
 }
 
-func handleQianFanStreamRequest(c *gin.Context, client *http.Client, apiKey, secretKey, model string, qfReq *baiduqianfan.QianFanRequest) error {
+func handleQianFanStreamRequest(c *gin.Context, client *http.Client, apiKey, secretKey, model string, clientModel string, qfReq *baiduqianfan.QianFanRequest) error {
 	utils.SetEventStreamHeaders(c)
 
 	err := baiduqianfan.QianFanCallSSE(client, apiKey, secretKey, model, qfReq, func(qfResp *baiduqianfan.QianFanResponse) {
 		oaiRespStream := adapter.QianFanResponseToOpenAIStreamResponse(qfResp)
-		oaiRespStream.Model = model
+		oaiRespStream.Model = clientModel
 
 		respData, err := json.Marshal(&oaiRespStream)
 		if err != nil {
@@ -73,7 +75,7 @@ func handleQianFanStreamRequest(c *gin.Context, client *http.Client, apiKey, sec
 	return nil
 }
 
-func handleQianFanStandardRequest(c *gin.Context, client *http.Client, apiKey, secretKey, model string, qfReq *baiduqianfan.QianFanRequest) error {
+func handleQianFanStandardRequest(c *gin.Context, client *http.Client, apiKey, secretKey, model string, clientModel string, qfReq *baiduqianfan.QianFanRequest) error {
 	qfResp, err := baiduqianfan.QianFanCall(client, apiKey, secretKey, model, qfReq)
 	if err != nil {
 		mylog.Logger.Error("Error during API call",
@@ -83,7 +85,7 @@ func handleQianFanStandardRequest(c *gin.Context, client *http.Client, apiKey, s
 	}
 
 	oaiResp := adapter.QianFanResponseToOpenAIResponse(qfResp)
-	oaiResp.Model = model
+	oaiResp.Model = clientModel
 	mylog.Logger.Info("Standard response",
 		zap.Any("response", oaiResp)) // 记录标准响应对象
 
