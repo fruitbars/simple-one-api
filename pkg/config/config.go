@@ -97,7 +97,7 @@ type Configuration struct {
 	ModelRedirect      map[string]string         `json:"model_redirect" yaml:"model_redirect"`
 	ParamsRange        map[string]ModelParams    `json:"params_range" yaml:"params_range"`
 	Services           map[string][]ServiceModel `json:"services" yaml:"services"`
-	Translation        Translation               `json:"translation" yaml:"services"`
+	Translation        Translation               `json:"translation" yaml:"translation"`
 	EnableWeb          bool                      `json:"enable_web" yaml:"enable_web"`
 	APIKeys            []APIKeyConfig            `json:"api_keys" yaml:"api_keys"`
 }
