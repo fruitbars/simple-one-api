@@ -214,7 +214,7 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 			zap.Float64("limit num:", ln),
 			zap.Int("timeout", timeout))
 
-		if lt == "qps" {
+		if lt == "qps" || lt == "qpm" {
 			err = limiter.Wait(ctx)
 			elapsed := time.Since(startWaitTime)
 

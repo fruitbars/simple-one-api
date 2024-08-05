@@ -2,6 +2,8 @@ package mylimiter
 
 import (
 	"context"
+	"time"
+	
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 	"simple-one-api/pkg/mycomdef"
@@ -10,13 +12,64 @@ import (
 
 type Limiter struct {
 	QPSLimiter         *rate.Limiter
+	QPMLimiter         *SlidingWindowLimiter
 	ConcurrencyLimiter *semaphore.Weighted
+}
+
+type SlidingWindowLimiter struct {
+	mu          sync.Mutex
+	maxRequests int
+	interval    time.Duration
+	requests    []time.Time
 }
 
 var (
 	limiterMap = make(map[string]*Limiter)
 	mapMutex   sync.RWMutex
 )
+
+func NewSlidingWindowLimiter(qpm int) *SlidingWindowLimiter {
+	return &SlidingWindowLimiter{
+		maxRequests: qpm,
+		interval:    time.Minute,
+		requests:    make([]time.Time, 0, qpm),
+	}
+}
+
+func (l *SlidingWindowLimiter) Allow() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	now := time.Now()
+	windowStart := now.Add(-l.interval)
+
+	// 移除窗口外的请求
+	i := 0
+	for ; i < len(l.requests) && l.requests[i].Before(windowStart); i++ {
+	}
+	l.requests = l.requests[i:]
+
+	// 检查是否允许新请求
+	if len(l.requests) < l.maxRequests {
+		l.requests = append(l.requests, now)
+		return true
+	}
+	return false
+}
+
+func (l *SlidingWindowLimiter) Wait(ctx context.Context) error {
+	for {
+		if l.Allow() {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+			// 等待一秒后重试
+		}
+	}
+}
 
 // NewLimiter 创建一个新的限流器，根据指定的类型和限制值进行配置
 func NewLimiter(limitType string, limitn float64) *Limiter {
@@ -25,8 +78,7 @@ func NewLimiter(limitType string, limitn float64) *Limiter {
 	case mycomdef.KEYNAME_QPS:
 		lim.QPSLimiter = rate.NewLimiter(rate.Limit(limitn), int(limitn))
 	case mycomdef.KEYNAME_QPM, mycomdef.KEYNAME_RPM:
-		qps := float64(limitn) / 60.0
-		lim.QPSLimiter = rate.NewLimiter(rate.Limit(qps), int(qps*2))
+		lim.QPMLimiter = NewSlidingWindowLimiter(int(limitn))
 	case mycomdef.KEYNAME_CONCURRENCY:
 		lim.ConcurrencyLimiter = semaphore.NewWeighted(int64(limitn))
 	default:
@@ -39,6 +91,9 @@ func NewLimiter(limitType string, limitn float64) *Limiter {
 func (l *Limiter) Wait(ctx context.Context) error {
 	if l.QPSLimiter != nil {
 		return l.QPSLimiter.Wait(ctx)
+	}
+	if l.QPMLimiter != nil {
+		return l.QPMLimiter.Wait(ctx)
 	}
 	return nil
 }

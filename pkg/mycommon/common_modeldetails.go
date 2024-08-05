@@ -10,9 +10,9 @@ func GetServiceModelDetailsLimit(s *config.ModelDetails) (limitType string, limi
 	if s.Limit.QPS > 0 {
 		return mycomdef.KEYNAME_QPS, s.Limit.QPS, s.Limit.Timeout
 	} else if s.Limit.QPM > 0 {
-		return mycomdef.KEYNAME_QPS, s.Limit.QPM / 60, s.Limit.Timeout
+		return mycomdef.KEYNAME_QPM, s.Limit.QPM, s.Limit.Timeout
 	} else if s.Limit.RPM > 0 {
-		return mycomdef.KEYNAME_QPS, s.Limit.QPM / 60, s.Limit.Timeout
+		return mycomdef.KEYNAME_QPM, s.Limit.RPM, s.Limit.Timeout
 	} else if s.Limit.Concurrency > 0 {
 		return mycomdef.KEYNAME_CONCURRENCY, s.Limit.Concurrency, s.Limit.Timeout
 	}
