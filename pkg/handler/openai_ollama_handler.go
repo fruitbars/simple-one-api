@@ -39,7 +39,7 @@ func sendOllamaJSONRequest(url string, payload []byte) (*http.Response, error) {
 
 // 错误和响应处理封装
 func handleResponse(resp *http.Response) error {
-	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
 		mylog.Logger.Info("HTTP Error Response", zap.String("status", resp.Status))
 		body, err := io.ReadAll(resp.Body)
@@ -47,6 +47,7 @@ func handleResponse(resp *http.Response) error {
 			mylog.Logger.Error("Failed to read response body", zap.Error(err))
 			return err
 		}
+
 		mylog.Logger.Info("Response body", zap.String("body", string(body)))
 		return fmt.Errorf(string(body))
 	}
@@ -79,7 +80,7 @@ func handleOllamaRequest(c *gin.Context, s *config.ModelDetails, ollamaRequest *
 		mylog.Logger.Error("err", zap.Error(err))
 		return err
 	}
-
+	defer resp.Body.Close()
 	err = handleResponse(resp)
 	if err != nil {
 		mylog.Logger.Error("err", zap.Error(err))
