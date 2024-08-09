@@ -25,7 +25,7 @@ var Debug bool
 var LogLevel string
 var SupportModels map[string]string
 var GlobalModelRedirect map[string]string
-var SupportMultiContentModels = []string{"gpt-4o", "gpt-4-turbo", "glm-4v", "gemini-*"}
+var SupportMultiContentModels = []string{"gpt-4o", "gpt-4-turbo", "glm-4v", "gemini-*", "yi-vision", "gpt-4o*"}
 var GProxyConf *ProxyConf
 var GTranslation *Translation
 
