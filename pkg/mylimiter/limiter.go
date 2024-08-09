@@ -3,7 +3,7 @@ package mylimiter
 import (
 	"context"
 	"time"
-	
+
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 	"simple-one-api/pkg/mycomdef"
@@ -37,11 +37,11 @@ func NewSlidingWindowLimiter(qpm int) *SlidingWindowLimiter {
 }
 
 func (l *SlidingWindowLimiter) Allow() bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
 	now := time.Now()
 	windowStart := now.Add(-l.interval)
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
 
 	// 移除窗口外的请求
 	i := 0
@@ -58,15 +58,34 @@ func (l *SlidingWindowLimiter) Allow() bool {
 }
 
 func (l *SlidingWindowLimiter) Wait(ctx context.Context) error {
+	waitTime := 10 * time.Millisecond // 初始等待时间
+
 	for {
 		if l.Allow() {
 			return nil
 		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(time.Second):
-			// 等待一秒后重试
+		case <-time.After(waitTime):
+			l.mu.Lock()
+			if len(l.requests) > 0 {
+				// 计算到下一个请求可以被允许的时间间隔
+				nextAllowedTime := l.requests[0].Add(l.interval)
+				timeUntilNextAllowed := time.Until(nextAllowedTime)
+
+				// 根据时间间隔调整等待时间
+				if timeUntilNextAllowed < waitTime {
+					waitTime = timeUntilNextAllowed
+				} else {
+					waitTime *= 2
+					if waitTime > time.Second {
+						waitTime = time.Second
+					}
+				}
+			}
+			l.mu.Unlock()
 		}
 	}
 }
