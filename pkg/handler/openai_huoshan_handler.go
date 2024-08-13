@@ -15,12 +15,13 @@ import (
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
+	"strings"
 	"time"
 )
 
 const DefaultHuoShanServerURL = "https://ark.cn-beijing.volces.com/api/v3"
 
-func configureClient(oaiReqParam *OAIRequestParam, model string) (*arkruntime.Client, error) {
+func configureClientWithAkSk(oaiReqParam *OAIRequestParam, model string) (*arkruntime.Client, error) {
 	s := oaiReqParam.modelDetails
 	credentials := oaiReqParam.creds
 
@@ -64,7 +65,7 @@ func OpenAI2HuoShanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	s := oaiReqParam.modelDetails
 	//credentials := oaiReqParam.creds
 
-	client, err := configureClient(oaiReqParam, oaiReq.Model)
+	client, err := configureClientWithAkSk(oaiReqParam, oaiReq.Model)
 	if err != nil {
 		handleErrorResponse(c, err)
 		return err
@@ -73,11 +74,18 @@ func OpenAI2HuoShanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	huoshanReq := prepareHuoshanRequest(oaiReq, s)
 	ctx := context.Background()
 
-	if oaiReq.Stream {
-		return handleHuoShanStream(ctx, c, client, huoshanReq, oaiReqParam)
+	//如果是bot
+	if strings.HasPrefix(oaiReq.Model, "bot-") {
+		return handleHuoShanBotRequest(ctx, c, huoshanReq, oaiReqParam)
 	} else {
-		return handleSingleHuoShanRequest(ctx, c, client, huoshanReq, oaiReqParam)
+		if oaiReq.Stream {
+			return handleHuoShanStream(ctx, c, client, huoshanReq, oaiReqParam)
+		} else {
+			return handleSingleHuoShanRequest(ctx, c, client, huoshanReq, oaiReqParam)
+		}
 	}
+
+	return nil
 }
 
 func prepareHuoshanRequest(oaiReq *openai.ChatCompletionRequest, s *config.ModelDetails) model.ChatCompletionRequest {
