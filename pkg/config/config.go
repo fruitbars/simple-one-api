@@ -205,10 +205,17 @@ func InitConfig(configName string) error {
 		}
 
 	} else if ftype == "json" {
-
 		err = json.Unmarshal(data, &conf)
 		if err != nil {
 			log.Println(err)
+
+			if syntaxErr, ok := err.(*json.SyntaxError); ok {
+				line, character := FindLineAndCharacter(data, int(syntaxErr.Offset))
+				log.Printf("JSON 语法错误在第 %d 行，第 %d 个字符附近: %v\n", line, character, err)
+				log.Printf("上下文: %s\n", GetErrorContext(data, int(syntaxErr.Offset)))
+			} else {
+				log.Printf("JSON 解析错误: %v\n", err)
+			}
 		}
 	} else {
 		log.Println("unsupport config type:", ftype)
