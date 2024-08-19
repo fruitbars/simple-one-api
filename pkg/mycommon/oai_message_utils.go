@@ -13,6 +13,49 @@ import (
 	"time"
 )
 
+func GetSystemMessage(oaiReqMessage []openai.ChatCompletionMessage) string {
+	for i := 0; i < len(oaiReqMessage); i++ {
+		msg := oaiReqMessage[i]
+		if msg.Role == openai.ChatMessageRoleSystem {
+			if len(msg.MultiContent) > 0 {
+				for j := 0; j < len(msg.MultiContent); j++ {
+					if msg.MultiContent[j].Type == openai.ChatMessagePartTypeText {
+						return msg.MultiContent[j].Text
+					}
+				}
+			} else {
+				return msg.Content
+			}
+		}
+	}
+
+	return ""
+}
+
+func GetLastestMessage(oaiReqMessage []openai.ChatCompletionMessage) string {
+	if len(oaiReqMessage) == 0 {
+		return ""
+	}
+
+	lastestMsg := oaiReqMessage[len(oaiReqMessage)-1]
+
+	if lastestMsg.Role == openai.ChatMessageRoleSystem {
+		return ""
+	} else {
+		if len(lastestMsg.MultiContent) > 0 {
+			for j := 0; j < len(lastestMsg.MultiContent); j++ {
+				if lastestMsg.MultiContent[j].Type == openai.ChatMessagePartTypeText {
+					return lastestMsg.MultiContent[j].Text
+				}
+			}
+		} else {
+			return lastestMsg.Content
+		}
+	}
+
+	return ""
+}
+
 func IsMultiContentMessage(oaiReqMessage []openai.ChatCompletionMessage) bool {
 	if len(oaiReqMessage) > 0 {
 		for i := 0; i < len(oaiReqMessage); i++ {
