@@ -91,7 +91,7 @@ func ConvertSystemMessages2NoSystem(oaiReqMessage []openai.ChatCompletionMessage
 	return oaiReqMessage
 }
 
-func NormalizeMessages(oaiReqMessage []openai.ChatCompletionMessage) []openai.ChatCompletionMessage {
+func NormalizeMessages(oaiReqMessage []openai.ChatCompletionMessage, keepAllSystem bool) []openai.ChatCompletionMessage {
 	//var systemQuery string
 	if len(oaiReqMessage) == 0 {
 		return oaiReqMessage
@@ -113,10 +113,10 @@ func NormalizeMessages(oaiReqMessage []openai.ChatCompletionMessage) []openai.Ch
 	// 遍历消息数组
 	for i, msg := range oaiReqMessage {
 		role := strings.ToLower(msg.Role)
-		if role == "system" && i > 0 {
-			// 移除非第一条出现的 system 消息
+		if keepAllSystem == false && role == "system" && i > 0 {
 			continue
 		}
+
 		if role == "user" || role == "assistant" {
 			// 检查角色是否交替出现
 			if role == lastRole {
