@@ -159,7 +159,7 @@ func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleCha
 			continue
 		}
 
-		mylog.Logger.Info("Received chat response", zap.Any("chatResp", chatResp))
+		mylog.Logger.Info("Received chat response", zap.Any("chatResp", chatResp), zap.Int("len(chatResp.Choices)", len(chatResp.Choices)))
 		if len(chatResp.Choices) > 0 {
 
 			resp := MMResp{
