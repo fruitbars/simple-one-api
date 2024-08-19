@@ -47,6 +47,7 @@ var serviceHandlerMap = map[string]func(*gin.Context, *OAIRequestParam) error{
 	"groq":      OpenAI2GroqOpenAIHandler,
 	"gemini":    OpenAI2GeminiHandler,
 	"dashscope": OpenAI2AliyunDashScopeHandler,
+	"bailian":   OpenAI2AliyunBaiLianHandler,
 	"vertexai":  OpenAI2VertexAIHandler,
 	"claude":    OpenAI2ClaudeHandler,
 }

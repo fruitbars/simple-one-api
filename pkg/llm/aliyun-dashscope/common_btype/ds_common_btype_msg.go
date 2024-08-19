@@ -1,4 +1,4 @@
-package llama
+package common_btype
 
 // Message 代表一个对话消息
 type Message struct {
@@ -8,7 +8,7 @@ type Message struct {
 
 // Input 代表一个对话的输入部分
 type Input struct {
-	Messages []Message `json:"messages"`
+	Prompt string `json:"prompt"`
 }
 
 // ModelRequest 代表一个模型请求，包括模型名称和输入消息
