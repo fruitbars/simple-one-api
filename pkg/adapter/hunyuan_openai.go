@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -52,7 +53,9 @@ func OpenAIRequestToHunYuanRequest(oaiReq *openai.ChatCompletionRequest) *hunyua
 func HunYuanResponseToOpenAIStreamResponse(event tchttp.SSEvent) (*myopenai.OpenAIStreamResponse, error) {
 
 	var sResponse tecenthunyuan.StreamResponse
-	json.Unmarshal(event.Data, &sResponse)
+	if err := json.Unmarshal(event.Data, &sResponse); err != nil {
+		return nil, fmt.Errorf("unmarshal json to tecenthunyuan.StreamResponse failed, %s", err.Error())
+	}
 
 	id := event.Id
 	if id == "" {
