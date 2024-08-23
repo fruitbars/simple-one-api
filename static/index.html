@@ -262,7 +262,7 @@
                 prompt: document.getElementById('prompt').value,
                 temperature: parseFloat(document.getElementById('temperature').value),
                 maxTokens: parseInt(document.getElementById('max_tokens').value),
-                topP: parseInt(document.getElementById('top_p').value),
+                topP: parseFloat(document.getElementById('top_p').value),
                 models: Array.from(document.querySelectorAll('input[name="model"]:checked')).map(el => el.value),
                 system: document.getElementById('systemCheckbox').checked ? document.getElementById('system').value : '',
             };
