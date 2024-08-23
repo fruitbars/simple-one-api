@@ -55,7 +55,11 @@ func WSMultiModelCallHandler(c *gin.Context) {
 		return
 	}
 
+	mylog.Logger.Info("WSMultiModelCallHandler|readAndUnmarshalClientMessage", zap.Any("requestData", requestData))
+
 	baseRequest := constructBaseRequest(requestData)
+
+	mylog.Logger.Info("WSMultiModelCallHandler|constructBaseRequest", zap.Any("baseRequest", baseRequest))
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -79,13 +83,13 @@ func readAndUnmarshalClientMessage(conn *websocket.Conn) (*MMFormData, error) {
 	if err != nil {
 		return nil, err
 	}
-	mylog.Logger.Info("Received message from client", zap.String("message", string(message)))
+	mylog.Logger.Debug("Received message from client", zap.String("message", string(message)))
 
 	var requestData MMFormData
 	if err := json.Unmarshal(message, &requestData); err != nil {
 		return nil, err
 	}
-	mylog.Logger.Info("Received models", zap.Any("models", requestData.Models))
+	mylog.Logger.Debug("Received models", zap.Any("models", requestData.Models))
 
 	return &requestData, nil
 }
@@ -159,7 +163,7 @@ func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleCha
 			continue
 		}
 
-		mylog.Logger.Info("Received chat response", zap.Any("chatResp", chatResp), zap.Int("len(chatResp.Choices)", len(chatResp.Choices)))
+		mylog.Logger.Debug("Received chat response", zap.Any("chatResp", chatResp), zap.Int("len(chatResp.Choices)", len(chatResp.Choices)))
 		if len(chatResp.Choices) > 0 {
 
 			resp := MMResp{
