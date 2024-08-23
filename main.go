@@ -60,7 +60,7 @@ func main() {
 		c.Status(204)
 	})
 
-	mylog.Logger.Warn("check EnableWeb config", zap.Bool("config.GSOAConf.EnableWeb", config.GSOAConf.EnableWeb))
+	mylog.Logger.Info("check EnableWeb config", zap.Bool("config.GSOAConf.EnableWeb", config.GSOAConf.EnableWeb))
 	if config.GSOAConf.EnableWeb {
 		mylog.Logger.Info("web enabled")
 		// 设置静态文件夹

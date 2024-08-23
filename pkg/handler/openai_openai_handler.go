@@ -103,7 +103,11 @@ func getConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.Cli
 
 // handleOpenAIRequest handles OpenAI requests, supporting both streaming and non-streaming modes
 func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req *openai.ChatCompletionRequest, clientModel string) error {
+
+	logOpenAIChatCompletionRequest(req)
+
 	openaiClient := openai.NewClientWithConfig(conf)
+
 	ctx := context.Background()
 
 	if req.Stream {
@@ -148,7 +152,7 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 			return err
 		}
 
-		mylog.Logger.Info("Response data",
+		mylog.Logger.Debug("Response data",
 			zap.String("resp_data", string(respData))) // 记录响应数据
 
 		_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
@@ -197,10 +201,6 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		return err
 	}
 
-	if oaiReqParam.httpTransport != nil {
-		conf.HTTPClient.Transport = oaiReqParam.httpTransport
-	}
-
 	if strings.HasPrefix(s.ServerURL, "https://api.groq.com/openai/v1") {
 		adjustGroqReq(oaiReqParam.chatCompletionReq)
 	} else if strings.HasPrefix(s.ServerURL, "https://open.bigmodel.cn") {
@@ -223,7 +223,7 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		Transport: scTransport,
 	}
 
-	mylog.Logger.Debug("request:", zap.Any("req", oaiReqParam.chatCompletionReq))
+	mylog.Logger.Debug("OpenAI2OpenAIHandler", zap.Any("req", oaiReqParam.chatCompletionReq), zap.Any("scTransport", scTransport.Transport))
 
 	clientModel := oaiReqParam.ClientModel
 	return handleOpenAIOpenAIRequest(conf, c, oaiReqParam.chatCompletionReq, clientModel)
