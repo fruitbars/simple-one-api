@@ -123,11 +123,12 @@ func NormalizeMessages(oaiReqMessage []openai.ChatCompletionMessage, keepAllSyst
 				continue
 			}
 			normalizedMessages = append(normalizedMessages, msg)
-			lastRole = role
 		} else {
 			// 保留不认识的角色
 			normalizedMessages = append(normalizedMessages, msg)
 		}
+
+		lastRole = role
 	}
 
 	return normalizedMessages

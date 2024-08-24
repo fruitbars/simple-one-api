@@ -95,19 +95,13 @@ func DashScopeCommonResponseToOpenAIStreamResponse(dsResp *ds_com_resp.ModelStre
 	for _, dsChoice := range dsResp.Output.Choices {
 		deltaContent := compareAndExtractDelta(prevContent, dsChoice.Message.Content)
 		choice := struct {
-			Index int `json:"index"`
-			Delta struct {
-				Role    string `json:"role,omitempty"`
-				Content string `json:"content,omitempty"`
-			} `json:"delta,omitempty"`
-			Logprobs     interface{} `json:"logprobs,omitempty"`
-			FinishReason interface{} `json:"finish_reason,omitempty"`
+			Index        int                    `json:"index"`
+			Delta        myopenai.ResponseDelta `json:"delta,omitempty"`
+			Logprobs     interface{}            `json:"logprobs,omitempty"`
+			FinishReason interface{}            `json:"finish_reason,omitempty"`
 		}{
 			Index: 0,
-			Delta: struct {
-				Role    string `json:"role,omitempty"`
-				Content string `json:"content,omitempty"`
-			}{
+			Delta: myopenai.ResponseDelta{
 				Role:    dsChoice.Message.Role,
 				Content: deltaContent,
 			},

@@ -72,10 +72,7 @@ func GeminiResponseToOpenAIStreamResponse(qfResp *google_gemini.GeminiResponse) 
 
 		choice := myopenai.OpenAIStreamResponseChoice{
 			Index: i,
-			Delta: struct {
-				Role    string `json:"role,omitempty"`
-				Content string `json:"content,omitempty"`
-			}{
+			Delta: myopenai.ResponseDelta{
 				Role:    role,
 				Content: content,
 			},

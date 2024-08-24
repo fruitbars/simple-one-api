@@ -216,13 +216,10 @@ func QianFanResponseToOpenAIStreamResponse(qfResp *baiduqianfan.QianFanResponse)
 
 	// 根据结果和是否结束设置 Choices
 	choice := struct {
-		Index int `json:"index"`
-		Delta struct {
-			Role    string `json:"role,omitempty"`
-			Content string `json:"content,omitempty"`
-		} `json:"delta,omitempty"`
-		Logprobs     any `json:"logprobs,omitempty"`
-		FinishReason any `json:"finish_reason,omitempty"`
+		Index        int                    `json:"index"`
+		Delta        myopenai.ResponseDelta `json:"delta,omitempty"`
+		Logprobs     any                    `json:"logprobs,omitempty"`
+		FinishReason any                    `json:"finish_reason,omitempty"`
 	}{}
 
 	choice.Index = 0
