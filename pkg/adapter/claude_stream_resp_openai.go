@@ -18,10 +18,7 @@ func ConvertMsgMessageStartToOpenAIStreamResponse(msg *claude.MsgMessageStart) *
 		},
 		Choices: []myopenai.OpenAIStreamResponseChoice{
 			{
-				Delta: struct {
-					Role    string `json:"role,omitempty"`
-					Content string `json:"content,omitempty"`
-				}{
+				Delta: myopenai.ResponseDelta{
 					Role:    msg.Message.Role,
 					Content: "", // 因为原数据中的 content 是一个空数组
 				},
@@ -36,10 +33,7 @@ func ConvertMsgContentBlockDeltaToOpenAIStreamResponse(msg *claude.MsgContentBlo
 		Choices: []myopenai.OpenAIStreamResponseChoice{
 			{
 				Index: msg.Index,
-				Delta: struct {
-					Role    string `json:"role,omitempty"`
-					Content string `json:"content,omitempty"`
-				}{
+				Delta: myopenai.ResponseDelta{
 					Role:    mycomdef.KEYNAME_ASSISTANT,
 					Content: msg.Delta.Text,
 				},

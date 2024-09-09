@@ -106,10 +106,7 @@ func CozecnReponseToOpenAIResponseStream(resp *cozecn.StreamResponse) *myopenai.
 	if resp.Event == "message" {
 		choices = append(choices, myopenai.OpenAIStreamResponseChoice{
 			Index: resp.Index,
-			Delta: struct {
-				Role    string `json:"role,omitempty"`
-				Content string `json:"content,omitempty"`
-			}{
+			Delta: myopenai.ResponseDelta{
 				Role:    resp.Message.Role,
 				Content: resp.Message.Content,
 			},

@@ -22,10 +22,36 @@ type Choice struct {
 	FinishReason string           `json:"finish_reason"`
 }
 
+// FunctionCall 旧版工具调用
+type FunctionCall struct {
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
+}
+
+// ToolType 工具类型
+type ToolType string
+
+// ToolCall 工具调用
+type ToolCall struct {
+	Index    *int         `json:"index,omitempty"`
+	ID       string       `json:"id"`
+	Type     ToolType     `json:"type"`
+	Function FunctionCall `json:"function"`
+}
+
 // ResponseMessage Message 定义了对话中的消息结构
 type ResponseMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string     `json:"role"`
+	Content    string     `json:"content"`
+	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
+}
+
+// ResponseDelta Delta 定义了对话中的消息结构
+type ResponseDelta struct {
+	Role      string     `json:"role"`
+	Content   string     `json:"content"`
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 }
 
 // Usage 定义了使用统计的结构
@@ -55,11 +81,8 @@ type OpenAIStreamResponse struct {
 }
 
 type OpenAIStreamResponseChoice struct {
-	Index int `json:"index"`
-	Delta struct {
-		Role    string `json:"role,omitempty"`
-		Content string `json:"content,omitempty"`
-	} `json:"delta,omitempty"`
-	Logprobs     any `json:"logprobs,omitempty"`
-	FinishReason any `json:"finish_reason,omitempty"`
+	Index        int           `json:"index"`
+	Delta        ResponseDelta `json:"delta,omitempty"`
+	Logprobs     any           `json:"logprobs,omitempty"`
+	FinishReason any           `json:"finish_reason,omitempty"`
 }

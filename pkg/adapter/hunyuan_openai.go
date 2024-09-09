@@ -2,17 +2,27 @@ package adapter
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	tchttp "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/http"
 	hunyuan "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/hunyuan/v20230901"
 	"go.uber.org/zap"
-	tecenthunyuan "simple-one-api/pkg/llm/tecent-hunyuan"
 	"simple-one-api/pkg/mylog"
 	myopenai "simple-one-api/pkg/openai"
 	"simple-one-api/pkg/utils"
 	"strings"
+)
+
+// ToolChoiceType 工具执行类型
+type ToolChoiceType string
+
+// 混元特有枚举值
+const (
+	None   ToolChoiceType = "none"
+	Auto   ToolChoiceType = "auto"
+	Custom ToolChoiceType = "custom"
 )
 
 func OpenAIRequestToHunYuanRequest(oaiReq *openai.ChatCompletionRequest) *hunyuan.ChatCompletionsRequest {
@@ -31,9 +41,25 @@ func OpenAIRequestToHunYuanRequest(oaiReq *openai.ChatCompletionRequest) *hunyua
 
 		tmpMsg := msg
 
+		// 工具调用上下文字段
+		hyToolCalls := make([]*hunyuan.ToolCall, len(tmpMsg.ToolCalls))
+		for j, toolCall := range tmpMsg.ToolCalls {
+			tmpToolCall := toolCall
+			hyToolCalls[j] = &hunyuan.ToolCall{
+				Id:   &tmpToolCall.ID,
+				Type: (*string)(&tmpToolCall.Type),
+				Function: &hunyuan.ToolCallFunction{
+					Name:      &tmpToolCall.Function.Name,
+					Arguments: &tmpToolCall.Function.Arguments,
+				},
+			}
+		}
+
 		request.Messages = append(request.Messages, &hunyuan.Message{
-			Role:    &tmpMsg.Role,
-			Content: &tmpMsg.Content,
+			Role:       &tmpMsg.Role,
+			Content:    &tmpMsg.Content,
+			ToolCallId: &tmpMsg.ToolCallID,
+			ToolCalls:  hyToolCalls,
 		})
 	}
 
@@ -45,11 +71,76 @@ func OpenAIRequestToHunYuanRequest(oaiReq *openai.ChatCompletionRequest) *hunyua
 
 	request.Stream = &oaiReq.Stream
 
+	// 工具定义字段
+	hyTools := make([]*hunyuan.Tool, len(oaiReq.Tools))
+	for i, oaiTool := range oaiReq.Tools {
+		hyType := string(oaiTool.Type)
+		oaFuncParamByte, _ := json.Marshal(oaiTool.Function.Parameters)
+		hyFuncParam := string(oaFuncParamByte)
+		hyTools[i] = &hunyuan.Tool{
+			Type: &hyType,
+			Function: &hunyuan.ToolFunction{
+				Name:        &oaiTool.Function.Name,
+				Description: &oaiTool.Function.Description,
+				Parameters:  &hyFuncParam,
+			},
+		}
+	}
+	request.Tools = hyTools
+
+	// 工具执行方式字段
+	choiceType, toolChoice := convertHYToolChoice(oaiReq.ToolChoice)
+	request.ToolChoice, request.CustomTool = (*string)(&choiceType), toolChoice
+
 	return request
+}
+
+func convertHYToolChoice(oaiToolChoice interface{}) (ToolChoiceType, *hunyuan.Tool) {
+	if oaiToolChoice == nil {
+		return "", nil
+	}
+	functionKey := "function"
+
+	switch tc := oaiToolChoice.(type) {
+	case map[string]interface{}:
+		choiceBytes, err := json.Marshal(tc)
+		if err != nil {
+			return "", nil
+		}
+
+		var choice openai.ToolChoice
+		err = json.Unmarshal(choiceBytes, &choice)
+		if err != nil {
+			return "", nil
+		}
+
+		return Custom, &hunyuan.Tool{
+			Type: &functionKey,
+			Function: &hunyuan.ToolFunction{
+				Name: &choice.Function.Name,
+			},
+		}
+	case openai.ToolChoice:
+		return Custom, &hunyuan.Tool{
+			Type: &functionKey,
+			Function: &hunyuan.ToolFunction{
+				Name: &tc.Function.Name,
+			},
+		}
+	case string:
+		// 混元不支持any、require参数
+		return ToolChoiceType(tc), nil
+	default:
+		return "", nil
+	}
 }
 
 // 转换函数实现
 func HunYuanResponseToOpenAIStreamResponse(event tchttp.SSEvent) (*myopenai.OpenAIStreamResponse, error) {
+	var sResponse hunyuan.ChatCompletionsResponseParams
+	if err := json.Unmarshal(event.Data, &sResponse); err != nil {
+		return nil, err
+	}
 
 	var sResponse tecenthunyuan.StreamResponse
 	json.Unmarshal(event.Data, &sResponse)
@@ -58,39 +149,20 @@ func HunYuanResponseToOpenAIStreamResponse(event tchttp.SSEvent) (*myopenai.Open
 	if id == "" {
 		id = uuid.New().String()
 	}
-	//common.
+
 	openAIResp := &myopenai.OpenAIStreamResponse{
 		ID:      id,
-		Created: sResponse.Created,
-		//Usage:   sResponse.Usage,
-		//Error: sResponse.e,
+		Created: utils.GetInt64(sResponse.Created),
 	}
 	openAIResp.Usage = &myopenai.Usage{
-		PromptTokens:     sResponse.Usage.PromptTokens,
-		CompletionTokens: sResponse.Usage.CompletionTokens,
-		TotalTokens:      sResponse.Usage.TotalTokens,
+		PromptTokens:     int(utils.GetInt64(sResponse.Usage.PromptTokens)),
+		CompletionTokens: int(utils.GetInt64(sResponse.Usage.CompletionTokens)),
+		TotalTokens:      int(utils.GetInt64(sResponse.Usage.TotalTokens)),
 	}
-
 	for _, choice := range sResponse.Choices {
-		openAIResp.Choices = append(openAIResp.Choices, struct {
-			Index int `json:"index"`
-			Delta struct {
-				Role    string `json:"role,omitempty"`
-				Content string `json:"content,omitempty"`
-			} `json:"delta,omitempty"`
-			Logprobs     interface{} `json:"logprobs,omitempty"`
-			FinishReason interface{} `json:"finish_reason,omitempty"`
-		}{
-			Index: 0,
-			Delta: struct {
-				Role    string `json:"role,omitempty"`
-				Content string `json:"content,omitempty"`
-			}{
-				Role:    choice.Delta.Role,
-				Content: choice.Delta.Content,
-			},
-			//Logprobs:     choice.LogProbs,
-			FinishReason: choice.FinishReason,
+		openAIResp.Choices = append(openAIResp.Choices, myopenai.OpenAIStreamResponseChoice{
+			Delta:        convertHYDelta(*choice.Delta),
+			FinishReason: utils.GetString(choice.FinishReason),
 		})
 	}
 
@@ -115,7 +187,7 @@ func HunYuanResponseToOpenAIResponse(qfResp *hunyuan.ChatCompletionsResponse) *m
 	for _, choice := range qfResp.Response.Choices {
 		openAIResp.Choices = append(openAIResp.Choices, myopenai.Choice{
 			//Index:   choice.Index,
-			Message: convertMessage(*choice.Message),
+			Message: convertHYMessage(*choice.Message),
 			//LogProbs:     choice.LogProbs,
 			FinishReason: utils.GetString(choice.FinishReason),
 		})
@@ -150,9 +222,50 @@ func convertError(hunyuanError *hunyuan.ErrorMsg) *myopenai.ErrorDetail {
 }
 
 // 辅助函数：转换Message
-func convertMessage(hunyuanMessage hunyuan.Message) myopenai.ResponseMessage {
+func convertHYMessage(hunyuanMessage hunyuan.Message) myopenai.ResponseMessage {
+	toolCalls := make([]myopenai.ToolCall, len(hunyuanMessage.ToolCalls))
+	for i, _ := range hunyuanMessage.ToolCalls {
+		index := i
+		call := hunyuanMessage.ToolCalls[index]
+		toolCalls[index] = myopenai.ToolCall{
+			Index: &index,
+			ID:    utils.GetString(call.Id),
+			Type:  myopenai.ToolType(utils.GetString(call.Type)),
+			Function: myopenai.FunctionCall{
+				Name:      utils.GetString(call.Function.Name),
+				Arguments: utils.GetString(call.Function.Arguments),
+			},
+		}
+	}
+
 	return myopenai.ResponseMessage{
-		Role:    utils.GetString(hunyuanMessage.Role),
-		Content: utils.GetString(hunyuanMessage.Content),
+		Role:       utils.GetString(hunyuanMessage.Role),
+		Content:    utils.GetString(hunyuanMessage.Content),
+		ToolCalls:  toolCalls,
+		ToolCallID: utils.GetString(hunyuanMessage.ToolCallId),
+	}
+}
+
+// 辅助函数：转换Message
+func convertHYDelta(hunyuanDelta hunyuan.Delta) myopenai.ResponseDelta {
+	toolCalls := make([]myopenai.ToolCall, len(hunyuanDelta.ToolCalls))
+	for i, _ := range hunyuanDelta.ToolCalls {
+		index := i
+		call := hunyuanDelta.ToolCalls[index]
+		toolCalls[index] = myopenai.ToolCall{
+			Index: &index,
+			ID:    utils.GetString(call.Id),
+			Type:  myopenai.ToolType(utils.GetString(call.Type)),
+			Function: myopenai.FunctionCall{
+				Name:      utils.GetString(call.Function.Name),
+				Arguments: utils.GetString(call.Function.Arguments),
+			},
+		}
+	}
+
+	return myopenai.ResponseDelta{
+		Role:      utils.GetString(hunyuanDelta.Role),
+		Content:   utils.GetString(hunyuanDelta.Content),
+		ToolCalls: toolCalls,
 	}
 }
