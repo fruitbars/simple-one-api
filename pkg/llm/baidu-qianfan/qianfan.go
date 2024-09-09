@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func QianFanCall(client *http.Client, api_key, secret_key, model string, qfReq *QianFanRequest) (*QianFanResponse, error) {
+func QianFanCall(client *http.Client, api_key, secret_key, model string, configAddress string, qfReq *QianFanRequest) (*QianFanResponse, error) {
 	mylog.Logger.Info("QianFanCall", zap.String("api_key", api_key), zap.String("secret_key", secret_key), zap.String("model", model), zap.Any("qfReq", qfReq))
 
 	accessToken := GetAccessToken(api_key, secret_key)
@@ -23,10 +23,10 @@ func QianFanCall(client *http.Client, api_key, secret_key, model string, qfReq *
 		return nil, err
 	}
 
-	return SendChatRequest(client, accessToken, model, qfReq)
+	return SendChatRequest(client, accessToken, model, configAddress, qfReq)
 }
 
-func QianFanCallSSE(client *http.Client, api_key, secret_key, model string, qfReq *QianFanRequest, callback func(qfResp *QianFanResponse)) error {
+func QianFanCallSSE(client *http.Client, api_key, secret_key, model string, configAddress string, qfReq *QianFanRequest, callback func(qfResp *QianFanResponse)) error {
 	mylog.Logger.Info("QianFanCall", zap.String("api_key", api_key), zap.String("secret_key", secret_key), zap.String("model", model), zap.Any("qfReq", qfReq))
 	accessToken := GetAccessToken(api_key, secret_key)
 	if accessToken == "" {
@@ -35,12 +35,19 @@ func QianFanCallSSE(client *http.Client, api_key, secret_key, model string, qfRe
 		return err
 	}
 
-	return SendChatRequestWithSSE(client, accessToken, model, qfReq, callback)
+	return SendChatRequestWithSSE(client, accessToken, model, configAddress, qfReq, callback)
 }
 
 // SendChatRequestWithSSE 发送 SSE 请求并处理响应
-func SendChatRequestWithSSE(client *http.Client, accessToken, model string, qfReq *QianFanRequest, callback func(qfResp *QianFanResponse)) error {
-	address := qianfanModelName2Address(model)
+func SendChatRequestWithSSE(client *http.Client, accessToken, model string, configAddress string, qfReq *QianFanRequest, callback func(qfResp *QianFanResponse)) error {
+	address, err := qianfanModel2Address(model)
+	if err != nil {
+		address = model
+	} else {
+		if address == "{}" {
+			address = configAddress
+		}
+	}
 	url := "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/" + address + "?access_token=" + accessToken
 
 	jsonData, err := json.Marshal(qfReq)
@@ -104,8 +111,15 @@ func SendChatRequestWithSSE(client *http.Client, accessToken, model string, qfRe
 	return nil
 }
 
-func SendChatRequest(client *http.Client, accessToken, model string, qfReq *QianFanRequest) (*QianFanResponse, error) {
-	address := qianfanModelName2Address(model)
+func SendChatRequest(client *http.Client, accessToken, model string, configAddress string, qfReq *QianFanRequest) (*QianFanResponse, error) {
+	address, err := qianfanModel2Address(model)
+	if err != nil {
+		address = model
+	} else {
+		if address == "{}" {
+			address = configAddress
+		}
+	}
 	url := "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/" + address + "?access_token=" + accessToken
 
 	jsonData, err := json.Marshal(qfReq)
@@ -152,20 +166,6 @@ func SendChatRequest(client *http.Client, accessToken, model string, qfReq *Qian
 	mylog.Logger.Info("", zap.Any("response", response))
 
 	return &response, nil
-}
-
-func qianfanModelName2Address(modelName string) string {
-	address := strings.ToLower(modelName)
-	switch modelName {
-	case "ERNIE-Speed-8K":
-		address = "ernie_speed"
-	case "ERNIE-Lite-8K-0922":
-		address = "eb-instant"
-	case "Yi-34B-Chat":
-		address = "yi_34b_chat"
-	}
-
-	return address
 }
 
 // GetAccessToken 使用 AK，SK 生成鉴权签名（Access Token）
