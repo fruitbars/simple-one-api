@@ -9,6 +9,7 @@ const KEYNAME_APPID = "appid"
 const KEYNAME_API_SECRET = "api_secret"
 const KEYNAME_DOMAIN = "domain"
 const KEYNAME_ACCESS_KEY = "access_key"
+const KEYNAME_ADDRESSS = "addresss"
 
 const KEYNAME_GCP_PROJECT_ID = "project_id"
 const KEYNAME_GCP_LOCATION = "location"

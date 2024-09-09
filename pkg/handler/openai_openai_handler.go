@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"io"
@@ -128,6 +129,7 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 	}
 	defer stream.Close()
 
+	backIdStr := uuid.New().String()
 	for {
 		response, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
@@ -141,6 +143,10 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 
 		mylog.Logger.Debug("CheckOpenAIStreamRespone1",
 			zap.Any("response", response))
+
+		if response.ID == "" {
+			response.ID = backIdStr
+		}
 
 		adapter.CheckOpenAIStreamRespone(&response)
 
