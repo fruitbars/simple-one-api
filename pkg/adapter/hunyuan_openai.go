@@ -2,7 +2,6 @@ package adapter
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -141,9 +140,6 @@ func HunYuanResponseToOpenAIStreamResponse(event tchttp.SSEvent) (*myopenai.Open
 	if err := json.Unmarshal(event.Data, &sResponse); err != nil {
 		return nil, err
 	}
-
-	var sResponse tecenthunyuan.StreamResponse
-	json.Unmarshal(event.Data, &sResponse)
 
 	id := event.Id
 	if id == "" {
