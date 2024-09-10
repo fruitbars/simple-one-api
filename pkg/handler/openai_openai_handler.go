@@ -87,13 +87,15 @@ func getConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.Cli
 	}
 
 	if serverURL != "" {
-		if formattedURL, ok := validateAndFormatURL(serverURL); ok {
-			conf.BaseURL = formattedURL
+		formattedURL, ok := validateAndFormatURL(serverURL)
 
+		conf.BaseURL = formattedURL
+		if ok {
 			mylog.Logger.Info("Formatted server URL is valid",
-				zap.String("formatted_url", formattedURL)) // 记录格式化后的服务器 URL 是否有效
+				zap.String("formatted_url", formattedURL))
 		} else {
-			return conf, errors.New("formatted server URL is invalid")
+			mylog.Logger.Warn("Formatted server URL is invalid",
+				zap.String("formatted_url", formattedURL))
 		}
 	} else {
 		return conf, errors.New("server URL is empty")
