@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
 	"simple-one-api/pkg/mycomdef"
 	myopenai "simple-one-api/pkg/openai"
@@ -49,8 +50,12 @@ func OpenAIResponseToOpenAIResponse(resp *openai.ChatCompletionResponse) *myopen
 		TotalTokens:      resp.Usage.TotalTokens,
 	}
 
+	idStr := resp.ID
+	if idStr == "" {
+		idStr = uuid.New().String()
+	}
 	return &myopenai.OpenAIResponse{
-		ID:                resp.ID,
+		ID:                idStr,
 		Object:            resp.Object,
 		Created:           resp.Created,
 		Model:             resp.Model,

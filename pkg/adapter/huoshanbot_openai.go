@@ -85,10 +85,7 @@ func HuoShanBotResponseToOpenAIStreamResponse(huoshanBotResp *model.BotChatCompl
 
 		response.Choices[i] = myopenai.OpenAIStreamResponseChoice{
 			Index: choice.Index,
-			Delta: struct {
-				Role    string `json:"role,omitempty"`
-				Content string `json:"content,omitempty"`
-			}{
+			Delta: myopenai.ResponseDelta{
 				Role:    choice.Delta.Role,
 				Content: choice.Delta.Content,
 			},

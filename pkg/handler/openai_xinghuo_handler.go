@@ -103,7 +103,7 @@ func handleXingHuoStreamMode(c *gin.Context, client *gosparkclient.SparkClient, 
 		}
 
 		// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
-		mylog.Logger.Info("Response HTTP data",
+		mylog.Logger.Debug("SparkChatWithCallback Response HTTP data",
 			zap.String("data", string(respData))) // 记录响应数据
 
 		if oaiRespStream.Error != nil {

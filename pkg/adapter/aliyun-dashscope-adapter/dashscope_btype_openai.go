@@ -64,19 +64,13 @@ func DashScopeBTypeResponseToOpenAIStreamResponse(dsResp *common_btype.DSBtypeRe
 	}
 
 	openAIResp.Choices = append(openAIResp.Choices, struct {
-		Index int `json:"index"`
-		Delta struct {
-			Role    string `json:"role,omitempty"`
-			Content string `json:"content,omitempty"`
-		} `json:"delta,omitempty"`
-		Logprobs     interface{} `json:"logprobs,omitempty"`
-		FinishReason interface{} `json:"finish_reason,omitempty"`
+		Index        int                    `json:"index"`
+		Delta        myopenai.ResponseDelta `json:"delta,omitempty"`
+		Logprobs     interface{}            `json:"logprobs,omitempty"`
+		FinishReason interface{}            `json:"finish_reason,omitempty"`
 	}{
 		Index: 0,
-		Delta: struct {
-			Role    string `json:"role,omitempty"`
-			Content string `json:"content,omitempty"`
-		}{
+		Delta: myopenai.ResponseDelta{
 			Role:    openai.ChatMessageRoleAssistant,
 			Content: dsResp.Output.Text,
 		},

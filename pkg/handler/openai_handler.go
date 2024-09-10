@@ -63,6 +63,16 @@ func LogRequestDetails(c *gin.Context) {
 	)
 }
 
+func logOpenAIChatCompletionRequest(oaiReq *openai.ChatCompletionRequest) {
+	if oaiReq == nil {
+		return
+	}
+
+	mylog.Logger.Info("logOpenAIChatCompletionRequest", zap.Float32("TopP", oaiReq.TopP),
+		zap.Float32("Temperature", oaiReq.Temperature), zap.Int("MaxTokens", oaiReq.MaxTokens),
+		zap.String("model", oaiReq.Model), zap.Int("N", oaiReq.N), zap.Float32("FrequencyPenalty", oaiReq.FrequencyPenalty))
+}
+
 func getBodyDataCopy(c *gin.Context) ([]byte, error) {
 	body, err := c.GetRawData()
 	if err != nil {
@@ -125,6 +135,9 @@ func OpenAIHandler(c *gin.Context) {
 		// 将重新解析的结果赋值给 oaiReq
 		oaiReq = *parsedReq
 	}
+
+	mylog.Logger.Info("logOpenAIChatCompletionRequest", zap.Float32("TopP", oaiReq.TopP))
+	logOpenAIChatCompletionRequest(&oaiReq)
 
 	isValid, _ = config.ValidateAPIKeyAndModel(apikey, oaiReq.Model)
 	if !isValid {
@@ -270,6 +283,8 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 			mylog.Logger.Debug("GetConfProxyTransport", zap.String("proxyType", proxyType), zap.String("proxyAddr", proxyAddr))
 			oaiReqParam.httpTransport = transport
 		}
+	} else {
+		mylog.Logger.Debug("GetConfProxyTransport proxy not enabled")
 	}
 
 	keepAllSystem := false

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"io"
@@ -86,13 +87,15 @@ func getConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.Cli
 	}
 
 	if serverURL != "" {
-		if formattedURL, ok := validateAndFormatURL(serverURL); ok {
-			conf.BaseURL = formattedURL
+		formattedURL, ok := validateAndFormatURL(serverURL)
 
+		conf.BaseURL = formattedURL
+		if ok {
 			mylog.Logger.Info("Formatted server URL is valid",
-				zap.String("formatted_url", formattedURL)) // 记录格式化后的服务器 URL 是否有效
+				zap.String("formatted_url", formattedURL))
 		} else {
-			return conf, errors.New("formatted server URL is invalid")
+			mylog.Logger.Warn("Formatted server URL is invalid",
+				zap.String("formatted_url", formattedURL))
 		}
 	} else {
 		return conf, errors.New("server URL is empty")
@@ -103,7 +106,11 @@ func getConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.Cli
 
 // handleOpenAIRequest handles OpenAI requests, supporting both streaming and non-streaming modes
 func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req *openai.ChatCompletionRequest, clientModel string) error {
+
+	logOpenAIChatCompletionRequest(req)
+
 	openaiClient := openai.NewClientWithConfig(conf)
+
 	ctx := context.Background()
 
 	if req.Stream {
@@ -124,6 +131,7 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 	}
 	defer stream.Close()
 
+	backIdStr := uuid.New().String()
 	for {
 		response, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
@@ -138,6 +146,10 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 		mylog.Logger.Debug("CheckOpenAIStreamRespone1",
 			zap.Any("response", response))
 
+		if response.ID == "" {
+			response.ID = backIdStr
+		}
+
 		adapter.CheckOpenAIStreamRespone(&response)
 
 		response.Model = clientModel
@@ -148,7 +160,7 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 			return err
 		}
 
-		mylog.Logger.Info("Response data",
+		mylog.Logger.Debug("Response data",
 			zap.String("resp_data", string(respData))) // 记录响应数据
 
 		_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
@@ -197,10 +209,6 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		return err
 	}
 
-	if oaiReqParam.httpTransport != nil {
-		conf.HTTPClient.Transport = oaiReqParam.httpTransport
-	}
-
 	if strings.HasPrefix(s.ServerURL, "https://api.groq.com/openai/v1") {
 		adjustGroqReq(oaiReqParam.chatCompletionReq)
 	} else if strings.HasPrefix(s.ServerURL, "https://open.bigmodel.cn") {
@@ -223,7 +231,7 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		Transport: scTransport,
 	}
 
-	mylog.Logger.Debug("request:", zap.Any("req", oaiReqParam.chatCompletionReq))
+	mylog.Logger.Debug("OpenAI2OpenAIHandler", zap.Any("req", oaiReqParam.chatCompletionReq), zap.Any("scTransport", scTransport.Transport))
 
 	clientModel := oaiReqParam.ClientModel
 	return handleOpenAIOpenAIRequest(conf, c, oaiReqParam.chatCompletionReq, clientModel)
