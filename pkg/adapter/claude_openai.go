@@ -1,6 +1,7 @@
 package adapter
 
 import (
+        "strings"
 	"github.com/sashabaranov/go-openai"
 	"simple-one-api/pkg/llm/claude"
 	"simple-one-api/pkg/mycommon"
@@ -10,66 +11,73 @@ import (
 
 // OpenAIRequestToClaudeRequest 将 OpenAI 的 ChatCompletionRequest 转换为 Claude 的 RequestBody
 func OpenAIRequestToClaudeRequest(oaiReq *openai.ChatCompletionRequest) *claude.RequestBody {
-	claudeMessages := make([]claude.Message, len(oaiReq.Messages))
+    var claudeMessages []claude.Message
+    var systemMessages []string
 
-	for i, oaiMsg := range oaiReq.Messages {
-		var content string
-		var multiContent []claude.ContentBlock
+    for _, oaiMsg := range oaiReq.Messages {
+        if oaiMsg.Role == "system" {
+            systemMessages = append(systemMessages, oaiMsg.Content)
+            continue
+        }
 
-		if oaiMsg.Content != "" {
-			content = oaiMsg.Content
-		} else {
-			for _, part := range oaiMsg.MultiContent {
-				cb := claude.ContentBlock{
-					Type: string(part.Type),
-					Text: part.Text,
-				}
+        var content string
+        var multiContent []claude.ContentBlock
 
-				if part.ImageURL != nil {
-					imgData, mType, _ := mycommon.GetImageURLData(part.ImageURL.URL)
-					cb.Image = &claude.Image{
-						Source: claude.ImageSource{
-							Type:      "base64",
-							MediaType: mType, // Assuming media type, this might need adjustment
-							Data:      imgData,
-						},
-					}
-				}
-				multiContent = append(multiContent, cb)
-			}
-		}
+        if oaiMsg.Content != "" {
+            content = oaiMsg.Content
+        } else {
+            for _, part := range oaiMsg.MultiContent {
+                cb := claude.ContentBlock{
+                    Type: string(part.Type),
+                    Text: part.Text,
+                }
 
-		claudeMessages[i] = claude.Message{
-			Role:         oaiMsg.Role,
-			Content:      content,
-			MultiContent: multiContent,
-		}
-	}
+                if part.ImageURL != nil {
+                    imgData, mType, _ := mycommon.GetImageURLData(part.ImageURL.URL)
+                    cb.Image = &claude.Image{
+                        Source: claude.ImageSource{
+                            Type:      "base64",
+                            MediaType: mType,
+                            Data:      imgData,
+                        },
+                    }
+                }
+                multiContent = append(multiContent, cb)
+            }
+        }
 
-	var metadata *claude.Metadata
+        claudeMessages = append(claudeMessages, claude.Message{
+            Role:         oaiMsg.Role,
+            Content:      content,
+            MultiContent: multiContent,
+        })
+    }
 
-	if oaiReq.User != "" {
-		metadata = &claude.Metadata{UserID: oaiReq.User}
-	}
+    var metadata *claude.Metadata
 
-	maxTokens := 4096
-	if oaiReq.MaxTokens >= 0 {
-		maxTokens = oaiReq.MaxTokens
-	}
+    if oaiReq.User != "" {
+        metadata = &claude.Metadata{UserID: oaiReq.User}
+    }
 
-	return &claude.RequestBody{
-		Model:         oaiReq.Model,
-		Messages:      claudeMessages,
-		MaxTokens:     maxTokens,
-		StopSequences: oaiReq.Stop,
-		Stream:        oaiReq.Stream,
-		Temperature:   oaiReq.Temperature,
-		TopK:          int(oaiReq.TopP), // Assuming TopP maps to TopK, adjust if needed
-		TopP:          oaiReq.TopP,
-		ToolChoice:    convertToolChoice(oaiReq.ToolChoice),
-		Tools:         convertTools(oaiReq.Tools),
-		Metadata:      metadata,
-	}
+    maxTokens := 4096
+    if oaiReq.MaxTokens > 0 {
+        maxTokens = oaiReq.MaxTokens
+    }
+
+    return &claude.RequestBody{
+        Model:         oaiReq.Model,
+        Messages:      claudeMessages,
+        System:        strings.Join(systemMessages, "\n"),
+        MaxTokens:     maxTokens,
+        StopSequences: oaiReq.Stop,
+        Stream:        oaiReq.Stream,
+        Temperature:   oaiReq.Temperature,
+        TopK:          int(oaiReq.TopP), // Assuming TopP maps to TopK, adjust if needed
+        TopP:          oaiReq.TopP,
+        ToolChoice:    convertToolChoice(oaiReq.ToolChoice),
+        Tools:         convertTools(oaiReq.Tools),
+        Metadata:      metadata,
+    }
 }
 
 func convertToolChoice(oaiToolChoice interface{}) *claude.ToolChoice {
