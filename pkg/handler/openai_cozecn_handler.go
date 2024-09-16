@@ -14,6 +14,8 @@ import (
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/llm/devplatform/cozecn"
+	"simple-one-api/pkg/llm/devplatform/cozecn_v3/nonestream"
+	"simple-one-api/pkg/llm/devplatform/cozecn_v3/streammode"
 	"simple-one-api/pkg/mycommon"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
@@ -21,8 +23,8 @@ import (
 	"time"
 )
 
-var defaultCozecnURL = "https://api.coze.cn/open_api/v2/chat"
-var defaultCozecomURL = "https://api.coze.com/open_api/v2/chat"
+var defaultCozecnV2URL = "https://api.coze.cn/open_api/v2/chat"
+var defaultCozecomV2URL = "https://api.coze.com/open_api/v2/chat"
 
 func getSecretToken(credentials map[string]interface{}, model string) string {
 	//credentials := mycommon.GetACredentials(s, model)
@@ -44,31 +46,90 @@ func OpenAI2CozecnHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	cozecnReq := adapter.OpenAIRequestToCozecnRequest(oaiReq)
 	cozeServerURL := s.ServerURL
 
-	if cozeServerURL == "" {
-		switch s.ServiceName {
-		case "cozecn":
-			cozeServerURL = defaultCozecnURL
-		case "cozecom":
-			cozeServerURL = defaultCozecomURL
-		default:
-			cozeServerURL = defaultCozecnURL
-		}
-	}
-	client := &http.Client{
-		Timeout: 3 * time.Minute,
-	}
-	if oaiReqParam.httpTransport != nil {
-		client.Transport = oaiReqParam.httpTransport
+	apiVersion := "v3"
+	if strings.Contains(cozeServerURL, "v2/chat") {
+		apiVersion = "v2"
 	}
 
-	mylog.Logger.Info(cozeServerURL)
-	mylog.Logger.Info("oaiReq", zap.Any("oaiReq", oaiReq))
-	mylog.Logger.Info("cozecnReq", zap.Any("cozecnReq", cozecnReq))
-	// 使用统一的错误处理函数
-	if err := sendRequest(c, client, secretToken, cozeServerURL, cozecnReq, oaiReq, oaiReqParam); err != nil {
-		mylog.Logger.Error(err.Error(), zap.String("cozeServerURL", cozeServerURL),
-			zap.Any("cozecnReq", cozecnReq), zap.Any("oaiReq", oaiReq))
-		return err
+	mylog.Logger.Info("apiVersion", zap.String("apiVersion", apiVersion))
+
+	if apiVersion == "v2" {
+		if cozeServerURL == "" {
+			switch s.ServiceName {
+			case "cozecn":
+				cozeServerURL = defaultCozecnV2URL
+			case "cozecom":
+				cozeServerURL = defaultCozecomV2URL
+			default:
+				cozeServerURL = defaultCozecnV2URL
+			}
+		}
+		client := &http.Client{
+			Timeout: 3 * time.Minute,
+		}
+		if oaiReqParam.httpTransport != nil {
+			client.Transport = oaiReqParam.httpTransport
+		}
+
+		mylog.Logger.Info(cozeServerURL)
+		mylog.Logger.Info("oaiReq", zap.Any("oaiReq", oaiReq))
+		mylog.Logger.Info("cozecnReq", zap.Any("cozecnReq", cozecnReq))
+		// 使用统一的错误处理函数
+		if err := sendRequest(c, client, secretToken, cozeServerURL, cozecnReq, oaiReq, oaiReqParam); err != nil {
+			mylog.Logger.Error(err.Error(), zap.String("cozeServerURL", cozeServerURL),
+				zap.Any("cozecnReq", cozecnReq), zap.Any("oaiReq", oaiReq))
+			return err
+		}
+
+	} else {
+		cozeChatReq := adapter.OpenAIRequestToCozecnV3Request(oaiReq)
+		mylog.Logger.Info("cozeChatReq", zap.Any("cozeChatReq", cozeChatReq))
+		if oaiReq.Stream == false {
+
+			cozeChatResp, err := nonestream.ChatWithNoneStream(secretToken, cozeChatReq, oaiReqParam.httpTransport, int(3*time.Minute))
+			if err != nil {
+				mylog.Logger.Error(err.Error())
+				return err
+			}
+
+			oaiResp := adapter.CozecnV3ReponseToOpenAIResponse(cozeChatResp)
+			oaiResp.Model = oaiReqParam.ClientModel
+
+			c.JSON(http.StatusOK, oaiResp)
+		} else {
+			cb := func(event, data string) {
+				mylog.Logger.Info("event", zap.String("event", event), zap.String("data", data))
+
+				if event == "conversation.message.delta" || event == "conversation.chat.completed" {
+					var resp streammode.EventData
+					err := json.Unmarshal([]byte(data), &resp)
+					if err != nil {
+						mylog.Logger.Error(err.Error())
+						return
+					}
+
+					oaiStreamResp := adapter.CozecnV3ReponseToOpenAIResponseStream(&resp)
+					oaiStreamResp.Model = oaiReqParam.ClientModel
+					respData, err := json.Marshal(oaiStreamResp)
+					if err != nil {
+						mylog.Logger.Error(err.Error())
+					}
+
+					mylog.Logger.Info(string(respData))
+
+					if _, err := c.Writer.WriteString("data: " + string(respData) + "\n\n"); err != nil {
+						mylog.Logger.Warn(err.Error())
+					}
+					c.Writer.(http.Flusher).Flush()
+				}
+			}
+			err := streammode.Chat(secretToken, cozeChatReq, cb, oaiReqParam.httpTransport)
+			if err != nil {
+				mylog.Logger.Error(err.Error())
+				return err
+			}
+		}
+
 	}
 
 	return nil
