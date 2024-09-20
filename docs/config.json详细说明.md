@@ -217,8 +217,8 @@ model_redirect参数可以进行支持，意思是对客户端的model参数重�
           "api_key": "xxx"
         },
         "model_redirect": {
-          "deepseek-v2-chat": "deepseek-ai/deepseek-v2-chat",
-          "Qwen2-72B-Instruct": "alibaba/Qwen2-72B-Instruct"
+          "deepseek-ai/deepseek-v2-chat": "deepseek-v2-chat",
+          "alibaba/Qwen2-72B-Instruct": "Qwen2-72B-Instruct"
         },
         "server_url":"https://api.siliconflow.cn/v1/chat/completions"
       }

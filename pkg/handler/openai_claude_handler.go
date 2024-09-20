@@ -183,7 +183,6 @@ func handleClaudeEvent[T any](c *gin.Context, eventData string, eventStruct T, c
 		mylog.Logger.Error(err.Error())
 		return err
 	}
-
 	respStruct := converter(&eventStruct)
 	respStruct.Model = clientModel
 	respData, err := json.Marshal(&respStruct)
@@ -192,9 +191,26 @@ func handleClaudeEvent[T any](c *gin.Context, eventData string, eventStruct T, c
 		return err
 	}
 
+	// 检查客户端连接是否已经关闭
+	select {
+	case <-c.Request.Context().Done():
+		mylog.Logger.Info("Client connection closed")
+		return nil // 客户端已断开连接，优雅地退出
+	default:
+		// 连接仍然打开，继续处理
+	}
+
 	_, err = c.Writer.WriteString("data: " + string(respData) + "\n\n")
 	if err != nil {
-		mylog.Logger.Error(err.Error())
+		if err == http.ErrHandlerTimeout {
+			mylog.Logger.Info("Handler timeout")
+			return nil // 处理超时，优雅地退出
+		}
+		if strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "connection reset by peer") {
+			mylog.Logger.Info("Client disconnected: " + err.Error())
+			return nil // 客户端断开连接，优雅地退出
+		}
+		mylog.Logger.Error("Write error: " + err.Error())
 		return err
 	}
 
@@ -203,6 +219,5 @@ func handleClaudeEvent[T any](c *gin.Context, eventData string, eventStruct T, c
 	} else {
 		return fmt.Errorf("response writer does not implement http.Flusher")
 	}
-
 	return nil
 }
