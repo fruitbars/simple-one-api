@@ -10,9 +10,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+	"net/http"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
+	"time"
 )
 
 var vertexAIUrlTemplate = "https://%s-aiplatform.googleapis.com/v1beta1/projects/%s/locations/%s/endpoints/openapi"
@@ -35,23 +37,20 @@ func OpenAI2VertexAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error 
 	//s := oaiReqParam.modelDetails
 	credentials := oaiReqParam.creds
 
-	/*
-		var clientOption option.ClientOption
-		customTransport := &utils.SimpleCustomTransport{
-			Transport: http.DefaultTransport,
-		}
-		if oaiReqParam.httpTransport != nil {
-			//client.Client.WithHttpTransport(oaiReqParam.httpTransport)
-			customTransport.Transport = oaiReqParam.httpTransport
-		}
+	var clientOption option.ClientOption
+	customTransport := &utils.SimpleCustomTransport{
+		Transport: http.DefaultTransport,
+	}
+	if oaiReqParam.httpTransport != nil {
+		//client.Client.WithHttpTransport(oaiReqParam.httpTransport)
+		customTransport.Transport = oaiReqParam.httpTransport
+	}
 
-		customHTTPClient := &http.Client{
-			Transport: customTransport,
-			Timeout:   30 * time.Second,
-		}
-		clientOption = option.WithHTTPClient(customHTTPClient)
-
-	*/
+	customHTTPClient := &http.Client{
+		Transport: customTransport,
+		Timeout:   30 * time.Second,
+	}
+	clientOption = option.WithHTTPClient(customHTTPClient)
 
 	authJsonFile, _ := utils.GetStringFromMap(credentials, config.KEYNAME_GCP_JSON_FILE)
 
@@ -68,8 +67,8 @@ func OpenAI2VertexAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error 
 		zap.Any("authOption", authOption), zap.Any("restOption", restOption))
 
 	ctx := context.Background()
-	//client, err := genai.NewClient(ctx, projectID, location, clientOption, authOption, restOption)
-	client, err := genai.NewClient(ctx, projectID, location, authOption, restOption)
+	client, err := genai.NewClient(ctx, projectID, location, clientOption, authOption, restOption)
+	//client, err := genai.NewClient(ctx, projectID, location, authOption, restOption)
 	if err != nil {
 		return fmt.Errorf("error creating client: %w", err)
 	}
