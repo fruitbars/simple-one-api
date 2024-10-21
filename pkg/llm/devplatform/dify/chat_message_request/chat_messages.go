@@ -1,14 +1,44 @@
-package chat_messages
+package chat_message_request
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"simple-one-api/pkg/llm/devplatform/dify/chat_completion_response"
+	"simple-one-api/pkg/utils"
 )
 
 var baseURL = "https://api.dify.ai/v1"
 
+func CallChatMessagesStreamMode(difyReq *ChatMessageRequest, apiKey string, callback func(data string), httpTransport *http.Transport) error {
+	serverUrl := "https://api.dify.ai/v1/chat-messages"
+
+	reqData, _ := json.Marshal(difyReq)
+
+	return utils.SendSSERequest(apiKey, serverUrl, reqData, callback, httpTransport)
+}
+
+func CallChatMessagesNoneStreamMode(difyReq *ChatMessageRequest, apiKey string, httpTransport *http.Transport) (*chat_completion_response.ChatCompletionResponse, error) {
+	serverUrl := "https://api.dify.ai/v1/chat-messages"
+	// 创建请求体
+
+	reqData, _ := json.Marshal(difyReq)
+
+	respData, err := utils.SendHTTPRequest(apiKey, serverUrl, reqData, httpTransport)
+	if err != nil {
+		return nil, err
+	}
+
+	var difyResp chat_completion_response.ChatCompletionResponse
+	err = json.Unmarshal(respData, &difyResp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &difyResp, nil
+}
 func CallChatMessages(query, conversationID string, apiKey string, streamMode bool) (string, error) {
 	url := fmt.Sprintf("%s/chat-messages", baseURL)
 

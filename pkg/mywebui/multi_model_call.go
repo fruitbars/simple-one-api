@@ -128,10 +128,10 @@ func handleModelRequest(wg *sync.WaitGroup, mu *sync.Mutex, conn *websocket.Conn
 		return
 	}
 
-	processChatStream(conn, chatStream, msgId, mu)
+	processChatStream(conn, chatStream, msgId, mu, modelName)
 }
 
-func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleChatCompletionStream, msgId string, mu *sync.Mutex) {
+func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleChatCompletionStream, msgId string, mu *sync.Mutex, modelName string) {
 	for {
 		chatResp, err := chatStream.Recv()
 		if errors.Is(err, io.EOF) {
@@ -143,7 +143,7 @@ func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleCha
 			errResp := MMResp{
 				Result: err.Error(),
 				MsgId:  msgId,
-				Model:  "chatResp.Model",
+				Model:  modelName,
 			}
 
 			mylog.Logger.Error("", zap.Any("errResp", errResp))
@@ -169,7 +169,7 @@ func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleCha
 			resp := MMResp{
 				Result: chatResp.Choices[0].Delta.Content,
 				MsgId:  msgId,
-				Model:  chatResp.Model,
+				Model:  modelName,
 			}
 
 			mu.Lock()

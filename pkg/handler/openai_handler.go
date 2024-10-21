@@ -51,6 +51,7 @@ var serviceHandlerMap = map[string]func(*gin.Context, *OAIRequestParam) error{
 	"vertexai":     OpenAI2VertexAIHandler,
 	"claude":       OpenAI2ClaudeHandler,
 	"agentbuilder": OpenAI2AgentBuilderHandler,
+	"dify":         OpenAI2DifyHandler,
 }
 
 func LogRequestDetails(c *gin.Context) {
