@@ -21,14 +21,18 @@ func getURLAndDomain(modelName string) (string, string, error) {
 	switch modelNameLower {
 	case "4.0ultra":
 		return "wss://spark-api.xf-yun.com/v4.0/chat", "4.0Ultra", nil
+	case "spark-max32k", "max-32k":
+		return "wss://spark-api.xf-yun.com/chat/max-32k", "generalv3.5", nil
 	case "spark3.5-max", "spark-max", "generalv3.5":
 		return "wss://spark-api.xf-yun.com/v3.5/chat", "generalv3.5", nil
 	case "spark-pro", "generalv3":
 		return "wss://spark-api.xf-yun.com/v3.1/chat", "generalv3", nil
 	case "spark-v2.0", "generalv2":
 		return "wss://spark-api.xf-yun.com/v2.1/chat", "generalv2", nil
+		//case "spark-lite", "general":
+		//return "wss://spark-api.xf-yun.com/v1.1/chat", "general", nil
 	case "spark-lite", "general":
-		return "wss://spark-api.xf-yun.com/v1.1/chat", "general", nil
+		return "wss://spark-api.xf-yun.com/v1.1/chat", "lite", nil
 	case "spark-pro-128k":
 		return "wss://spark-api.xf-yun.com/chat/pro-128k", "pro-128k", nil
 	default:
