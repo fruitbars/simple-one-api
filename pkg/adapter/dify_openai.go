@@ -5,6 +5,7 @@ import (
 	"simple-one-api/pkg/llm/devplatform/dify/chat_completion_response"
 	"simple-one-api/pkg/llm/devplatform/dify/chunk_chat_completion_response"
 	"simple-one-api/pkg/mycommon"
+	myopenai "simple-one-api/pkg/openai"
 	"time"
 )
 import "simple-one-api/pkg/llm/devplatform/dify/chat_message_request"
@@ -47,12 +48,12 @@ func DifyResponseToOpenAIResponse(difyResp *chat_completion_response.ChatComplet
 	return &oaiResp
 }
 
-func DifyResponseToOpenAIResponseStream(difyResp *chunk_chat_completion_response.MessageEvent) *openai.ChatCompletionStreamResponse {
-	var oaiStreamResp openai.ChatCompletionStreamResponse
+func DifyResponseToOpenAIResponseStream(difyResp *chunk_chat_completion_response.MessageEvent) *myopenai.OpenAIStreamResponse {
+	var oaiStreamResp myopenai.OpenAIStreamResponse
 
-	oaiStreamResp.Choices = []openai.ChatCompletionStreamChoice{
+	oaiStreamResp.Choices = []myopenai.OpenAIStreamResponseChoice{
 		{
-			Delta: openai.ChatCompletionStreamChoiceDelta{
+			Delta: myopenai.ResponseDelta{
 				Role:    openai.ChatMessageRoleAssistant,
 				Content: difyResp.Answer,
 			},
@@ -62,18 +63,18 @@ func DifyResponseToOpenAIResponseStream(difyResp *chunk_chat_completion_response
 	return &oaiStreamResp
 }
 
-func DifyMessageEndEventToOpenAIResponseStream(difyResp *chunk_chat_completion_response.MessageEndEvent) *openai.ChatCompletionStreamResponse {
+func DifyMessageEndEventToOpenAIResponseStream(difyResp *chunk_chat_completion_response.MessageEndEvent) *myopenai.OpenAIStreamResponse {
 	if difyResp == nil {
 		return nil
 	}
 
-	var oaiuasge openai.Usage
+	var oaiuasge myopenai.Usage
 
 	oaiuasge.PromptTokens = difyResp.Metadata.Usage.PromptTokens
 	oaiuasge.CompletionTokens = difyResp.Metadata.Usage.CompletionTokens
 	oaiuasge.TotalTokens = difyResp.Metadata.Usage.TotalTokens
 
-	return &openai.ChatCompletionStreamResponse{
+	return &myopenai.OpenAIStreamResponse{
 		ID:      difyResp.ID,
 		Object:  "chat.completion.chunk",
 		Created: time.Now().Unix(),
