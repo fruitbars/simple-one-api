@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
 	"net/http"
 	"simple-one-api/pkg/adapter"
@@ -12,6 +11,7 @@ import (
 	"simple-one-api/pkg/llm/devplatform/dify/chat_message_request"
 	"simple-one-api/pkg/llm/devplatform/dify/chunk_chat_completion_response"
 	"simple-one-api/pkg/mylog"
+	myopenai "simple-one-api/pkg/openai"
 	"simple-one-api/pkg/utils"
 	"time"
 )
@@ -69,7 +69,7 @@ func OpenAI2DifyHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 
 // 处理不同事件类型的通用函数
 func processEvent(c *gin.Context, eventData string, oaiReqParam *OAIRequestParam, eventType string, respID string) error {
-	var oaiRespStream *openai.ChatCompletionStreamResponse
+	var oaiRespStream *myopenai.OpenAIStreamResponse
 	var err error
 
 	// 根据 event 类型解析对应的事件
