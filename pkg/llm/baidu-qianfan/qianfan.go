@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"simple-one-api/pkg/mylog"
 	"strings"
+	"time"
 )
 
 func QianFanCall(client *http.Client, api_key, secret_key, model string, configAddress string, qfReq *QianFanRequest) (*QianFanResponse, error) {
@@ -172,7 +173,13 @@ func SendChatRequest(client *http.Client, accessToken, model string, configAddre
 func GetAccessToken(api_key, secret_key string) string {
 	url := "https://aip.baidubce.com/oauth/2.0/token"
 	postData := fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s", api_key, secret_key)
-	resp, err := http.Post(url, "application/x-www-form-urlencoded", strings.NewReader(postData))
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		//Transport: nil, // 使用自定义的传输配置
+	}
+
+	resp, err := client.Post(url, "application/x-www-form-urlencoded", strings.NewReader(postData))
+
 	if err != nil {
 		mylog.Logger.Error(err.Error())
 		return ""

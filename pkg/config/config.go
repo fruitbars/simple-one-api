@@ -52,17 +52,19 @@ type ModelParams struct {
 
 // ServiceModel 定义相关结构体
 type ServiceModel struct {
-	Provider       string                   `json:"provider" yaml:"provider"`
-	Models         []string                 `json:"models" yaml:"models"`
-	Enabled        bool                     `json:"enabled" yaml:"enabled"`
-	Credentials    map[string]interface{}   `json:"credentials" yaml:"credentials"`
-	CredentialList []map[string]interface{} `json:"credential_list" yaml:"credential_list"`
-	ServerURL      string                   `json:"server_url" yaml:"server_url"`
-	ModelMap       map[string]string        `json:"model_map" yaml:"model_map"`
-	ModelRedirect  map[string]string        `json:"model_redirect" yaml:"model_redirect"`
-	Limit          Limit                    `json:"limit" yaml:"limit"`
-	UseProxy       *bool                    `json:"use_proxy,omitempty" yaml:"use_proxy,omitempty"`
-	Timeout        int                      `json:"timeout" yaml:"timeout"`
+	Provider        string                   `json:"provider" yaml:"provider"`
+	EmbeddingModels []string                 `json:"embedding_models" yaml:"embedding_models"`
+	EmbeddingLimit  Limit                    `json:"embedding_limit" yaml:"embedding_limit"`
+	Models          []string                 `json:"models" yaml:"models"`
+	Enabled         bool                     `json:"enabled" yaml:"enabled"`
+	Credentials     map[string]interface{}   `json:"credentials" yaml:"credentials"`
+	CredentialList  []map[string]interface{} `json:"credential_list" yaml:"credential_list"`
+	ServerURL       string                   `json:"server_url" yaml:"server_url"`
+	ModelMap        map[string]string        `json:"model_map" yaml:"model_map"`
+	ModelRedirect   map[string]string        `json:"model_redirect" yaml:"model_redirect"`
+	Limit           Limit                    `json:"limit" yaml:"limit"`
+	UseProxy        *bool                    `json:"use_proxy,omitempty" yaml:"use_proxy,omitempty"`
+	Timeout         int                      `json:"timeout" yaml:"timeout"`
 }
 
 type ProxyConf struct {
@@ -119,6 +121,8 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 				log.Printf("Models: %v, service Timeout:%v,Limit Timeout: %v, QPS: %v, QPM: %v, RPM: %v,Concurrency: %v\n",
 					model.Models, model.Timeout, model.Limit.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.RPM, model.Limit.Concurrency)
 
+				log.Println("Models: %v\n", model.EmbeddingModels)
+
 				if len(model.Models) == 0 {
 					dmv, exists := DefaultSupportModelMap[serviceName]
 					if exists {
@@ -155,6 +159,20 @@ func createModelToServiceMap(config Configuration) map[string][]ModelDetails {
 						//
 						modelToService[k] = append(modelToService[k], detail)
 						//delete(modelToService, modelName)
+					}
+				}
+
+				for _, modelName := range model.EmbeddingModels {
+					detail := ModelDetails{
+						ServiceName:  serviceName,
+						ServiceModel: model,
+						ServiceID:    uuid.New().String(),
+					}
+
+					//modelNameLower := strings.ToLower(modelName)
+					modelToService[modelName] = append(modelToService[modelName], detail)
+					for k, _ := range detail.ModelRedirect {
+						modelToService[k] = append(modelToService[k], detail)
 					}
 				}
 			}

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"simple-one-api/pkg/apis"
+	"simple-one-api/pkg/embedding"
 	"simple-one-api/pkg/initializer"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/mywebui"
@@ -87,6 +88,8 @@ func main() {
 	r.POST("/v2/translate", translation.TranslateV2Handler)
 	r.POST("/translate", translation.TranslateV1Handler)
 
+	//r.POST("/v1/embeddings", embedding.EmbeddingsHandler)
+
 	r.GET("/multimodelcall", mywebui.WSMultiModelCallHandler)
 
 	// 啥也不错，有些客户端真的很无语，不知道会怎么补全，尽量兼容吧
@@ -99,6 +102,9 @@ func main() {
 				return
 			} else if strings.HasSuffix(c.Request.URL.Path, "/v1/translate") {
 				translation.TranslateV1Handler(c)
+				return
+			} else if strings.HasSuffix(c.Request.URL.Path, "/v1/embeddings") {
+				embedding.EmbeddingsHandler(c)
 				return
 			}
 			c.JSON(http.StatusNotFound, gin.H{"error": "Path not found"})
