@@ -44,14 +44,14 @@ type MMResp struct {
 func WSMultiModelCallHandler(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		logError("Upgrade failed", err)
+		mylog.Logger.Error("Upgrade failed", zap.Error(err))
 		return
 	}
 	defer conn.Close()
 
 	requestData, err := readAndUnmarshalClientMessage(conn)
 	if err != nil {
-		logError("Failed to read and unmarshal message", err)
+		mylog.Logger.Error("Failed to read and unmarshal message", zap.Error(err))
 		return
 	}
 
@@ -72,10 +72,6 @@ func WSMultiModelCallHandler(c *gin.Context) {
 	}
 
 	wg.Wait()
-}
-
-func logError(message string, err error) {
-	mylog.Logger.Error(message, zap.Error(err))
 }
 
 func readAndUnmarshalClientMessage(conn *websocket.Conn) (*MMFormData, error) {
@@ -124,7 +120,7 @@ func handleModelRequest(wg *sync.WaitGroup, mu *sync.Mutex, conn *websocket.Conn
 	client := simple_client.NewSimpleClient("")
 	chatStream, err := client.CreateChatCompletionStream(context.Background(), modelReq)
 	if err != nil {
-		logError("Failed to create chat completion stream", err)
+		mylog.Logger.Error("Failed to create chat completion stream", zap.Error(err))
 		return
 	}
 
@@ -139,7 +135,7 @@ func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleCha
 			return
 		}
 		if err != nil {
-			logError("Stream error", err)
+			mylog.Logger.Error("Stream error", zap.Error(err))
 			errResp := MMResp{
 				Result: err.Error(),
 				MsgId:  msgId,
@@ -150,7 +146,7 @@ func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleCha
 
 			mu.Lock()
 			if err := conn.WriteJSON(errResp); err != nil {
-				logError("Failed to write JSON response", err)
+				mylog.Logger.Error("Failed to write JSON response", zap.Error(err))
 				mu.Unlock()
 				break
 			}
@@ -174,7 +170,7 @@ func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleCha
 
 			mu.Lock()
 			if err := conn.WriteJSON(resp); err != nil {
-				logError("Failed to write JSON response", err)
+				mylog.Logger.Error("Failed to write JSON response", zap.Error(err))
 				mu.Unlock()
 				break
 			}
