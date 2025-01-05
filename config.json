@@ -69,6 +69,16 @@
         },
         "server_url":"https://api.minimax.chat/v1/text/chatcompletion_pro"
       }
+    ],
+    "jiutian": [
+      {
+        "models": ["jiutian-qianwen"],
+        "enabled": true,
+        "credentials": {
+          "api_key": "xxx"
+        },
+        "server_url":"https://jiutian.10086.cn/largemodel/api/v1"
+      }
     ]
   }
 }
