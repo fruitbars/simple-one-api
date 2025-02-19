@@ -21,22 +21,6 @@ import (
 	"strings"
 )
 
-func formatAzureURL(inputURL string) (string, error) {
-	// 解析URL
-	parsedURL, err := url.Parse(inputURL)
-	if err != nil {
-		return "", err
-	}
-
-	// 构建新的URL
-	formattedURL := &url.URL{
-		Scheme: parsedURL.Scheme,
-		Host:   parsedURL.Host,
-	}
-
-	return formattedURL.String(), nil
-}
-
 // validateAndFormatURL checks if the given URL matches the specified formats and returns the formatted URL
 func validateAndFormatURL(rawurl string) (string, bool) {
 	parsedURL, err := url.Parse(rawurl)
@@ -235,34 +219,4 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 
 	clientModel := oaiReqParam.ClientModel
 	return handleOpenAIOpenAIRequest(conf, c, oaiReqParam.chatCompletionReq, clientModel)
-}
-
-// getAzureConfig generates the OpenAI client configuration for Azure based on model details and request
-func getAzureConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.ClientConfig, error) {
-	credentials := oaiReqParam.creds
-	apiKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
-	serverURL, err := formatAzureURL(s.ServerURL)
-	if err != nil {
-		serverURL = s.ServerURL
-	}
-	conf := openai.DefaultAzureConfig(apiKey, serverURL)
-
-	if s.ServerURL == "" {
-		return conf, errors.New("server URL is empty")
-	}
-
-	return conf, nil
-}
-
-// OpenAI2AzureOpenAIHandler handles OpenAI to Azure OpenAI requests
-func OpenAI2AzureOpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
-	req := oaiReqParam.chatCompletionReq
-	s := oaiReqParam.modelDetails
-	//credentials := oaiReqParam.creds
-	conf, err := getAzureConfig(s, oaiReqParam)
-	if err != nil {
-		return err
-	}
-	clientModel := oaiReqParam.ClientModel
-	return handleOpenAIOpenAIRequest(conf, c, req, clientModel)
 }
