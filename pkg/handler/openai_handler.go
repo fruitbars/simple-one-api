@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"github.com/gin-gonic/gin"
-	"github.com/sashabaranov/go-openai"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"simple-one-api/pkg/adapter"
@@ -17,6 +14,10 @@ import (
 	"simple-one-api/pkg/utils"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/sashabaranov/go-openai"
+	"go.uber.org/zap"
 )
 
 var defaultReqTimeout = 10
@@ -52,6 +53,7 @@ var serviceHandlerMap = map[string]func(*gin.Context, *OAIRequestParam) error{
 	"claude":       OpenAI2ClaudeHandler,
 	"agentbuilder": OpenAI2AgentBuilderHandler,
 	"dify":         OpenAI2DifyHandler,
+	"jiutian":      OpenAI2JiuTianHandler,
 }
 
 func LogRequestDetails(c *gin.Context) {
