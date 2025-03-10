@@ -56,6 +56,22 @@ func getDefaultServerURL(model string) string {
 	}
 }
 
+func getReasoningMode(s *config.ModelDetails, oaiReqParam *OAIRequestParam) ReasoningMode {
+	rs, ok := s.ReasoningModels[oaiReqParam.ClientModel]
+	if !ok {
+		return ReasoningNone
+	}
+
+	switch rs {
+	case "r1":
+		return ReasoningR1
+	case "openrouterr1":
+		return ReasoningOpenrouterR1
+	default:
+		return ReasoningR1
+	}
+}
+
 // getConfig generates the OpenAI client configuration based on model details and request
 func getConfig(s *config.ModelDetails, oaiReqParam *OAIRequestParam) (openai.ClientConfig, error) {
 	req := oaiReqParam.chatCompletionReq
@@ -134,6 +150,10 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 			response.ID = backIdStr
 		}
 
+		if len(response.Choices) > 0 && response.Choices[0].Delta.ReasoningContent != "" && response.Choices[0].Delta.Reasoning == "" {
+			response.Choices[0].Delta.Reasoning = response.Choices[0].Delta.ReasoningContent
+		}
+
 		adapter.CheckOpenAIStreamRespone(&response)
 
 		response.Model = clientModel
@@ -165,6 +185,10 @@ func handleOpenAIStandardRequest(c *gin.Context, client *openai.Client, ctx cont
 			zap.Any("req", req),
 			zap.Error(err))
 		return err
+	}
+
+	if len(resp.Choices) > 0 && resp.Choices[0].Message.ReasoningContent != "" && resp.Choices[0].Message.Reasoning == "" {
+		resp.Choices[0].Message.Reasoning = resp.Choices[0].Message.ReasoningContent
 	}
 
 	myResp := adapter.OpenAIResponseToOpenAIResponse(&resp)
@@ -203,6 +227,18 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		}
 	}
 
+	oaiReqParam.RM = getReasoningMode(s, oaiReqParam)
+	//oaiReqParam.RM = ReasoningNone
+	if strings.HasPrefix(s.ServerURL, "https://api.deepseek.com") {
+		if strings.Contains(oaiReqParam.chatCompletionReq.Model, "reasoner") {
+			oaiReqParam.RM = ReasoningR1
+		}
+	} else if strings.HasPrefix(s.ServerURL, "https://openrouter.ai") {
+		if strings.Contains(oaiReqParam.chatCompletionReq.Model, "R1") || strings.Contains(oaiReqParam.chatCompletionReq.Model, "r1") {
+			oaiReqParam.RM = ReasoningOpenrouterR1
+		}
+	}
+
 	defaultTransport := http.DefaultTransport
 	if oaiReqParam.httpTransport != nil {
 		defaultTransport = oaiReqParam.httpTransport
@@ -218,5 +254,13 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	mylog.Logger.Debug("OpenAI2OpenAIHandler", zap.Any("req", oaiReqParam.chatCompletionReq), zap.Any("scTransport", scTransport.Transport))
 
 	clientModel := oaiReqParam.ClientModel
+
+	switch oaiReqParam.RM {
+	case ReasoningNone:
+	case ReasoningR1:
+	case ReasoningOpenrouterR1:
+		oaiReqParam.chatCompletionReq.IncludeReasoning = true
+	}
+
 	return handleOpenAIOpenAIRequest(conf, c, oaiReqParam.chatCompletionReq, clientModel)
 }

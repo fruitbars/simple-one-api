@@ -19,7 +19,16 @@ import (
 	"time"
 )
 
-var defaultReqTimeout = 10
+var defaultReqTimeout = 120
+
+// 定义 ReasoningMode 枚举类型
+type ReasoningMode int
+
+const (
+	ReasoningNone ReasoningMode = iota // 0
+	ReasoningR1
+	ReasoningOpenrouterR1 // 1
+)
 
 type OAIRequestParam struct {
 	chatCompletionReq *openai.ChatCompletionRequest
@@ -27,6 +36,7 @@ type OAIRequestParam struct {
 	creds             map[string]interface{}
 	httpTransport     *http.Transport
 	ClientModel       string
+	RM                ReasoningMode
 }
 
 // serviceHandlerMap maps service names to their corresponding handler functions
@@ -71,7 +81,7 @@ func logOpenAIChatCompletionRequest(oaiReq *openai.ChatCompletionRequest) {
 
 	mylog.Logger.Info("logOpenAIChatCompletionRequest", zap.Float32("TopP", oaiReq.TopP),
 		zap.Float32("Temperature", oaiReq.Temperature), zap.Int("MaxTokens", oaiReq.MaxTokens),
-		zap.String("model", oaiReq.Model), zap.Int("N", oaiReq.N), zap.Float32("FrequencyPenalty", oaiReq.FrequencyPenalty))
+		zap.String("model", oaiReq.Model), zap.Bool("IncludeReasoning", oaiReq.IncludeReasoning), zap.Int("N", oaiReq.N), zap.Float32("FrequencyPenalty", oaiReq.FrequencyPenalty))
 }
 
 func getBodyDataCopy(c *gin.Context) ([]byte, error) {

@@ -30,6 +30,7 @@ func configureClientWithAkSk(oaiReqParam *OAIRequestParam, model string) (*arkru
 		serverURL = DefaultHuoShanServerURL
 	}
 
+	apikey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_API_KEY)
 	accessKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_ACCESS_KEY)
 	secretKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_SECRET_KEY)
 
@@ -43,21 +44,26 @@ func configureClientWithAkSk(oaiReqParam *OAIRequestParam, model string) (*arkru
 		httpHSClient.Transport = oaiReqParam.httpTransport
 	}
 
-	// 定义一个 configOption 来设置自定义的 HTTP client
-	withCustomHTTPClient := func(config *arkruntime.ClientConfig) {
-		config.HTTPClient = httpHSClient
+	if apikey != "" {
+		client := arkruntime.NewClientWithApiKey(
+			apikey,
+			arkruntime.WithBaseUrl(serverURL),
+			arkruntime.WithRegion("cn-beijing"),
+			arkruntime.WithHTTPClient(httpHSClient),
+		)
+		return client, nil
+	} else {
+		// 使用 NewClientWithAkSk 创建 Client，并应用自定义的 HTTP client 和其他配置
+		client := arkruntime.NewClientWithAkSk(
+			accessKey,
+			secretKey,
+			arkruntime.WithBaseUrl(serverURL),
+			//arkruntime.WithRegion("cn-beijing"),
+			arkruntime.WithHTTPClient(httpHSClient),
+		)
+		return client, nil
 	}
 
-	// 使用 NewClientWithAkSk 创建 Client，并应用自定义的 HTTP client 和其他配置
-	client := arkruntime.NewClientWithAkSk(
-		accessKey,
-		secretKey,
-		arkruntime.WithBaseUrl(serverURL),
-		arkruntime.WithRegion("cn-beijing"),
-		withCustomHTTPClient, // 应用自定义 HTTP client 的配置
-	)
-
-	return client, nil
 }
 
 func OpenAI2HuoShanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {

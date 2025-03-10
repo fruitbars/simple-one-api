@@ -26,6 +26,8 @@ var LogLevel string
 var SupportModels map[string]string
 var GlobalModelRedirect map[string]string
 var SupportMultiContentModels = []string{"gpt-4o", "gpt-4-turbo", "glm-4v", "gemini-*", "yi-vision", "gpt-4o*"}
+
+// var SupportReasoningModels = []string{"deepseek-reasoner", "gpt-4-turbo"}
 var GProxyConf *ProxyConf
 var GTranslation *Translation
 
@@ -56,6 +58,7 @@ type ServiceModel struct {
 	EmbeddingModels []string                 `json:"embedding_models" yaml:"embedding_models"`
 	EmbeddingLimit  Limit                    `json:"embedding_limit" yaml:"embedding_limit"`
 	Models          []string                 `json:"models" yaml:"models"`
+	ReasoningModels map[string]string        `json:"reasoning_models" yaml:"reasoning_models"`
 	Enabled         bool                     `json:"enabled" yaml:"enabled"`
 	Credentials     map[string]interface{}   `json:"credentials" yaml:"credentials"`
 	CredentialList  []map[string]interface{} `json:"credential_list" yaml:"credential_list"`
