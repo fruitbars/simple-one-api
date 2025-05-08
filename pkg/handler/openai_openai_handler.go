@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -120,6 +121,56 @@ func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req *op
 	return handleOpenAIStandardRequest(c, openaiClient, ctx, req, clientModel)
 }
 
+// 完全兼容的 Recv 替代函数
+func CompatRecvChatStreamResponse(stream *openai.ChatCompletionStream, clientModel string) (*openai.ChatCompletionStreamResponse, error) {
+	rawLine, err := stream.RecvRaw()
+	if err != nil {
+		return nil, err
+	}
+
+	// 用 Decoder + UseNumber 来保持数字精度
+	var temp map[string]interface{}
+	decoder := json.NewDecoder(bytes.NewReader(rawLine))
+	decoder.UseNumber()
+
+	if err := decoder.Decode(&temp); err != nil {
+		return nil, fmt.Errorf("failed to decode raw stream JSON: %w", err)
+	}
+
+	// 提取 created 字段
+	var created int64
+	if c, ok := temp["created"]; ok {
+		if num, ok := c.(json.Number); ok {
+			created, err = num.Int64()
+			if err != nil {
+				return nil, fmt.Errorf("invalid 'created' value: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("unexpected type for 'created': %T", c)
+		}
+	}
+
+	// 删除 created，避免类型冲突
+	delete(temp, "created")
+
+	// 重新编码 temp（缺 created），再解成目标结构体
+	partialBytes, err := json.Marshal(temp)
+	if err != nil {
+		return nil, fmt.Errorf("re-marshal without created failed: %w", err)
+	}
+
+	var response openai.ChatCompletionStreamResponse
+	if err := json.Unmarshal(partialBytes, &response); err != nil {
+		return nil, fmt.Errorf("unmarshal to full response failed: %w", err)
+	}
+
+	// 手动赋值 created 和 model（强制来源于外部）
+	response.Created = created
+	response.Model = clientModel
+
+	return &response, nil
+}
+
 // handleStreamRequest handles streaming OpenAI requests
 func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx context.Context, req *openai.ChatCompletionRequest, clientModel string) error {
 	utils.SetEventStreamHeaders(c)
@@ -133,7 +184,8 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 
 	backIdStr := uuid.New().String()
 	for {
-		response, err := stream.Recv()
+		response, err := CompatRecvChatStreamResponse(stream, clientModel)
+		//response, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
 			mylog.Logger.Info(err.Error())
 			return nil
@@ -154,7 +206,7 @@ func handleOpenAIOpenAIStreamRequest(c *gin.Context, client *openai.Client, ctx 
 			response.Choices[0].Delta.Reasoning = response.Choices[0].Delta.ReasoningContent
 		}
 
-		adapter.CheckOpenAIStreamRespone(&response)
+		adapter.CheckOpenAIStreamRespone(response)
 
 		response.Model = clientModel
 		respData, err := json.Marshal(&response)
