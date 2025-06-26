@@ -117,7 +117,11 @@ func NormalizeMessages(oaiReqMessage []openai.ChatCompletionMessage, keepAllSyst
 			continue
 		}
 
-		if role == "user" || role == "assistant" {
+		if msg.Content == "" && len(msg.MultiContent) == 0 {
+			msg.Content = " "
+		}
+
+		if role == "user" || role == "assistant" || role == "model" {
 			// 检查角色是否交替出现
 			if role == lastRole {
 				continue
