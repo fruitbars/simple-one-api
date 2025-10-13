@@ -24,7 +24,7 @@ func GeminiResponseToOpenAIResponse(qfResp *google_gemini.GeminiResponse) *myope
 
 		role := candidate.Content.Role
 		if strings.ToLower(role) == "model" {
-			role = "assitant"
+			role = "assistant"
 		}
 
 		var content string
@@ -62,7 +62,7 @@ func GeminiResponseToOpenAIStreamResponse(qfResp *google_gemini.GeminiResponse) 
 	for i, candidate := range qfResp.Candidates {
 		role := candidate.Content.Role
 		if strings.ToLower(role) == "model" {
-			role = "assitant"
+			role = "assistant"
 		}
 
 		var content string
