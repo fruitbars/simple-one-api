@@ -136,12 +136,27 @@ func CozecnV3ReponseToOpenAIResponse(resp *chat_message_list.MessageListResponse
 func CozecnV3ReponseToOpenAIResponseStream(resp *streammode.EventData) *myopenai.OpenAIStreamResponse {
 	var choices []myopenai.OpenAIStreamResponseChoice
 
+	role := resp.Role
+	if resp.Content == "" {
+		role = "assistant"
+	}
+
+	// 构建 delta：content 保持不变，reasoning_content 独立字段
+	delta := myopenai.ResponseDelta{
+		Role:    role,
+		Content: resp.Content,
+	}
+
+	// 如果存在思考内容，添加到 ReasoningContent 字段
+	if resp.ReasoningContent != "" {
+		delta.ReasoningContent = resp.ReasoningContent
+	} else if resp.Thinking != "" {
+		delta.ReasoningContent = resp.Thinking
+	}
+
 	choices = append(choices, myopenai.OpenAIStreamResponseChoice{
 		Index: 0,
-		Delta: myopenai.ResponseDelta{
-			Role:    resp.Role,
-			Content: resp.Content,
-		},
+		Delta: delta,
 	})
 	usage := myopenai.Usage{
 		PromptTokens:     resp.Usage.InputCount,
@@ -153,8 +168,7 @@ func CozecnV3ReponseToOpenAIResponseStream(resp *streammode.EventData) *myopenai
 		Object:  "chat.completion.chunk",
 		Created: time.Now().Unix(),
 		Choices: choices,
-		//Error:   errorDetail,
-		Usage: &usage,
+		Usage:   &usage,
 	}
 	return nil
 }

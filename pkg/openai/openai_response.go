@@ -49,9 +49,10 @@ type ResponseMessage struct {
 
 // ResponseDelta Delta 定义了对话中的消息结构
 type ResponseDelta struct {
-	Role      string     `json:"role"`
-	Content   string     `json:"content"`
-	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+	Role             string     `json:"role"`
+	Content          string     `json:"content,omitempty"`
+	ReasoningContent string     `json:"reasoning_content,omitempty"` // 思考内容（兼容Coze工作流）
+	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
 }
 
 // Usage 定义了使用统计的结构

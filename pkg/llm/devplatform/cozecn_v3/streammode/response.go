@@ -20,4 +20,6 @@ type EventData struct {
 		OutputCount int `json:"output_count"`
 		InputCount  int `json:"input_count"`
 	} `json:"usage"`
+	ReasoningContent string `json:"reasoning_content,omitempty"` // 工作流模式的思考过程（Coze字段）
+	Thinking         string `json:"thinking,omitempty"`          // 兼容字段（某些版本可能使用）
 }
