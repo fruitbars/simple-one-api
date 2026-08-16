@@ -255,11 +255,35 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download release artifacts
+      - name: Download server archives
         uses: actions/download-artifact@v4
         with:
+          name: server-archives
           path: release-assets
-          merge-multiple: true
+
+      - name: Download Linux desktop archive
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-simple-one-api-desktop-linux-x64.tar.gz
+          path: release-assets
+
+      - name: Download Windows desktop archive
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-simple-one-api-desktop-windows-x64.zip
+          path: release-assets
+
+      - name: Download macOS x64 desktop archive
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-simple-one-api-desktop-macos-x64.zip
+          path: release-assets
+
+      - name: Download macOS arm64 desktop archive
+        uses: actions/download-artifact@v4
+        with:
+          name: desktop-simple-one-api-desktop-macos-arm64.zip
+          path: release-assets
 
       - name: Create GitHub Release
         env:
