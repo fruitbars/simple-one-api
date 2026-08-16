@@ -28,8 +28,8 @@ var defaultLLMTransPrompt = "你是一个机器翻译接口，遵循以下输入
 
 func createLLMTranslationPrompt(srcText string, srcLang string, targetLang string) string {
 	prompt := defaultLLMTransPrompt
-	if config.GTranslation.PromptTemplate != "" {
-		prompt = config.GTranslation.PromptTemplate
+	if translation := config.CurrentTranslation(); translation.PromptTemplate != "" {
+		prompt = translation.PromptTemplate
 	}
 
 	return fmt.Sprintf(prompt, targetLang, srcText)
@@ -59,7 +59,7 @@ func LLMTranslate(srcText string, srcLang string, targetLang string) (string, er
 	}
 
 	if len(resp.Choices) > 0 {
-		mylog.Logger.Info("Received chat response", zap.String("content", resp.Choices[0].Message.Content))
+		mylog.Logger.Debug("Received chat response", zap.Int("content_length", len(resp.Choices[0].Message.Content)))
 
 		return resp.Choices[0].Message.Content, nil
 	}
@@ -106,7 +106,7 @@ func LLMTranslateStream(srcText string, srcLang string, targetLang string, cb fu
 			continue
 		}
 
-		mylog.Logger.Info("Received chat response", zap.Any("chatResp", chatResp))
+		mylog.Logger.Debug("Received streaming chat response")
 		if len(chatResp.Choices) > 0 {
 			cb(chatResp.Choices[0].Delta.Content)
 

@@ -30,7 +30,7 @@ func OpenAIRequestToHunYuanRequest(oaiReq *openai.ChatCompletionRequest) *hunyua
 	model := oaiReq.Model
 	request.Model = common.StringPtr(model)
 
-	mylog.Logger.Info("messages", zap.Any("oaiReq.Messages", oaiReq.Messages))
+	mylog.Logger.Debug("Hunyuan request messages", zap.Int("message_count", len(oaiReq.Messages)))
 
 	for i, msg := range oaiReq.Messages {
 		//超级对齐，多余的system直接删除

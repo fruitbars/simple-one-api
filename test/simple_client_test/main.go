@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/sashabaranov/go-openai"
 	"io"
 	"log"
-	"simple-one-api/pkg/initializer" // 引入initializer包
+	"os"
+
+	"github.com/sashabaranov/go-openai"
+	"simple-one-api/pkg/initializer"
 	"simple-one-api/pkg/simple_client"
 )
 
-func testStream() error {
+func testStream(ctx context.Context) error {
 	prompt := "你好，大模型"
 
 	var req openai.ChatCompletionRequest
@@ -27,7 +29,7 @@ func testStream() error {
 
 	client := simple_client.NewSimpleClient("")
 
-	chatStream, err := client.CreateChatCompletionStream(context.Background(), req)
+	chatStream, err := client.CreateChatCompletionStream(ctx, req)
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -50,17 +52,13 @@ func testStream() error {
 
 		fmt.Printf("%s", chatResp.Choices[0].Delta.Content)
 	}
-
-	fmt.Println("")
-
-	return nil
 }
 
-func testNoneStream() {
+func testNonStream(ctx context.Context) error {
 	prompt := "你好，大模型"
 
 	var req openai.ChatCompletionRequest
-	req.Stream = true
+	req.Stream = false
 	req.Model = "random"
 
 	message := openai.ChatCompletionMessage{
@@ -72,26 +70,34 @@ func testNoneStream() {
 
 	client := simple_client.NewSimpleClient("")
 
-	resp, err := client.CreateChatCompletion(context.Background(), req)
+	resp, err := client.CreateChatCompletion(ctx, req)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	if len(resp.Choices) > 0 {
 		fmt.Println(resp.Choices[0].Message.Content)
 	}
+	return nil
 }
 
 func main() {
-	if err := initializer.Setup("../../myconfigs/config.json"); err != nil {
-		log.Println(err)
-		return
+	configPath := "config.json"
+	if len(os.Args) > 1 {
+		configPath = os.Args[1]
+	}
+	if err := initializer.Setup(configPath); err != nil {
+		log.Fatalf("load configuration %q: %v", configPath, err)
 	}
 	defer initializer.Cleanup()
 
+	ctx := context.Background()
 	fmt.Println("stream mode===========")
-	testStream()
-	fmt.Println("none stream mode===========")
-	testNoneStream()
+	if err := testStream(ctx); err != nil {
+		log.Printf("stream request failed: %v", err)
+	}
+	fmt.Println("non-stream mode===========")
+	if err := testNonStream(ctx); err != nil {
+		log.Printf("non-stream request failed: %v", err)
+	}
 }

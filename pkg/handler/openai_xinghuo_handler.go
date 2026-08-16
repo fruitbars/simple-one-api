@@ -136,9 +136,7 @@ func handleXingHuoStandardMode(c *gin.Context, client *gosparkclient.SparkClient
 	xhResp, err := client.SparkChatWithCallback(*xhReq, nil)
 	if err != nil {
 
-		mylog.Logger.Error("An error occurred", zap.String("appid", client.AppID),
-			zap.String("apikey", client.ApiKey),
-			zap.Error(err))
+		mylog.Logger.Error("An error occurred", zap.Error(err))
 
 		return err
 	}
@@ -147,8 +145,7 @@ func handleXingHuoStandardMode(c *gin.Context, client *gosparkclient.SparkClient
 	oaiResp.Model = model
 
 	// 假设 mylog.Logger 是一个已经配置好的 zap.Logger 实例
-	mylog.Logger.Info("Standard response",
-		zap.Any("response", *oaiResp)) // 记录响应对象
+	mylog.Logger.Debug("Standard response received")
 
 	c.JSON(http.StatusOK, oaiResp)
 	return nil

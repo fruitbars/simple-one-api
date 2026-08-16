@@ -38,12 +38,7 @@ func OpenAI2ClaudeHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		claudeServerURL = defaultClaudeServerURL
 	}
 
-	client := &http.Client{
-		Timeout: 3 * time.Minute,
-	}
-	if oaiReqParam.httpTransport != nil {
-		client.Transport = oaiReqParam.httpTransport
-	}
+	client := utils.NewHTTPClient(oaiReqParam.httpTransport, 3*time.Minute)
 
 	mylog.Logger.Info("OpenAI2ClaudeHandler", zap.Any("claudeReq", claudeReq))
 	// 使用统一的错误处理函数
@@ -62,7 +57,7 @@ func sendClaudeRequest(c *gin.Context, client *http.Client, apiKey, url string, 
 		return fmt.Errorf("json编码错误: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(oaiReqParam.ctx, http.MethodPost, url, bytes.NewReader(jsonData))
 	if err != nil {
 		mylog.Logger.Error(err.Error())
 		return err
@@ -100,7 +95,7 @@ func handleClaudeResponse(c *gin.Context, resp *http.Response, oaiReq *openai.Ch
 		return err
 	}
 
-	mylog.Logger.Info("response", zap.String("body", string(body)))
+	mylog.Logger.Debug("Claude response received", zap.Int("response_bytes", len(body)))
 
 	var claudeResp claude.ResponseBody
 	if err := json.Unmarshal(body, &claudeResp); err != nil {

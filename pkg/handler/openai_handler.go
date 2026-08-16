@@ -31,6 +31,7 @@ const (
 )
 
 type OAIRequestParam struct {
+	ctx               context.Context
 	chatCompletionReq *openai.ChatCompletionRequest
 	modelDetails      *config.ModelDetails
 	creds             map[string]interface{}
@@ -41,27 +42,23 @@ type OAIRequestParam struct {
 
 // serviceHandlerMap maps service names to their corresponding handler functions
 var serviceHandlerMap = map[string]func(*gin.Context, *OAIRequestParam) error{
-	"qianfan":      OpenAI2QianFanHandler,
-	"hunyuan":      OpenAI2HunYuanHandler,
-	"xinghuo":      OpenAI2XingHuoHandler,
-	"openai":       OpenAI2OpenAIHandler,
-	"azure":        OpenAI2AzureOpenAIHandler,
-	"deepseek":     OpenAI2OpenAIHandler,
-	"zhipu":        OpenAI2OpenAIHandler,
-	"minimax":      OpenAI2MinimaxHandler,
-	"cozecn":       OpenAI2CozecnHandler,
-	"cozecom":      OpenAI2CozecnHandler,
-	"coze":         OpenAI2CozecnHandler,
-	"huoshan":      OpenAI2HuoShanHandler,
-	"ollama":       OpenAI2OllamaHandler,
-	"groq":         OpenAI2GroqOpenAIHandler,
-	"gemini":       OpenAI2GeminiHandler,
-	"dashscope":    OpenAI2AliyunDashScopeHandler,
-	"bailian":      OpenAI2AliyunBaiLianHandler,
-	"vertexai":     OpenAI2VertexAIHandler,
-	"claude":       OpenAI2ClaudeHandler,
-	"agentbuilder": OpenAI2AgentBuilderHandler,
-	"dify":         OpenAI2DifyHandler,
+	"qianfan":   OpenAI2QianFanHandler,
+	"hunyuan":   OpenAI2HunYuanHandler,
+	"xinghuo":   OpenAI2XingHuoHandler,
+	"openai":    OpenAI2OpenAIHandler,
+	"azure":     OpenAI2AzureOpenAIHandler,
+	"deepseek":  OpenAI2OpenAIHandler,
+	"zhipu":     OpenAI2OpenAIHandler,
+	"minimax":   OpenAI2MinimaxHandler,
+	"huoshan":   OpenAI2HuoShanHandler,
+	"ollama":    OpenAI2OllamaHandler,
+	"groq":      OpenAI2GroqOpenAIHandler,
+	"gemini":    OpenAI2GeminiHandler,
+	"dashscope": OpenAI2AliyunDashScopeHandler,
+	"bailian":   OpenAI2AliyunBaiLianHandler,
+	"vertexai":  OpenAI2VertexAIHandler,
+	"claude":    OpenAI2ClaudeHandler,
+	"dify":      OpenAI2DifyHandler,
 }
 
 func LogRequestDetails(c *gin.Context) {
@@ -70,7 +67,6 @@ func LogRequestDetails(c *gin.Context) {
 		zap.String("method", c.Request.Method),
 		zap.String("path", c.Request.URL.Path),
 		zap.Any("parameters", c.Request.URL.Query()),
-		zap.Any("headers", c.Request.Header),
 	)
 }
 
@@ -112,17 +108,19 @@ func OpenAIHandler(c *gin.Context) {
 		mylog.Logger.Error(err.Error())
 	}
 
-	mylog.Logger.Info("OpenAIHandler", zap.String("apikey", apikey))
-
 	isValid := validateAPIKey(apikey)
 	if !isValid {
 		err = errors.New("key is not valid")
-		mylog.Logger.Error("key is not valid", zap.String("apikey", apikey))
+		mylog.Logger.Error("key is not valid")
 		sendErrorResponse(c, http.StatusUnauthorized, err.Error())
 		return
 	}
 
 	bodyData, getBodyerr := getBodyDataCopy(c)
+	if isRequestTooLarge(getBodyerr) {
+		sendErrorResponse(c, http.StatusRequestEntityTooLarge, "request body too large")
+		return
+	}
 
 	var oaiReq openai.ChatCompletionRequest
 	if err := c.ShouldBindJSON(&oaiReq); err != nil {
@@ -135,7 +133,6 @@ func OpenAIHandler(c *gin.Context) {
 			return
 		}
 
-		mylog.Logger.Debug(string(bodyData))
 		parsedReq, parseErr := mycommon.ParseChatCompletionRequest(bodyData)
 		if parseErr != nil {
 			mylog.Logger.Error("ParseChatCompletionRequest error: " + parseErr.Error())
@@ -202,13 +199,20 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 			mylog.Logger.Warn("model support vision", zap.Bool("isSupportMC", isSupportMC))
 			//convert message
 			adapter.OpenAIMultiContentRequestToOpenAIContentRequest(oaiReq)
-			mylog.Logger.Info("", zap.Any("oaiReq", oaiReq))
+			mylog.Logger.Debug("multimodal request normalized", zap.String("model", oaiReq.Model))
 		} else {
 
 		}
 	}
 
 	creds, credsID := mycommon.GetACredentials(s, oaiReq.Model)
+	requestTimeout := s.Timeout
+	if requestTimeout <= 0 {
+		requestTimeout = defaultReqTimeout
+	}
+	requestCtx, cancelRequest := context.WithTimeout(c.Request.Context(), time.Duration(requestTimeout)*time.Second)
+	defer cancelRequest()
+	c.Request = c.Request.WithContext(requestCtx)
 
 	var limiter *mylimiter.Limiter
 	lt, ln, timeout := mycommon.GetServiceModelDetailsLimit(s)
@@ -222,6 +226,7 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 	}
 
 	oaiReqParam := &OAIRequestParam{
+		ctx:               requestCtx,
 		chatCompletionReq: oaiReq,
 		modelDetails:      s,
 		creds:             creds,
@@ -232,7 +237,7 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 		if timeout <= 0 {
 			timeout = defaultReqTimeout
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+		ctx, cancel := context.WithTimeout(requestCtx, time.Duration(timeout)*time.Second)
 		defer cancel()
 
 		startWaitTime := time.Now()
@@ -242,7 +247,7 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 			zap.Float64("limit num:", ln),
 			zap.Int("timeout", timeout))
 
-		if lt == "qps" || lt == "qpm" {
+		if lt == "qps" || lt == "qpm" || lt == "rpm" {
 			err = limiter.Wait(ctx)
 			elapsed := time.Since(startWaitTime)
 
@@ -277,6 +282,8 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 			err := limiter.Acquire(ctx)
 			if err != nil {
 				mylog.Logger.Error(err.Error())
+				sendErrorResponse(c, http.StatusTooManyRequests, "Request concurrency limit exceeded")
+				return
 			}
 			defer limiter.Release()
 
@@ -337,11 +344,12 @@ func validateRequestMethod(c *gin.Context, method string) bool {
 }
 
 func validateAPIKey(apikey string) bool {
-	if config.APIKey == "" {
+	expected := config.CurrentAPIKey()
+	if expected == "" {
 		return true
 	}
 
-	if config.APIKey != apikey {
+	if expected != apikey {
 		return false
 	}
 	return true

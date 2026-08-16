@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   simple-one-api:
     image: fruitbars/simple-one-api
@@ -7,5 +5,8 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - /path/to/config.json:/app/config.json
+      - /path/to/config.json:/app/config.json:ro
+      - /path/to/data:/app/data
+    environment:
+      SIMPLE_ONE_API_DB: /app/data/config.db
     restart: unless-stopped

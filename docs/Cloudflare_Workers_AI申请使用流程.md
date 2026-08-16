@@ -1,5 +1,8 @@
 # Cloudflare_Workers_AI申请使用流程
 
+> [!WARNING]
+> 这是历史接入指南。模型、免费额度、控制台和认证方式可能已经变化，请先核对 Cloudflare 官方文档；simple-one-api 的当前配置字段以[配置参考](./configuration-reference.md)为准。
+
 ## Workers AI免费信息
 
 cloudflare_Workers_AI目前免费可以每天使用1万次，一个月可以30万次；测试版本本的模型无限制。

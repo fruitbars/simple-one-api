@@ -1,4 +1,7 @@
 # deepseek模型申请使用流程
+
+> [!WARNING]
+> 这是历史接入指南。模型、价格、控制台和认证方式可能已经变化，请先核对 DeepSeek 官方文档；simple-one-api 的当前配置字段以[配置参考](./configuration-reference.md)为准。
 deepseek虽然目前不免费，但是很便宜，也是业界最早将大模型价格降下来的大模型，效果也不错。
 ![deepseek价格](asset/deepseek_price.jpg)
 ## deepseek API申请流程

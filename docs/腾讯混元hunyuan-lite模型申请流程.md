@@ -1,5 +1,8 @@
 # 腾讯混元hunyuan-lite模型申请流程
 
+> [!WARNING]
+> 这是历史接入指南。模型、额度、控制台和认证方式可能已经变化，请先核对腾讯混元官方文档；simple-one-api 的当前配置字段以[配置参考](./configuration-reference.md)为准。
+
 腾讯混元大模型接入地址[https://console.cloud.tencent.com/hunyuan/start](https://console.cloud.tencent.com/hunyuan/start)
 
 ![image-20240531000131857](asset/image-20240531000131857.png)

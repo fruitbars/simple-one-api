@@ -51,7 +51,10 @@ func getHashIndex(key string, n int) int {
 }
 
 func GetLBIndex(lbStrategy string, key string, length int) int {
-	lbs := strings.ToLower(lbStrategy)
+	if length <= 0 {
+		return 0
+	}
+	lbs := strings.ToLower(strings.TrimSpace(lbStrategy))
 	switch lbs {
 	case mycomdef.KEYNAME_FIRST:
 		return 0

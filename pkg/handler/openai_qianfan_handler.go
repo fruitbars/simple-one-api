@@ -10,6 +10,7 @@ import (
 	baiduqianfan "simple-one-api/pkg/llm/baidu-qianfan"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
+	"time"
 )
 
 func OpenAI2QianFanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
@@ -22,10 +23,7 @@ func OpenAI2QianFanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	configAddress, _ := utils.GetStringFromMap(credentials, config.KEYNAME_ADDRESSS)
 	qfReq := adapter.OpenAIRequestToQianFanRequest(oaiReq)
 
-	client := &http.Client{}
-	if oaiReqParam.httpTransport != nil {
-		client.Transport = oaiReqParam.httpTransport
-	}
+	client := utils.NewHTTPClient(oaiReqParam.httpTransport, time.Duration(oaiReqParam.modelDetails.Timeout)*time.Second)
 
 	clientModel := oaiReqParam.ClientModel
 

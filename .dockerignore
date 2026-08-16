@@ -1,0 +1,7 @@
+*
+!Dockerfile
+!build/
+!build/linux-amd64/
+!build/linux-amd64/simple-one-api
+!build/linux-arm64/
+!build/linux-arm64/simple-one-api

@@ -1,5 +1,8 @@
 # 讯飞星火spark-lite模型申请流程
 
+> [!WARNING]
+> 这是历史接入指南。模型、额度、控制台和认证方式可能已经变化，请先核对讯飞星火官方文档；simple-one-api 的当前配置字段以[配置参考](./configuration-reference.md)为准。
+
 spark-lite介绍页面[https://xinghuo.xfyun.cn/sparkapi?scr=true](https://xinghuo.xfyun.cn/sparkapi?scr=true)
 
 ![image-20240530235125913](asset/image-20240530235125913.png)

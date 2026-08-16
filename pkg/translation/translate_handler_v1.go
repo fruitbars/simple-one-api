@@ -91,6 +91,4 @@ func TranslateV1Handler(c *gin.Context) {
 		c.JSON(http.StatusOK, response)
 		return
 	}
-
-	return
 }

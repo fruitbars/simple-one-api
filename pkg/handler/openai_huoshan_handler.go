@@ -35,14 +35,7 @@ func configureClientWithAkSk(oaiReqParam *OAIRequestParam, model string) (*arkru
 	secretKey, _ := utils.GetStringFromMap(credentials, config.KEYNAME_SECRET_KEY)
 
 	// 创建自定义 HTTP client 使用上述 transport
-	httpHSClient := &http.Client{
-		//Transport: transport,
-		Timeout: 30 * time.Second,
-	}
-
-	if oaiReqParam.httpTransport != nil {
-		httpHSClient.Transport = oaiReqParam.httpTransport
-	}
+	httpHSClient := utils.NewHTTPClient(oaiReqParam.httpTransport, 30*time.Second)
 
 	if apikey != "" {
 		client := arkruntime.NewClientWithApiKey(
@@ -78,7 +71,7 @@ func OpenAI2HuoShanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	}
 
 	huoshanReq := prepareHuoshanRequest(oaiReq, s)
-	ctx := context.Background()
+	ctx := oaiReqParam.ctx
 
 	//如果是bot
 	if strings.HasPrefix(oaiReq.Model, "bot-") {
@@ -90,8 +83,6 @@ func OpenAI2HuoShanHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 			return handleSingleHuoShanRequest(ctx, c, client, huoshanReq, oaiReqParam)
 		}
 	}
-
-	return nil
 }
 
 func prepareHuoshanRequest(oaiReq *openai.ChatCompletionRequest, s *config.ModelDetails) model.ChatCompletionRequest {

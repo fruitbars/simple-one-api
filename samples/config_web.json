@@ -1,0 +1,6 @@
+{
+  "server_port": ":19090",
+  "log_level": "info",
+  "enable_web": true,
+  "services": {}
+}

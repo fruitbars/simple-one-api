@@ -15,7 +15,7 @@ import (
 )
 
 func QianFanCall(client *http.Client, api_key, secret_key, model string, configAddress string, qfReq *QianFanRequest) (*QianFanResponse, error) {
-	mylog.Logger.Info("QianFanCall", zap.String("api_key", api_key), zap.String("secret_key", secret_key), zap.String("model", model), zap.Any("qfReq", qfReq))
+	mylog.Logger.Debug("QianFanCall", zap.String("model", model))
 
 	accessToken := GetAccessToken(api_key, secret_key)
 	if accessToken == "" {
@@ -28,7 +28,7 @@ func QianFanCall(client *http.Client, api_key, secret_key, model string, configA
 }
 
 func QianFanCallSSE(client *http.Client, api_key, secret_key, model string, configAddress string, qfReq *QianFanRequest, callback func(qfResp *QianFanResponse)) error {
-	mylog.Logger.Info("QianFanCall", zap.String("api_key", api_key), zap.String("secret_key", secret_key), zap.String("model", model), zap.Any("qfReq", qfReq))
+	mylog.Logger.Debug("QianFanCall", zap.String("model", model))
 	accessToken := GetAccessToken(api_key, secret_key)
 	if accessToken == "" {
 		err := errors.New("Failed to get access token")
@@ -164,7 +164,7 @@ func SendChatRequest(client *http.Client, accessToken, model string, configAddre
 		return nil, err
 	}
 
-	mylog.Logger.Info("", zap.Any("response", response))
+	mylog.Logger.Debug("QianFan response received")
 
 	return &response, nil
 }

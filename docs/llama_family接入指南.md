@@ -1,5 +1,8 @@
 # Llama Family接入指南
 
+> [!WARNING]
+> 这是历史接入指南。模型、额度、控制台和认证方式可能已经变化，请先核对厂商官方文档；simple-one-api 的当前配置字段以[配置参考](./configuration-reference.md)为准。
+
 文档地址：[https://llama.family/docs/api](https://llama.family/docs/api)
 
 密钥管理：[https://llama.family/docs/secret](https://llama.family/docs/secret)
@@ -12,7 +15,7 @@
 > 2.每天 22-次日 8 点：接口限速每分钟 50 次并发
 
 首先我们到Llama Family官网注册，并且到密钥管理后台获取到密钥。
-![llama family](asset/llama family.jpg)
+![llama family](asset/llamafamily.jpg)
 
 ## 在simple-one-api中使用
 `Llama Family`兼容`openai`协议，因此只需要在`services`中的`openai`项中加入相关配置即可。配置好密钥`api_key`以及服务地址`server_url`

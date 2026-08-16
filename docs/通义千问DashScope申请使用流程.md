@@ -1,5 +1,8 @@
 # 通义千问DashScope申请使用流程
 
+> [!WARNING]
+> 这是历史接入指南。模型、额度、控制台和认证方式可能已经变化，请先核对 DashScope 官方文档；simple-one-api 的当前配置字段以[配置参考](./configuration-reference.md)为准。
+
 通义API是有DashScope提供的，本身做了openai的接口兼容：
 [https://help.aliyun.com/zh/dashscope/developer-reference/compatibility-of-openai-with-dashscope](https://help.aliyun.com/zh/dashscope/developer-reference/compatibility-of-openai-with-dashscope)
 
@@ -27,5 +30,4 @@
 }
 
 ```
-
 

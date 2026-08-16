@@ -66,13 +66,13 @@ func OpenAI2AliyunDashScopeHandler(c *gin.Context, oaiReqParam *OAIRequestParam)
 
 	clientModel := oaiReqParam.ClientModel
 
-	mylog.Logger.Info("OpenAI2AliyunDashScopeHandler", zap.Any("oaiReq", oaiReq), zap.String("bType", bType))
+	mylog.Logger.Debug("OpenAI2AliyunDashScopeHandler", zap.String("model", oaiReq.Model), zap.String("bType", bType))
 
 	if bType == "B" {
 		llamaReq := aliyun_dashscope_adapter.OpenAIRequestToDashScopeBTypeRequest(oaiReq)
 
 		reqJsonData, _ := json.Marshal(llamaReq)
-		respJson, err := utils.SendHTTPRequest(apiKey, dashscopeServerURL, reqJsonData, oaiReqParam.httpTransport)
+		respJson, err := utils.SendHTTPRequestContext(oaiReqParam.ctx, apiKey, dashscopeServerURL, reqJsonData, oaiReqParam.httpTransport)
 		if err != nil {
 			mylog.Logger.Error("An error occurred", zap.Error(err))
 
@@ -134,7 +134,7 @@ func OpenAI2AliyunDashScopeHandler(c *gin.Context, oaiReqParam *OAIRequestParam)
 			reqJsonData, _ := json.Marshal(commReq)
 
 			var dsLastestStreamResp *ds_com_resp.ModelStreamResponse
-			err := utils.SendSSERequest(apiKey, dashscopeServerURL, reqJsonData, func(data string) {
+			err := utils.SendSSERequestContext(oaiReqParam.ctx, apiKey, dashscopeServerURL, reqJsonData, func(data string) {
 				mylog.Logger.Debug("OpenAI2AliyunDashScopeHandler|utils.SendSSERequest", zap.String("data", data))
 
 				var dsResp ds_com_resp.ModelStreamResponse
@@ -169,7 +169,7 @@ func OpenAI2AliyunDashScopeHandler(c *gin.Context, oaiReqParam *OAIRequestParam)
 		} else {
 			commReq := aliyun_dashscope_adapter.OpenAIRequestToDashScopeCommonRequest(oaiReq)
 			reqJsonData, _ := json.Marshal(commReq)
-			respJson, err := utils.SendHTTPRequest(apiKey, dashscopeServerURL, reqJsonData, oaiReqParam.httpTransport)
+			respJson, err := utils.SendHTTPRequestContext(oaiReqParam.ctx, apiKey, dashscopeServerURL, reqJsonData, oaiReqParam.httpTransport)
 			if err != nil {
 				mylog.Logger.Error("An error occurred", zap.Error(err))
 

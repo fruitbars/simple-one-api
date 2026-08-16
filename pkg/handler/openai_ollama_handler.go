@@ -3,6 +3,7 @@ package handler
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
@@ -14,21 +15,26 @@ import (
 	"simple-one-api/pkg/llm/ollama"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
+	"time"
 )
 
 // 设置目标URL
 var defaultOllamaUrl = "http://127.0.0.1:11434/api/chat"
 
 // 封装HTTP请求和错误处理
-func sendOllamaJSONRequest(url string, payload []byte) (*http.Response, error) {
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
+func sendOllamaJSONRequest(ctx context.Context, url string, payload []byte, transport *http.Transport, streaming bool) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
 		mylog.Logger.Error("Error creating request", zap.Error(err))
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := http.DefaultClient // 使用全局的HTTP客户端
+	timeout := 120 * time.Second
+	if streaming {
+		timeout = 0
+	}
+	client := utils.NewHTTPClient(transport, timeout)
 	resp, err := client.Do(req)
 	if err != nil {
 		mylog.Logger.Error("Error sending request", zap.Error(err))
@@ -49,7 +55,7 @@ func handleResponse(resp *http.Response) error {
 		}
 
 		mylog.Logger.Info("Response body", zap.String("body", string(body)))
-		return fmt.Errorf(string(body))
+		return fmt.Errorf("%s", string(body))
 	}
 	return nil
 }
@@ -75,7 +81,7 @@ func handleOllamaRequest(c *gin.Context, s *config.ModelDetails, ollamaRequest *
 		serverUrl = s.ServerURL
 	}
 
-	resp, err := sendOllamaJSONRequest(serverUrl, jsonStr)
+	resp, err := sendOllamaJSONRequest(oaiReqParam.ctx, serverUrl, jsonStr, oaiReqParam.httpTransport, ollamaRequest.Stream)
 	if err != nil {
 		mylog.Logger.Error("err", zap.Error(err))
 		return err

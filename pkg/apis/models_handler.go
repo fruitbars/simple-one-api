@@ -17,9 +17,10 @@ type Model struct {
 
 func ModelsHandler(c *gin.Context) {
 	var models []Model
-	keys := make([]string, 0, len(config.ModelToService))
+	supportModels := config.CurrentSupportModels()
+	keys := make([]string, 0, len(supportModels))
 
-	for k := range config.SupportModels {
+	for k := range supportModels {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys) // 对keys进行排序
@@ -57,7 +58,7 @@ func ModelsHandler(c *gin.Context) {
 func RetrieveModelHandler(c *gin.Context) {
 	modelID := c.Param("model") // 从路径中获取模型ID
 
-	if _, found := config.ModelToService[modelID]; found {
+	if _, found := config.CurrentModelToService()[modelID]; found {
 		model := Model{
 			ID:      "gpt-3.5-turbo-instruct",
 			Object:  "model",

@@ -13,9 +13,11 @@ import (
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/llm/minimax"
+	"simple-one-api/pkg/mycommon"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/utils"
 	"strings"
+	"time"
 )
 
 func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
@@ -26,12 +28,12 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	apiKey := credentials[config.KEYNAME_API_KEY]
 	groupID := credentials[config.KEYNAME_GROUP_ID]
 
-	if s.ServerURL == "" {
-		//serverUrl = defaultUrl
-		s.ServerURL = "https://api.minimax.chat/v1/text/chatcompletion_pro"
+	baseURL := s.ServerURL
+	if baseURL == "" {
+		baseURL = "https://api.minimax.chat/v1/text/chatcompletion_pro"
 	}
 
-	serverUrl := fmt.Sprintf("%s?GroupId=%s", s.ServerURL, groupID)
+	serverUrl := fmt.Sprintf("%s?GroupId=%s", baseURL, groupID)
 	bearerToken := fmt.Sprintf("Bearer %s", apiKey)
 
 	minimaxReq := adapter.OpenAIRequestToMinimaxRequest(oaiReq)
@@ -46,7 +48,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 
 	if oaiReq.Stream {
 
-		request, err := http.NewRequest("POST", serverUrl, bytes.NewBuffer(jsonData))
+		request, err := http.NewRequestWithContext(oaiReqParam.ctx, http.MethodPost, serverUrl, bytes.NewReader(jsonData))
 		if err != nil {
 			mylog.Logger.Error(err.Error())
 			return err
@@ -55,11 +57,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		request.Header.Add("Authorization", bearerToken)
 		request.Header.Add("Content-Type", "application/json")
 
-		// 使用http.Client发送请求
-		client := &http.Client{}
-		if oaiReqParam.httpTransport != nil {
-			client.Transport = oaiReqParam.httpTransport
-		}
+		client := utils.NewHTTPClient(oaiReqParam.httpTransport, 0)
 
 		response, err := client.Do(request)
 		if err != nil {
@@ -67,6 +65,9 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 			return err
 		}
 		defer response.Body.Close()
+		if err := mycommon.CheckStatusCode(response); err != nil {
+			return err
+		}
 
 		id := uuid.New()
 		utils.SetEventStreamHeaders(c)
@@ -122,7 +123,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		}
 
 	} else {
-		request, err := http.NewRequest("POST", serverUrl, bytes.NewBuffer(jsonData))
+		request, err := http.NewRequestWithContext(oaiReqParam.ctx, http.MethodPost, serverUrl, bytes.NewReader(jsonData))
 		if err != nil {
 			mylog.Logger.Error(err.Error())
 			return err
@@ -131,8 +132,7 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 		request.Header.Add("Authorization", bearerToken)
 		request.Header.Add("Content-Type", "application/json")
 
-		// 使用http.Client发送请求
-		client := &http.Client{}
+		client := utils.NewHTTPClient(oaiReqParam.httpTransport, 120*time.Second)
 		response, err := client.Do(request)
 		if err != nil {
 			mylog.Logger.Error(err.Error())
@@ -140,6 +140,9 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 			return err
 		}
 		defer response.Body.Close()
+		if err := mycommon.CheckStatusCode(response); err != nil {
+			return err
+		}
 
 		bodyData, err := io.ReadAll(response.Body)
 		if err != nil {
@@ -147,16 +150,11 @@ func OpenAI2MinimaxHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 			return err
 		}
 
-		mylog.Logger.Info(string(bodyData))
-
 		var minimaxresp minimax.MinimaxResponse
 		json.Unmarshal(bodyData, &minimaxresp)
 		//mylog.Logger.Info((minimaxresp)
 		myresp := adapter.MinimaxResponseToOpenAIResponse(&minimaxresp)
 		myresp.Model = oaiReqParam.ClientModel
-
-		respData, _ := json.Marshal(*myresp)
-		mylog.Logger.Info(string(respData))
 
 		c.JSON(http.StatusOK, myresp)
 

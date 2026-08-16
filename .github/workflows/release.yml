@@ -1,0 +1,218 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: "1.25.x"
+  NODE_VERSION: "24.x"
+  PNPM_VERSION: "11.1.3"
+  WAILS_VERSION: "v2.13.0"
+
+jobs:
+  verify:
+    name: Verify release source
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Verify Web
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Verify Go
+        run: |
+          go test ./...
+          go test -tags bindings ./...
+          go vet ./...
+
+      - name: Lint GitHub Actions workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/*.yml
+
+      - name: Check patch formatting
+        run: git diff --check
+
+  server:
+    name: Server archives
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Build server release archives
+        run: ./build.sh --release
+
+      - name: Upload server archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-archives
+          path: |
+            build/*.tar.gz
+            build/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  desktop:
+    name: Desktop ${{ matrix.name }}
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-22.04
+            platform: linux/amd64
+            artifact: simple-one-api-desktop-linux-x64.tar.gz
+          - name: Windows x64
+            os: windows-latest
+            platform: windows/amd64
+            artifact: simple-one-api-desktop-windows-x64.zip
+          - name: macOS x64
+            os: macos-14
+            platform: darwin/amd64
+            artifact: simple-one-api-desktop-macos-x64.zip
+          - name: macOS arm64
+            os: macos-14
+            platform: darwin/arm64
+            artifact: simple-one-api-desktop-macos-arm64.zip
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux desktop dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install Wails
+        shell: bash
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}
+
+      - name: Build desktop application
+        working-directory: cmd/desktop
+        shell: bash
+        run: wails build -clean -platform ${{ matrix.platform }}
+
+      - name: Package Linux desktop application
+        if: runner.os == 'Linux'
+        run: tar -czf "${{ matrix.artifact }}" -C cmd/desktop/build/bin simple-one-api
+
+      - name: Package macOS desktop application
+        if: runner.os == 'macOS'
+        run: ditto -c -k --sequesterRsrc --keepParent cmd/desktop/build/bin/*.app "${{ matrix.artifact }}"
+
+      - name: Package Windows desktop application
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path cmd/desktop/build/bin/* -DestinationPath "${{ matrix.artifact }}"
+
+      - name: Upload desktop archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub Release
+    needs: [server, desktop]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cd release-assets
+          sha256sum ./* > SHA256SUMS
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" ./* --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" ./* \
+              --verify-tag \
+              --generate-notes \
+              --title "${GITHUB_REF_NAME}"
+          fi

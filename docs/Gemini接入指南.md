@@ -1,5 +1,8 @@
 # Gemini接入指南
 
+> [!WARNING]
+> 这是历史接入指南。模型、额度、控制台和认证方式可能已经变化，请先核对 Gemini 官方文档；simple-one-api 的当前配置字段以[配置参考](./configuration-reference.md)为准。
+
 文档地址：https://ai.google.dev/gemini-api/docs/api-overview
 
 后台地址：https://aistudio.google.com/app/apikey

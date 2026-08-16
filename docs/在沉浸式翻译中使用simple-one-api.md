@@ -1,5 +1,8 @@
 # 在沉浸式翻译中使用simple-one-api
 
+> [!WARNING]
+> 这是历史客户端接入指南，截图、模型和额度信息可能已经变化。simple-one-api 的当前 API 与配置方式请参考[项目 README](../README.md)和[配置参考](./configuration-reference.md)。
+
 大模型翻译相对于传统翻译效果是完全不一样的，整体效果会好很多。
 
 目前市面上已经有多款免费大模型，如何才能用在翻译上呢？目前市面上最好用最火的当属**沉浸式翻译**这个产品。
@@ -55,7 +58,7 @@
 
 ```json
 {
-  "api_key":"sk-123456"
+  "api_key": "sk-123456",
   "server_port":":9090",
   "load_balancing": "random",
   "services": {
@@ -91,6 +94,7 @@
         }
       }
     ]
+  }
 }
 ```
 
@@ -126,4 +130,3 @@
     ]
 }
 ```
-

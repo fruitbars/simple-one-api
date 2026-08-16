@@ -2,6 +2,7 @@ package chat_message_request
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,20 +14,28 @@ import (
 var baseURL = "https://api.dify.ai/v1"
 
 func CallChatMessagesStreamMode(difyReq *ChatMessageRequest, apiKey string, callback func(data string), httpTransport *http.Transport) error {
+	return CallChatMessagesStreamModeContext(context.Background(), difyReq, apiKey, callback, httpTransport)
+}
+
+func CallChatMessagesStreamModeContext(ctx context.Context, difyReq *ChatMessageRequest, apiKey string, callback func(data string), httpTransport *http.Transport) error {
 	serverUrl := "https://api.dify.ai/v1/chat-messages"
 
 	reqData, _ := json.Marshal(difyReq)
 
-	return utils.SendSSERequest(apiKey, serverUrl, reqData, callback, httpTransport)
+	return utils.SendSSERequestContext(ctx, apiKey, serverUrl, reqData, callback, httpTransport)
 }
 
 func CallChatMessagesNoneStreamMode(difyReq *ChatMessageRequest, apiKey string, httpTransport *http.Transport) (*chat_completion_response.ChatCompletionResponse, error) {
+	return CallChatMessagesNoneStreamModeContext(context.Background(), difyReq, apiKey, httpTransport)
+}
+
+func CallChatMessagesNoneStreamModeContext(ctx context.Context, difyReq *ChatMessageRequest, apiKey string, httpTransport *http.Transport) (*chat_completion_response.ChatCompletionResponse, error) {
 	serverUrl := "https://api.dify.ai/v1/chat-messages"
 	// 创建请求体
 
 	reqData, _ := json.Marshal(difyReq)
 
-	respData, err := utils.SendHTTPRequest(apiKey, serverUrl, reqData, httpTransport)
+	respData, err := utils.SendHTTPRequestContext(ctx, apiKey, serverUrl, reqData, httpTransport)
 	if err != nil {
 		return nil, err
 	}

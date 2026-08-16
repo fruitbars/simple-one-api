@@ -27,6 +27,15 @@ func InitLog(mode string) {
 	case "debug":
 		encoderConfig = zap.NewDevelopmentEncoderConfig()
 		level = zapcore.DebugLevel
+	case "", "info":
+		encoderConfig = zap.NewDevelopmentEncoderConfig()
+		level = zapcore.InfoLevel
+	case "warn", "warning":
+		encoderConfig = zap.NewDevelopmentEncoderConfig()
+		level = zapcore.WarnLevel
+	case "error":
+		encoderConfig = zap.NewDevelopmentEncoderConfig()
+		level = zapcore.ErrorLevel
 	default:
 		log.Println("level mode default prod")
 		encoderConfig = zap.NewDevelopmentEncoderConfig()
@@ -55,5 +64,5 @@ func InitLog(mode string) {
 	)
 
 	// 构建日志器
-	Logger = zap.New(core, zap.AddCaller())
+	Logger = zap.New(zapcore.NewTee(core, liveCore{LevelEnabler: zapcore.DebugLevel}), zap.AddCaller())
 }

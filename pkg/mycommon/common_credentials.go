@@ -1,6 +1,7 @@
 package mycommon
 
 import (
+	"encoding/json"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/mycomdef"
 	"strconv"
@@ -10,10 +11,10 @@ import (
 func GetACredentials(s *config.ModelDetails, model string) (map[string]interface{}, string) {
 	// 检查是否有多个凭据列表可用
 	var credID string
-	if s.CredentialList != nil && len(s.CredentialList) > 0 {
+	if len(s.CredentialList) > 0 {
 		key := s.ServiceID + "credentials"
 
-		index := config.GetLBIndex(config.LoadBalancingStrategy, key, len(s.CredentialList))
+		index := config.GetLBIndex(config.CurrentLoadBalancing(), key, len(s.CredentialList))
 		credID = s.ServiceID + "_credentials_" + strconv.Itoa(index)
 		return s.CredentialList[index], credID
 	}
@@ -27,8 +28,15 @@ func GetCredentialLimit(credentials map[string]interface{}) (limitType string, l
 		return "", 0, 0 // 没有找到或类型不匹配
 	}
 
-	if to, ok := limitData["timeout"].(int); ok {
-		timeout = to
+	switch value := limitData["timeout"].(type) {
+	case int:
+		timeout = value
+	case float64:
+		timeout = int(value)
+	case json.Number:
+		if parsed, err := value.Int64(); err == nil {
+			timeout = int(parsed)
+		}
 	}
 	// 按优先级查找限制值：qps, qpm, rpm, concurrency
 	if qps, ok := limitData[mycomdef.KEYNAME_QPS].(float64); ok {

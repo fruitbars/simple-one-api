@@ -1,4 +1,7 @@
-# 编译输出
+# Go build and test output
+/simple-one-api
+/main
+/build/
 *.exe
 *.exe~
 *.dll
@@ -6,67 +9,47 @@
 *.dylib
 *.test
 *.out
-simple-one-api/simple-one-api
-simple-one-api/build
-simple-one-api/myconfigs
-simple-one-api/docker_build_push.sh
+/go-build/
+/.gocache/
+/vendor/
 
-test/simple_client_test/simple_client_test
-
-./simple-one-api
-./build
-./build/*
-./myconfigs
-./myconfigs/*
-./docker_build_push.sh
-README.CN.EN.md
-build/
-simple-one-api
-docker_build_push_no_latest.sh
-image.png
-
-# 日志文件
+# Local configuration and runtime state
+/myconfigs/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
 *.log
+*.pid
+.env
 
-# 临时文件
+# Web dependencies and generated development files
+/web/node_modules/
+/web/coverage/
+/web/.vite/
+/web/*.tsbuildinfo
+/web/package.json.md5
+/web/src/wailsjs/
+
+# Wails release output
+/cmd/desktop/build/bin/
+/cmd/desktop/build/appicon.png
+/cmd/desktop/build/darwin/Info.plist
+
+# Editor and operating-system files
+/.vscode/
+/.idea/
+*.sublime-workspace
+*.sublime-project
 *.tmp
 *.temp
 *.bak
 *.swp
-
-
-simple-one-api/README.CN.EN.md
-README.CN.EN.md
-# Go编译缓存目录
-
-./simple-one-api
-/go-build/
-/.gocache/
-cmd/simple-one-api/build
-myconfigs
-myconfigs/config.json
-myconfigs/config_cozecn.json
-myconfigs/config_cloudflare.json
-cmd/simple-one-api/config_*.json
-cmd/simple-one-api/simple-one-api
-cmd/simple-one-api/build.zip
-docker_build_push.sh
-
-# 编译器生成的二进制文件
-main
-
-# IDE和编辑器配置文件
-.vscode/
-.idea/
-*.sublime-workspace
-*.sublime-project
-
-# 操作系统生成的文件
 .DS_Store
 Thumbs.db
 
-# 项目依赖
-vendor/
-
-# 环境配置文件
-.env
+# Historical local release helpers
+/docker_build_push.sh
+/docker_build_push_no_latest.sh
+/README.CN.EN.md
+/image.png

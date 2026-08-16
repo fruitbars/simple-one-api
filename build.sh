@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # 默认禁用 UPX 压缩
 use_upx=0
@@ -50,11 +54,11 @@ done
 case $build_option in
     dev)
         echo "Building (Development)..."
-        make dev use_upx=$use_upx clean_up=$clean_up
+        make -C "$SCRIPT_DIR" dev use_upx="$use_upx" clean_up="$clean_up"
         ;;
     release)
         echo "Building and Releasing..."
-        make release use_upx=$use_upx clean_up=$clean_up
+        make -C "$SCRIPT_DIR" release use_upx="$use_upx" clean_up="$clean_up"
         ;;
     *)
         echo "No build option specified or invalid option. Exiting."

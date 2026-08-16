@@ -112,7 +112,7 @@ func handleOpenAIOpenAIRequest(conf openai.ClientConfig, c *gin.Context, req *op
 
 	openaiClient := openai.NewClientWithConfig(conf)
 
-	ctx := context.Background()
+	ctx := c.Request.Context()
 
 	if req.Stream {
 		return handleOpenAIOpenAIStreamRequest(c, openaiClient, ctx, req, clientModel)
@@ -267,6 +267,9 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	conf, err := getConfig(s, oaiReqParam)
 	if err != nil {
 		return err
+	}
+	if oaiReqParam.ctx != nil {
+		c.Request = c.Request.WithContext(oaiReqParam.ctx)
 	}
 
 	if strings.HasPrefix(s.ServerURL, "https://api.groq.com/openai/v1") {

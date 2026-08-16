@@ -2,7 +2,6 @@ package handler
 
 import (
 	"cloud.google.com/go/vertexai/genai"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -46,10 +45,7 @@ func OpenAI2VertexAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error 
 		customTransport.Transport = oaiReqParam.httpTransport
 	}
 
-	customHTTPClient := &http.Client{
-		Transport: customTransport,
-		Timeout:   30 * time.Second,
-	}
+	customHTTPClient := utils.NewHTTPClient(customTransport, 30*time.Second)
 	clientOption = option.WithHTTPClient(customHTTPClient)
 
 	authJsonFile, _ := utils.GetStringFromMap(credentials, config.KEYNAME_GCP_JSON_FILE)
@@ -66,7 +62,7 @@ func OpenAI2VertexAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error 
 	mylog.Logger.Debug("OpenAI2VertexAIHandler", zap.String("projectID", projectID), zap.String("location", location),
 		zap.Any("authOption", authOption), zap.Any("restOption", restOption))
 
-	ctx := context.Background()
+	ctx := oaiReqParam.ctx
 	client, err := genai.NewClient(ctx, projectID, location, clientOption, authOption, restOption)
 	//client, err := genai.NewClient(ctx, projectID, location, authOption, restOption)
 	if err != nil {

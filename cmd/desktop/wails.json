@@ -1,0 +1,15 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "simple-one-api-desktop",
+  "outputfilename": "simple-one-api",
+  "frontend:dir": "../../web",
+  "frontend:install": "pnpm install --frozen-lockfile",
+  "frontend:build": "pnpm build",
+  "frontend:dev:watcher": "pnpm dev",
+  "frontend:dev:serverUrl": "auto",
+  "wailsjsdir": "../../web/src/wailsjs",
+  "author": {
+    "name": "simple-one-api contributors",
+    "email": ""
+  }
+}

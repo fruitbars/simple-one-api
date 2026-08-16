@@ -11,8 +11,10 @@ import (
 	"go.uber.org/zap"
 	"io"
 	"net/http"
+	"net/url"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/simple_client"
+	"strings"
 	"sync"
 )
 
@@ -21,7 +23,12 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 	// 注意：生产环境下应更严格地检查来源
 	CheckOrigin: func(r *http.Request) bool {
-		return true // 允许所有CORS请求
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+		parsed, err := url.Parse(origin)
+		return err == nil && strings.EqualFold(parsed.Host, r.Host)
 	},
 }
 
@@ -55,11 +62,9 @@ func WSMultiModelCallHandler(c *gin.Context) {
 		return
 	}
 
-	mylog.Logger.Info("WSMultiModelCallHandler|readAndUnmarshalClientMessage", zap.Any("requestData", requestData))
+	mylog.Logger.Debug("WSMultiModelCallHandler request", zap.Int("model_count", len(requestData.Models)))
 
 	baseRequest := constructBaseRequest(requestData)
-
-	mylog.Logger.Info("WSMultiModelCallHandler|constructBaseRequest", zap.Any("baseRequest", baseRequest))
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -79,7 +84,6 @@ func readAndUnmarshalClientMessage(conn *websocket.Conn) (*MMFormData, error) {
 	if err != nil {
 		return nil, err
 	}
-	mylog.Logger.Debug("Received message from client", zap.String("message", string(message)))
 
 	var requestData MMFormData
 	if err := json.Unmarshal(message, &requestData); err != nil {
@@ -159,7 +163,7 @@ func processChatStream(conn *websocket.Conn, chatStream *simple_client.SimpleCha
 			continue
 		}
 
-		mylog.Logger.Debug("Received chat response", zap.Any("chatResp", chatResp), zap.Int("len(chatResp.Choices)", len(chatResp.Choices)))
+		mylog.Logger.Debug("Received chat response", zap.String("model", modelName), zap.Int("choice_count", len(chatResp.Choices)))
 		if len(chatResp.Choices) > 0 {
 
 			resp := MMResp{

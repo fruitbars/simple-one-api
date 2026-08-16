@@ -31,11 +31,6 @@ const (
 	RequestTimeout = 1 * time.Minute
 )
 
-// 使用全局客户端
-var geminiHttpClient = &http.Client{
-	Timeout: RequestTimeout,
-}
-
 // OpenAI2GeminiHandler 主要的处理函数
 func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	oaiReq := oaiReqParam.chatCompletionReq
@@ -65,17 +60,14 @@ func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	mylog.Logger.Debug(geminiURL)
 	//mylog.Logger.Debug(string(jsonData))
 
-	req, err := http.NewRequest("POST", geminiURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(oaiReqParam.ctx, http.MethodPost, geminiURL, bytes.NewReader(jsonData))
 	if err != nil {
 		mylog.Logger.Error(err.Error())
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	if oaiReqParam.httpTransport != nil {
-		geminiHttpClient.Transport = oaiReqParam.httpTransport
-	}
-
+	geminiHttpClient := utils.NewHTTPClient(oaiReqParam.httpTransport, RequestTimeout)
 	resp, err := geminiHttpClient.Do(req)
 	if err != nil {
 		errStr := err.Error()
@@ -130,7 +122,7 @@ func handleRegularResponse(c *gin.Context, chatCompletionReq *openai.ChatComplet
 		return err
 	}
 
-	mylog.Logger.Info(string(responseBytes))
+	mylog.Logger.Debug("Gemini response converted", zap.Int("response_bytes", len(responseBytes)))
 
 	if resp.StatusCode != 200 {
 		mylog.Logger.Error(string(responseBytes))

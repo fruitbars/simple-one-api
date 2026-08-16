@@ -27,7 +27,7 @@ func OpenAI2DifyHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 
 	if oaiReq.Stream == false {
 
-		difyResp, err := chat_message_request.CallChatMessagesNoneStreamMode(difyReq, apiKey, nil)
+		difyResp, err := chat_message_request.CallChatMessagesNoneStreamModeContext(oaiReqParam.ctx, difyReq, apiKey, oaiReqParam.httpTransport)
 		if err != nil {
 			mylog.Logger.Error(err.Error())
 			return err
@@ -59,7 +59,7 @@ func OpenAI2DifyHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	}
 
 	// 调用流式接口
-	if err := chat_message_request.CallChatMessagesStreamMode(difyReq, apiKey, cb, oaiReqParam.httpTransport); err != nil {
+	if err := chat_message_request.CallChatMessagesStreamModeContext(oaiReqParam.ctx, difyReq, apiKey, cb, oaiReqParam.httpTransport); err != nil {
 		mylog.Logger.Error(err.Error())
 		return err
 	}

@@ -3,17 +3,69 @@ package utils
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
+	"reflect"
 	"simple-one-api/pkg/mylog"
 	"strings"
+	"time"
 )
+
+const defaultHTTPTimeout = 120 * time.Second
+
+var sharedHTTPTransport = func() *http.Transport {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxIdleConns = 256
+	transport.MaxIdleConnsPerHost = 64
+	transport.MaxConnsPerHost = 256
+	transport.IdleConnTimeout = 90 * time.Second
+	return transport
+}()
+
+var (
+	sharedHTTPClient      = &http.Client{Transport: sharedHTTPTransport, Timeout: defaultHTTPTimeout}
+	sharedStreamingClient = &http.Client{Transport: sharedHTTPTransport}
+)
+
+func clientForTransport(httpTransport *http.Transport, streaming bool) *http.Client {
+	if streaming {
+		return NewHTTPClient(httpTransport, 0)
+	}
+	return NewHTTPClient(httpTransport, defaultHTTPTimeout)
+}
+
+// NewHTTPClient returns a client backed by the shared connection pool when no
+// custom transport is required. A zero timeout is appropriate for streams
+// whose lifetime is controlled by their request context.
+func NewHTTPClient(transport http.RoundTripper, timeout time.Duration) *http.Client {
+	if transport == nil || isNilRoundTripper(transport) {
+		if timeout == 0 {
+			return sharedStreamingClient
+		}
+		if timeout == defaultHTTPTimeout {
+			return sharedHTTPClient
+		}
+		transport = sharedHTTPTransport
+	}
+	return &http.Client{Transport: transport, Timeout: timeout}
+}
+
+func isNilRoundTripper(transport http.RoundTripper) bool {
+	value := reflect.ValueOf(transport)
+	return value.Kind() == reflect.Pointer && value.IsNil()
+}
 
 // 非SSE的HTTP请求处理函数
 func SendHTTPRequest(apiKey, url string, reqBody []byte, httpTransport *http.Transport) ([]byte, error) {
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+	return SendHTTPRequestContext(context.Background(), apiKey, url, reqBody, httpTransport)
+}
+
+func SendHTTPRequestContext(ctx context.Context, apiKey, url string, reqBody []byte, httpTransport *http.Transport) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -21,11 +73,7 @@ func SendHTTPRequest(apiKey, url string, reqBody []byte, httpTransport *http.Tra
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 
-	client := &http.Client{}
-
-	if httpTransport != nil {
-		client.Transport = httpTransport
-	}
+	client := clientForTransport(httpTransport, false)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
@@ -47,8 +95,12 @@ func SendHTTPRequest(apiKey, url string, reqBody []byte, httpTransport *http.Tra
 
 // SSE的HTTP请求处理函数，带回调处理每次接收的数据
 func SendSSERequest(apiKey, url string, reqBody []byte, callback func(data string), httpTransport *http.Transport) error {
+	return SendSSERequestContext(context.Background(), apiKey, url, reqBody, callback, httpTransport)
+}
+
+func SendSSERequestContext(ctx context.Context, apiKey, url string, reqBody []byte, callback func(data string), httpTransport *http.Transport) error {
 	mylog.Logger.Debug("SendSSERequest", zap.String("url", url))
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -57,10 +109,7 @@ func SendSSERequest(apiKey, url string, reqBody []byte, callback func(data strin
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 	req.Header.Set("Accept", "text/event-stream")
 
-	client := &http.Client{}
-	if httpTransport != nil {
-		client.Transport = httpTransport
-	}
+	client := clientForTransport(httpTransport, true)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
@@ -69,8 +118,7 @@ func SendSSERequest(apiKey, url string, reqBody []byte, callback func(data strin
 
 	if resp.StatusCode != http.StatusOK {
 		var errMsg string
-		respBody, err := io.ReadAll(resp.Body)
-		defer resp.Body.Close()
+		respBody, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 		if err != nil {
 			mylog.Logger.Error(err.Error())
 		}
@@ -87,20 +135,26 @@ func SendSSERequest(apiKey, url string, reqBody []byte, callback func(data strin
 	for {
 		line, err := reader.ReadString('\n')
 		mylog.Logger.Debug("SendSSERequest", zap.String("line", line))
-		if err != nil {
-			break
-		}
 		if strings.HasPrefix(line, "data:") {
 			data := strings.TrimSpace(line[5:])
 			callback(data)
 		}
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read streaming response: %w", err)
+		}
 	}
-	return nil
 }
 
 func SendSSERequestWithHttpHeader(apiKey, url string, reqBody []byte, callback func(data string), httpTransport *http.Transport, header map[string]string) error {
+	return SendSSERequestWithHttpHeaderContext(context.Background(), apiKey, url, reqBody, callback, httpTransport, header)
+}
+
+func SendSSERequestWithHttpHeaderContext(ctx context.Context, apiKey, url string, reqBody []byte, callback func(data string), httpTransport *http.Transport, header map[string]string) error {
 	mylog.Logger.Debug("SendSSERequest", zap.String("url", url))
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -112,27 +166,33 @@ func SendSSERequestWithHttpHeader(apiKey, url string, reqBody []byte, callback f
 		req.Header.Set(k, v)
 	}
 
-	client := &http.Client{}
-	if httpTransport != nil {
-		client.Transport = httpTransport
-	}
+	client := clientForTransport(httpTransport, true)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		respBody, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+		if readErr != nil {
+			return fmt.Errorf("failed to read error response: %w", readErr)
+		}
+		return fmt.Errorf("http status code: %d, %s", resp.StatusCode, string(respBody))
+	}
 
 	reader := bufio.NewReader(resp.Body)
 	for {
 		line, err := reader.ReadString('\n')
 		//mylog.Logger.Debug("SendSSERequest", zap.String("line", line))
-		if err != nil {
-			break
-		}
 		if strings.HasPrefix(line, "data:") {
 			data := strings.TrimSpace(line[5:])
 			callback(data)
 		}
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read streaming response: %w", err)
+		}
 	}
-	return nil
 }

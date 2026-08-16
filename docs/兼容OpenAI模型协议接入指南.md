@@ -1,5 +1,8 @@
 # 兼容OpenAI模型协议接入指南
 
+> [!NOTE]
+> 上游兼容程度和端点可能变化。请先核对供应商官方文档；simple-one-api 的当前配置字段见[配置参考](./configuration-reference.md)。
+
 ## 兼容OpenAI协议模型汇总
 目前兼容OpenAI协议的模型包括
 - Cloudflare_Workers_AI
@@ -202,4 +205,3 @@ Key管理：https://build.nvidia.com/explore/discover
     }
 }
 ```
-
