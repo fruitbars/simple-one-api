@@ -160,7 +160,7 @@ jobs:
 
       - name: Install Wails
         shell: bash
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@"${WAILS_VERSION}"
 
       - name: Build desktop application
         working-directory: cmd/desktop
