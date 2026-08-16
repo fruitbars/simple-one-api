@@ -1,5 +1,6 @@
 import {
   Activity,
+  Brain,
   ArrowDown,
   Check,
   ChevronDown,
@@ -68,6 +69,7 @@ export function App() {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>(initialConversation?.messages ?? []);
   const [draft, setDraft] = useState("");
+  const [thinking, setThinking] = useState(() => localStorage.getItem("simple-one-thinking") === "true");
   const [loadingModels, setLoadingModels] = useState(true);
   const [error, setError] = useState("");
   const [atChatBottom, setAtChatBottom] = useState(true);
@@ -239,6 +241,12 @@ export function App() {
         ),
       );
     };
+    const appendReasoningContent = (delta: string) => {
+      if (!delta) return;
+      setMessages((current) => current.map((message) =>
+        message.id === assistantID ? { ...message, reasoningContent: (message.reasoningContent ?? "") + delta } : message,
+      ));
+    };
     const pumpDisplayQueue = () => {
       displayTimer = null;
       if (!displayQueue) return;
@@ -285,6 +293,8 @@ export function App() {
           displayQueue += delta;
           scheduleDisplay();
         },
+        thinking,
+        onReasoningDelta: appendReasoningContent,
       });
       const durationMs = performance.now() - requestStartedAt;
       await drainDisplayQueue();
@@ -434,12 +444,18 @@ export function App() {
                   <div className="message-avatar">{message.role === "user" ? "你" : "S"}</div>
                   <div className="message-body">
                     <div className="message-label">{message.role === "user" ? "你" : model}</div>
+                    {message.role === "assistant" && message.reasoningContent && (
+                      <details className="reasoning-panel" open={message.status === "streaming"}>
+                        <summary><Brain size={14} />思考过程</summary>
+                        <div>{message.reasoningContent}</div>
+                      </details>
+                    )}
                     <div className={`message-content ${message.status === "error" ? "message-error" : ""}`}>
                       {message.content ? message.role === "assistant" ? (
                         <Suspense fallback={<span className="message-plain">{message.content}</span>}>
                           <MarkdownMessage content={message.content} />
                         </Suspense>
-                      ) : <span className="message-plain">{message.content}</span> : <span className="typing"><i /><i /><i /></span>}
+                      ) : <span className="message-plain">{message.content}</span> : !message.reasoningContent && <span className="typing"><i /><i /><i /></span>}
                     </div>
                     {message.role === "assistant" && message.metrics && (
                       <div className="message-metrics" aria-label="响应统计">
@@ -473,6 +489,14 @@ export function App() {
         )}
 
         <div className="composer-zone">
+          <div className="composer-options">
+            <button type="button" className={thinking ? "active" : ""} onClick={() => setThinking((current) => {
+              localStorage.setItem("simple-one-thinking", String(!current));
+              return !current;
+            })} aria-pressed={thinking} title="为支持的模型启用思考模式">
+              <Brain size={14} />思考
+            </button>
+          </div>
           <form className="composer" onSubmit={(event) => void submit(event)}>
             <textarea
               value={draft}

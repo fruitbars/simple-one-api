@@ -128,6 +128,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .message-content a { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 3px; }
 .message-content hr { margin: 20px 0; border: 0; border-top: 1px solid var(--border); }
 .message-error { color: var(--danger); }
+.reasoning-panel { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.reasoning-panel summary { width: fit-content; display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 650; }
+.reasoning-panel > div { max-height: 240px; overflow-y: auto; margin-top: 8px; padding: 10px 12px; border-left: 2px solid var(--border); white-space: pre-wrap; line-height: 1.65; }
 .message-metrics { display: flex; align-items: center; flex-wrap: wrap; gap: 0; margin-top: 10px; color: var(--muted); font-size: 10px; line-height: 1.4; }
 .message-metrics svg { margin-right: 7px; }
 .message-metrics span { display: inline-flex; align-items: center; white-space: nowrap; }
@@ -142,6 +145,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @keyframes pulse { 0%, 60%, 100% { opacity: 0.35; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
 
 .composer-zone { position: absolute; z-index: 10; left: 0; right: 0; bottom: 0; padding: 32px 24px 12px; background: linear-gradient(180deg, transparent, var(--bg) 32%); }
+.composer-options { width: min(820px, 100%); margin: 0 auto 6px; display: flex; }
+.composer-options button { height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 0 9px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
+.composer-options button:hover { background: var(--hover); color: var(--text); }
+.composer-options button.active { border-color: var(--border); background: var(--bg-raised); color: var(--accent-hover); }
 .composer { width: min(820px, 100%); margin: 0 auto; display: flex; align-items: flex-end; gap: 10px; padding: 10px 10px 10px 17px; border: 1px solid var(--border); border-radius: 18px; background: var(--bg-raised); box-shadow: 0 4px 18px rgba(20, 20, 18, 0.07); }
 .composer:focus-within { border-color: color-mix(in srgb, var(--border), var(--text) 28%); }
 .composer textarea { flex: 1; min-height: 28px; max-height: 180px; resize: none; border: 0; outline: 0; padding: 4px 0; background: transparent; color: var(--text); line-height: 1.5; }
@@ -261,6 +268,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .section-heading.with-action { align-items: center; }
 .form-grid { display: grid; gap: 17px 16px; }
 .form-grid.two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-grid.three-columns { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 17px; }
 .form-grid.four-columns { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .visual-field { min-width: 0; display: flex; flex-direction: column; gap: 7px; }
 .visual-field > span { font-size: 12px; font-weight: 700; }
@@ -395,6 +403,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .topbar { padding: 0 14px 0 54px; }
   .connection-state { font-size: 0; }
   .welcome { padding-bottom: 130px; }
+  .inline-error { align-items: flex-start; flex-direction: column; }
+  .inline-error-actions { width: 100%; justify-content: flex-end; }
+  .inline-error button { white-space: nowrap; }
   .prompt-grid { grid-template-columns: 1fr; }
   .prompt-grid button { min-height: 58px; }
   .message-list { width: calc(100% - 28px); }
@@ -414,7 +425,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .admin-metrics { grid-template-columns: 1fr; }
   .metric-card + .metric-card { border-top: 1px solid var(--border); border-left: 0; }
   .admin-grid { grid-template-columns: 1fr; }
-  .form-grid.two-columns, .form-grid.four-columns { grid-template-columns: 1fr; }
+  .form-grid.two-columns, .form-grid.three-columns, .form-grid.four-columns { grid-template-columns: 1fr; }
   .protocol-row { grid-template-columns: 22px minmax(0, 1fr) 32px; gap: 9px; }
   .protocol-row code { grid-column: 2; grid-row: 2; }
   .protocol-stream { grid-column: 2; grid-row: 3; }

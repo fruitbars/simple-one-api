@@ -24,7 +24,15 @@ describe("parseSSEBlock", () => {
     const result = parseSSEBlockDetailed('data: {"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":24,"total_tokens":36}}');
     expect(result).toEqual({
       content: [],
+      reasoning: [],
       usage: { prompt_tokens: 12, completion_tokens: 24, total_tokens: 36 },
     });
+  });
+
+  it("extracts streamed reasoning separately from answer content", () => {
+    const result = parseSSEBlockDetailed(
+      'data: {"choices":[{"delta":{"reasoning_content":"inspect","content":"answer"}}]}',
+    );
+    expect(result).toEqual({ content: ["answer"], reasoning: ["inspect"], usage: undefined });
   });
 });

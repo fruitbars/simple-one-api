@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/sashabaranov/go-openai"
@@ -38,6 +39,7 @@ type OAIRequestParam struct {
 	httpTransport     *http.Transport
 	ClientModel       string
 	RM                ReasoningMode
+	extraFields       map[string]json.RawMessage
 }
 
 // serviceHandlerMap maps service names to their corresponding handler functions
@@ -165,6 +167,7 @@ func OpenAIHandler(c *gin.Context) {
 func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 
 	clientModel := oaiReq.Model
+	extraFields := requestExtraFields(c)
 
 	//全局模型重定向名称
 	gRedirectModel := config.GetGlobalModelRedirect(clientModel)
@@ -231,6 +234,7 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 		modelDetails:      s,
 		creds:             creds,
 		ClientModel:       clientModel,
+		extraFields:       extraFields,
 	}
 
 	if limiter != nil {
@@ -315,14 +319,32 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 	oaiReq.Messages = mycommon.NormalizeMessages(oaiReq.Messages, keepAllSystem)
 
 	if err := dispatchToServiceHandler(c, oaiReqParam); err != nil {
+		config.RecordProviderResult(s.ServiceID, clientModel, false)
 		mylog.Logger.Error(err.Error())
 		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+	config.RecordProviderResult(s.ServiceID, clientModel, true)
 
 	if oaiReq.Stream {
 		utils.SendOpenAIStreamEOFData(c)
 	}
+}
+
+func requestExtraFields(c *gin.Context) map[string]json.RawMessage {
+	value, ok := c.Get("rawData")
+	if !ok {
+		return nil
+	}
+	body, ok := value.([]byte)
+	if !ok || len(body) == 0 {
+		return nil
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(body, &fields) != nil {
+		return nil
+	}
+	return fields
 }
 
 // dispatchToServiceHandler dispatches the request to the appropriate service handler based on the service name

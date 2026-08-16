@@ -44,6 +44,12 @@ export interface AppConfiguration extends ConfigurationDocument {
   log_level?: string;
   api_key?: string;
   load_balancing?: string;
+  circuit_breaker?: {
+    enabled?: boolean;
+    failure_threshold?: number;
+    recovery_timeout_seconds?: number;
+    half_open_max_requests?: number;
+  };
   enable_web?: boolean;
   services?: Record<string, ServiceConfiguration[]>;
   api_keys?: AccessKeyConfiguration[];

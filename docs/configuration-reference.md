@@ -10,6 +10,12 @@ JSON 和 YAML 都可以作为启动时的导入格式。启动后 SQLite 是运�
   "enable_web": true,
   "log_level": "info",
   "load_balancing": "random",
+  "circuit_breaker": {
+    "enabled": true,
+    "failure_threshold": 5,
+    "recovery_timeout_seconds": 30,
+    "half_open_max_requests": 1
+  },
   "services": {}
 }
 ```
@@ -27,6 +33,7 @@ JSON 和 YAML 都可以作为启动时的导入格式。启动后 SQLite 是运�
 | `debug` | boolean | 调试模式，变更需要重启。 |
 | `log_level` | string | `debug`、`info`、`warn`、`error`、`prodj` 等兼容值，变更需要重启。 |
 | `load_balancing` | string | `random`、`first`、`round_robin`、`hash`。 |
+| `circuit_breaker` | object | Provider/模型粒度的熔断与自动恢复；默认连续失败 5 次后暂停 30 秒，并放行 1 个半开探测请求。 |
 | `services` | object | Provider 配置，键名是支持的服务类型。 |
 | `proxy` | object | 全局 HTTP/HTTPS/SOCKS5 代理。 |
 | `multi_content_models` | string[] | 允许多模态内容的模型匹配列表。 |
@@ -51,6 +58,10 @@ Coze（含 v2/v3）和百度 AgentBuilder 已停止支持；包含这些旧 Prov
 - Anthropic Messages：`POST /v1/messages`，可供 Claude Code 使用
 
 Responses 与 Messages 入口支持文本、图片、函数工具定义、工具调用和工具结果。流式请求会实时消费上游 Chat Completions SSE，并转换为对应协议事件；客户端断开会取消上游请求。不支持的有状态会话续接或内容类型会返回明确的协议错误，不会静默忽略。
+
+Chat Completions 会将 SDK 未建模的顶层 JSON 字段原样透传给 OpenAI 兼容上游，例如 DashScope/Qwen 的 `enable_thinking`。网关规范化后的 `model`、`messages` 和流式选项优先，客户端不能借此绕过模型路由。内置 Chat 的“思考”开关会同时发送 `reasoning_effort`、`enable_thinking` 和 `chat_template_kwargs.enable_thinking`；上游返回的 `reasoning_content` 或 `reasoning` 会与正文分离并实时展示。
+
+熔断状态以 Provider 稳定 `id` 和客户端模型为粒度。达到 `failure_threshold` 后，该组合在 `recovery_timeout_seconds` 内不会参与负载均衡；等待结束后最多放行 `half_open_max_requests` 个并发探测，任一成功会关闭熔断，失败则重新开始恢复计时。设置 `circuit_breaker.enabled` 为 `false` 可以关闭此行为。
 
 所有 `/v1/*` POST 请求的请求体上限为 8 MiB。网关主密钥支持 `Authorization: Bearer <key>`；Anthropic 客户端也可以使用 `x-api-key: <key>`。
 

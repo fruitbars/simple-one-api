@@ -2,15 +2,15 @@ import type { ChatMessage, ModelsResponse } from "../types";
 
 interface ChatChunk {
   choices?: Array<{
-    delta?: { content?: string };
-    message?: { content?: string };
+    delta?: { content?: string; reasoning?: string; reasoning_content?: string };
+    message?: { content?: string; reasoning?: string; reasoning_content?: string };
   }>;
   usage?: TokenUsage;
 }
 
 interface ChatResponse {
   choices?: Array<{
-    message?: { content?: string };
+    message?: { content?: string; reasoning?: string; reasoning_content?: string };
   }>;
   usage?: TokenUsage;
 }
@@ -27,6 +27,8 @@ interface StreamChatOptions {
   apiKey: string;
   signal: AbortSignal;
   onDelta: (content: string) => void;
+  onReasoningDelta?: (content: string) => void;
+  thinking?: boolean;
 }
 
 function headers(apiKey: string): HeadersInit {
@@ -52,8 +54,9 @@ export function parseSSEBlock(block: string): string[] {
   return parseSSEBlockDetailed(block).content;
 }
 
-export function parseSSEBlockDetailed(block: string): { content: string[]; usage?: TokenUsage } {
+export function parseSSEBlockDetailed(block: string): { content: string[]; reasoning: string[]; usage?: TokenUsage } {
   const result: string[] = [];
+  const reasoning: string[] = [];
   let usage: TokenUsage | undefined;
   for (const line of block.split(/\r?\n/)) {
     if (!line.startsWith("data:")) continue;
@@ -63,9 +66,12 @@ export function parseSSEBlockDetailed(block: string): { content: string[]; usage
     if (parsed.usage) usage = parsed.usage;
     const choice = parsed.choices?.[0];
     const content = choice?.delta?.content ?? choice?.message?.content;
+    const thought = choice?.delta?.reasoning_content ?? choice?.delta?.reasoning
+      ?? choice?.message?.reasoning_content ?? choice?.message?.reasoning;
     if (content) result.push(content);
+    if (thought) reasoning.push(thought);
   }
-  return { content: result, usage };
+  return { content: result, reasoning, usage };
 }
 
 export function isDesktopAssetProtocol(protocol = window.location.protocol): boolean {
@@ -81,6 +87,7 @@ async function bufferedChat(options: StreamChatOptions): Promise<TokenUsage | un
       model: options.model,
       stream: false,
       messages: options.messages.map(({ role, content }) => ({ role, content })),
+      ...(options.thinking ? { reasoning_effort: "medium", enable_thinking: true, chat_template_kwargs: { enable_thinking: true } } : {}),
     }),
   });
   if (!response.ok) {
@@ -89,6 +96,8 @@ async function bufferedChat(options: StreamChatOptions): Promise<TokenUsage | un
   }
   const payload = (await response.json()) as ChatResponse;
   const content = payload.choices?.[0]?.message?.content;
+  const reasoning = payload.choices?.[0]?.message?.reasoning_content ?? payload.choices?.[0]?.message?.reasoning;
+  if (reasoning) options.onReasoningDelta?.(reasoning);
   if (!content) throw new Error("模型返回了空响应");
   options.onDelta(content);
   return payload.usage;
@@ -107,6 +116,7 @@ export async function streamChat(options: StreamChatOptions): Promise<TokenUsage
       stream: true,
       stream_options: { include_usage: true },
       messages: options.messages.map(({ role, content }) => ({ role, content })),
+      ...(options.thinking ? { reasoning_effort: "medium", enable_thinking: true, chat_template_kwargs: { enable_thinking: true } } : {}),
     }),
   });
 
@@ -131,6 +141,7 @@ export async function streamChat(options: StreamChatOptions): Promise<TokenUsage
     for (const block of blocks) {
       const parsed = parseSSEBlockDetailed(block);
       for (const content of parsed.content) options.onDelta(content);
+      for (const thought of parsed.reasoning) options.onReasoningDelta?.(thought);
       if (parsed.usage) usage = parsed.usage;
     }
     if (done) break;
@@ -139,6 +150,7 @@ export async function streamChat(options: StreamChatOptions): Promise<TokenUsage
   if (buffer.trim()) {
     const parsed = parseSSEBlockDetailed(buffer);
     for (const content of parsed.content) options.onDelta(content);
+    for (const thought of parsed.reasoning) options.onReasoningDelta?.(thought);
     if (parsed.usage) usage = parsed.usage;
   }
   return usage;

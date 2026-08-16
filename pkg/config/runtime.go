@@ -126,6 +126,9 @@ func validateNormalizedConfiguration(conf Configuration) []ValidationIssue {
 	if conf.Translation.Retry < 0 || conf.Translation.Concurrency < 0 {
 		issues = append(issues, ValidationIssue{Path: "translation", Message: "retry and concurrency must not be negative"})
 	}
+	if conf.CircuitBreaker.FailureThreshold < 0 || conf.CircuitBreaker.RecoveryTimeoutSeconds < 0 || conf.CircuitBreaker.HalfOpenMaxRequests < 0 {
+		issues = append(issues, ValidationIssue{Path: "circuit_breaker", Message: "thresholds and timeouts must not be negative"})
+	}
 	seenServiceIDs := make(map[string]struct{})
 	for serviceName, models := range conf.Services {
 		if _, supported := SupportedServiceTypes[serviceName]; !supported {
@@ -208,6 +211,15 @@ func PrepareConfiguration(conf Configuration, configPath string) (*PreparedConfi
 
 func normalizeConfiguration(immutable *Configuration) {
 	immutable.LoadBalancing = strings.ToLower(strings.TrimSpace(immutable.LoadBalancing))
+	if immutable.CircuitBreaker.FailureThreshold == 0 {
+		immutable.CircuitBreaker.FailureThreshold = 5
+	}
+	if immutable.CircuitBreaker.RecoveryTimeoutSeconds == 0 {
+		immutable.CircuitBreaker.RecoveryTimeoutSeconds = 30
+	}
+	if immutable.CircuitBreaker.HalfOpenMaxRequests == 0 {
+		immutable.CircuitBreaker.HalfOpenMaxRequests = 1
+	}
 	if immutable.LoadBalancing == "" {
 		immutable.LoadBalancing = "random"
 	}

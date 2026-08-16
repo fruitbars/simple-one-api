@@ -618,9 +618,15 @@ function SystemForm({ configuration, onChange }: { configuration: AppConfigurati
         </div>
       </section>
       <div className="toggle-list">
+        <Toggle label="Provider 熔断与自动恢复" description="连续失败后暂停该 Provider 的当前模型，到期后自动进行半开探测。" checked={configuration.circuit_breaker?.enabled ?? true} onChange={(value) => update({ circuit_breaker: { ...configuration.circuit_breaker, enabled: value } })} />
         <Toggle label="启用 Web 与后台" description="关闭后需要重启，浏览器界面将不再提供。" checked={configuration.enable_web ?? false} onChange={(value) => update({ enable_web: value })} />
         <Toggle label="调试模式" description="输出更多诊断信息；生产环境不建议开启。" checked={configuration.debug ?? false} onChange={(value) => update({ debug: value })} />
       </div>
+      {(configuration.circuit_breaker?.enabled ?? true) && <div className="form-grid three-columns">
+        <Field label="失败阈值" hint="连续失败多少次后熔断"><input type="number" min="1" value={configuration.circuit_breaker?.failure_threshold ?? 5} onChange={(event) => update({ circuit_breaker: { ...configuration.circuit_breaker, failure_threshold: Number(event.target.value) } })} /></Field>
+        <Field label="恢复等待（秒）" hint="到期后允许半开探测"><input type="number" min="1" value={configuration.circuit_breaker?.recovery_timeout_seconds ?? 30} onChange={(event) => update({ circuit_breaker: { ...configuration.circuit_breaker, recovery_timeout_seconds: Number(event.target.value) } })} /></Field>
+        <Field label="半开探测数" hint="恢复期间允许的并发探测"><input type="number" min="1" value={configuration.circuit_breaker?.half_open_max_requests ?? 1} onChange={(event) => update({ circuit_breaker: { ...configuration.circuit_breaker, half_open_max_requests: Number(event.target.value) } })} /></Field>
+      </div>}
     </div>
   );
 }

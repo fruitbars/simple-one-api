@@ -100,6 +100,13 @@ type APIKeyConfig struct {
 	Extensions      map[string]interface{} `json:"-" yaml:",inline"`
 }
 
+type CircuitBreakerConf struct {
+	Enabled                *bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	FailureThreshold       int   `json:"failure_threshold" yaml:"failure_threshold"`
+	RecoveryTimeoutSeconds int   `json:"recovery_timeout_seconds" yaml:"recovery_timeout_seconds"`
+	HalfOpenMaxRequests    int   `json:"half_open_max_requests" yaml:"half_open_max_requests"`
+}
+
 type Configuration struct {
 	ServerPort         string                    `json:"server_port" yaml:"server_port"`
 	Debug              bool                      `json:"debug" yaml:"debug"`
@@ -107,6 +114,7 @@ type Configuration struct {
 	Proxy              ProxyConf                 `json:"proxy" yaml:"proxy"`
 	APIKey             string                    `json:"api_key" yaml:"api_key"`
 	LoadBalancing      string                    `json:"load_balancing" yaml:"load_balancing"`
+	CircuitBreaker     CircuitBreakerConf        `json:"circuit_breaker" yaml:"circuit_breaker"`
 	MultiContentModels []string                  `json:"multi_content_models" yaml:"multi_content_models"`
 	ModelRedirect      map[string]string         `json:"model_redirect" yaml:"model_redirect"`
 	ParamsRange        map[string]ModelParams    `json:"params_range" yaml:"params_range"`
@@ -299,18 +307,24 @@ func GetModelService(modelName string) (*ModelDetails, error) {
 	if serviceDetails, found := snapshot.modelToService[modelName]; found {
 		var enabledServices []ModelDetails
 		for _, sd := range serviceDetails {
-			if sd.Enabled {
+			if sd.Enabled && CircuitBreakerAvailable(sd.ServiceID, modelName) {
 				enabledServices = append(enabledServices, sd)
 			}
 		}
 
 		if len(enabledServices) == 0 {
-			return nil, fmt.Errorf("no enabled model %s found in the configuration", modelName)
+			return nil, fmt.Errorf("no healthy provider is available for model %s", modelName)
 		}
 
-		index := GetLBIndex(snapshot.loadBalancing, modelName, len(enabledServices))
-
-		return &enabledServices[index], nil
+		for len(enabledServices) > 0 {
+			index := GetLBIndex(snapshot.loadBalancing, modelName, len(enabledServices))
+			selected := enabledServices[index]
+			if CircuitBreakerAllow(selected.ServiceID, modelName) {
+				return &selected, nil
+			}
+			enabledServices = append(enabledServices[:index], enabledServices[index+1:]...)
+		}
+		return nil, fmt.Errorf("no healthy provider is available for model %s", modelName)
 	}
 	return nil, fmt.Errorf("model %s not found in the configuration", modelName)
 }

@@ -300,7 +300,8 @@ func OpenAI2OpenAIHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	}
 
 	scTransport := &utils.SimpleCustomTransport{
-		Transport: defaultTransport,
+		Transport:       defaultTransport,
+		ExtraJSONFields: oaiReqParam.extraFields,
 	}
 	conf.HTTPClient = &http.Client{
 		Transport: scTransport,

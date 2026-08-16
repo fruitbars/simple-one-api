@@ -71,6 +71,7 @@ type PublicConfig struct {
 	Debug              bool                            `json:"debug"`
 	LogLevel           string                          `json:"log_level"`
 	LoadBalancing      string                          `json:"load_balancing"`
+	CircuitBreaker     config.CircuitBreakerConf       `json:"circuit_breaker"`
 	EnableWeb          bool                            `json:"enable_web"`
 	Proxy              PublicProxyConfig               `json:"proxy"`
 	Translation        PublicTranslation               `json:"translation"`
@@ -117,12 +118,13 @@ func AdminStatusHandler(c *gin.Context) {
 func AdminConfigHandler(c *gin.Context) {
 	conf := config.CurrentConfiguration()
 	pub := PublicConfig{
-		ServerPort:    conf.ServerPort,
-		Debug:         conf.Debug,
-		LogLevel:      conf.LogLevel,
-		LoadBalancing: conf.LoadBalancing,
-		EnableWeb:     conf.EnableWeb,
-		Proxy:         publicProxyConfig(conf.Proxy),
+		ServerPort:     conf.ServerPort,
+		Debug:          conf.Debug,
+		LogLevel:       conf.LogLevel,
+		LoadBalancing:  conf.LoadBalancing,
+		CircuitBreaker: conf.CircuitBreaker,
+		EnableWeb:      conf.EnableWeb,
+		Proxy:          publicProxyConfig(conf.Proxy),
 		Translation: PublicTranslation{
 			Enable: conf.Translation.Enable, PromptTemplate: conf.Translation.PromptTemplate,
 			Retry: conf.Translation.Retry, Concurrency: conf.Translation.Concurrency,

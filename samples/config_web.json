@@ -2,5 +2,11 @@
   "server_port": ":19090",
   "log_level": "info",
   "enable_web": true,
+  "circuit_breaker": {
+    "enabled": true,
+    "failure_threshold": 5,
+    "recovery_timeout_seconds": 30,
+    "half_open_max_requests": 1
+  },
   "services": {}
 }

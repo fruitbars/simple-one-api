@@ -4,6 +4,7 @@ export interface ChatMessage {
   id: string;
   role: Role;
   content: string;
+  reasoningContent?: string;
   status?: "streaming" | "complete" | "error";
   metrics?: {
     promptTokens?: number;
