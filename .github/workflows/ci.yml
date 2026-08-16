@@ -72,7 +72,7 @@ jobs:
         run: make build-linux-amd64
 
       - name: Validate Docker image
-        run: docker build --build-arg ARCH=amd64 --tag simple-one-api:ci .
+        run: docker build --platform linux/amd64 --build-arg TARGETARCH=amd64 --tag simple-one-api:ci .
 
       - name: Check patch formatting
         run: git diff --check

@@ -52,6 +52,9 @@ func NewRouterWithOptions(options Options) *gin.Engine {
 }
 
 func registerAPI(router *gin.Engine, options Options) {
+	router.GET("/healthz", func(context *gin.Context) {
+		context.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 	router.GET("/v1/models", requireAPIAccess(), apis.ModelsHandler)
 	router.GET("/v1/models/:model", requireAPIAccess(), apis.RetrieveModelHandler)
 	router.POST("/v2/translate", requireAPIAccess(), translation.TranslateV2Handler)

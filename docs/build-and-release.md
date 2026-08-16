@@ -79,7 +79,7 @@ wails build -clean
 ```bash
 make web
 make build-linux-amd64
-docker build --tag fruitbars/simple-one-api:local .
+docker build --platform linux/amd64 --build-arg TARGETARCH=amd64 --tag fruitbars/simple-one-api:local .
 ```
 
 或直接使用脚本。脚本会先刷新 Web、构建 Linux 服务端，再构建镜像；它不会自动推送：
@@ -100,6 +100,17 @@ IMAGE_NAME=registry.example.com/team/simple-one-api ./build_docker.sh v1.0.0
 ARCH=arm64 ./build_docker.sh v1.0.0
 ```
 
+正式版本由 Release workflow 自动发布到 GHCR：
+
+```bash
+docker pull ghcr.io/fruitbars/simple-one-api:latest
+docker pull ghcr.io/fruitbars/simple-one-api:v1.0.0
+```
+
+每个版本是同时包含 `linux/amd64` 和 `linux/arm64` 的多架构 manifest，并附带 provenance 与 SBOM。发布标签包括原始 Git Tag（如 `v1.2.3`）、语义化标签（`1.2.3`、`1.2`、`1`）；稳定版本还会更新 `latest`，带连字符的预发布版本不会覆盖 `latest`。
+
+镜像以非 root 用户 `app` 运行，并通过 `GET /healthz` 执行内置健康检查。该端点不依赖 Web 开关、Provider 配置或 API Key。
+
 ## 运行前检查
 
 ```bash
@@ -111,7 +122,7 @@ ARCH=arm64 ./build_docker.sh v1.0.0
 ## GitHub Actions
 
 - [CI workflow](../.github/workflows/ci.yml)：`main` push、Pull Request 和手工触发时运行 Web typecheck/test/build、Go test/bindings/vet、单文件服务端构建、Docker 镜像验证和 macOS Wails 构建。
-- [Release workflow](../.github/workflows/release.yml)：推送 `v*` 标签时先运行 Web typecheck/test/build、Go test/bindings/vet 和格式门禁，再构建服务端多平台压缩包，以及 Linux x64、Windows x64、macOS Intel/Apple Silicon 桌面包；全部成功后自动创建 GitHub Release 和 `SHA256SUMS`。
+- [Release workflow](../.github/workflows/release.yml)：推送 `v*` 标签时先运行 Web typecheck/test/build、Go test/bindings/vet 和格式门禁，再构建服务端多平台压缩包、Linux x64、Windows x64、macOS Intel/Apple Silicon 桌面包，以及 amd64/arm64 GHCR 镜像；全部成功后自动创建 GitHub Release 和 `SHA256SUMS`。
 
 发布示例：
 
@@ -122,4 +133,4 @@ git push origin v1.0.0
 
 推荐先把发布提交推送到 `main` 并等待 CI 全绿，再在同一提交上创建标签。发布工作区必须干净，`docs/CHANGELOG.md` 的版本与标签应保持一致。
 
-Release workflow 只使用仓库自带的 `GITHUB_TOKEN` 创建 Release，不需要 Docker Hub 或其他第三方发布密钥，也不会自动推送容器镜像。
+Release workflow 使用仓库自带的 `GITHUB_TOKEN` 创建 Release 并推送 GHCR，不需要 Docker Hub 或第三方发布密钥。首次发布后，在仓库 Packages 页面打开 `simple-one-api`，将 Package visibility 设置为 Public；后续版本不需要重复设置。Docker Hub 镜像仍由维护者按需手工发布，不属于自动发布链路。

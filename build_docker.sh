@@ -26,7 +26,7 @@ esac
 make -C "$SCRIPT_DIR" web "build-linux-$TARGET_ARCH"
 
 # 构建镜像
-docker build --build-arg "ARCH=$TARGET_ARCH" --tag "$IMAGE_NAME:$TAG" "$SCRIPT_DIR"
+docker build --platform "linux/$TARGET_ARCH" --build-arg "TARGETARCH=$TARGET_ARCH" --tag "$IMAGE_NAME:$TAG" "$SCRIPT_DIR"
 
 # 打印完成信息
 echo "Docker image $IMAGE_NAME:$TAG built"

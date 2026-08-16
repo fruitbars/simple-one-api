@@ -1,6 +1,12 @@
 # simple-one-api更新日志
 
-## v1.0.0 - 2026-08-17
+## Unreleased
+
+1. Release workflow 同步发布 `linux/amd64`、`linux/arm64` 多架构 GHCR 镜像，包含语义化标签、provenance 和 SBOM。
+2. Docker 镜像增加非 root 运行、`/healthz` 健康检查，并统一 Compose、本地构建脚本和跨架构参数。
+3. 更新中英文 README 和构建发布文档，增加 GitHub Release/GHCR 入口并移除失效的外部统计图。
+
+## v0.10.1 - 2026-08-17
 
 1. 增加内嵌 React Web 聊天界面和 Wails v2 桌面端，共用同一套 API 与资源。
 2. 增加 SQLite 配置版本库、发布、激活、回滚、文件配置导入和运行时原子快照。
@@ -15,6 +21,7 @@
 11. 增加可开关的后台实时日志，支持级别筛选、自动跟随、敏感信息脱敏和固定容量环形缓冲。
 12. 改进桌面聊天体验：Markdown 渲染、打字机增量、Token 用量与速度、输出自动滚动、本地对话历史，以及更清晰的 Provider 配置流程。
 13. 下线 Coze v2/v3 与 Baidu AgentBuilder 等失效旧接入，增加请求体限制、取消传播、协议错误映射和并发安全测试。
+14. 增加 Provider/模型粒度熔断、半开自动恢复、未知请求字段透传，以及聊天窗口思考开关和流式思考展示。
 
 ## v0.3 - 2024-06-04
 1. 程序调整默认gin为release模型

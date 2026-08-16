@@ -188,9 +188,69 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  container:
+    name: Publish multi-architecture container
+    needs: [verify, server]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download server archives
+        uses: actions/download-artifact@v4
+        with:
+          name: server-archives
+          path: server-archives
+
+      - name: Prepare Linux binaries
+        run: |
+          mkdir -p build/linux-amd64 build/linux-arm64
+          tar -xzf server-archives/simple-one-api-linux-amd64.tar.gz -C build/linux-amd64
+          tar -xzf server-archives/simple-one-api-linux-arm64.tar.gz -C build/linux-arm64
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate container metadata
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+
+      - name: Build and publish container image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+
   publish:
     name: Publish GitHub Release
-    needs: [server, desktop]
+    needs: [server, desktop, container]
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -18,6 +18,8 @@
 - SQLite 配置仓库：首次导入 JSON/YAML、校验、保存和运行时原子生效。
 - Wails v2 桌面应用；桌面端与 Web 共用界面和 Go 路由，不额外开放 HTTP 端口。
 - 全局/Provider 代理、限流、模型别名、翻译和多模态路由。
+- Provider/模型粒度的熔断与半开恢复、供应商扩展参数透传，以及思考过程流式展示。
+- GitHub Release 自动生成服务端与桌面端产物，并同步发布 amd64/arm64 GHCR 镜像。
 
 支持的 Provider 类型、字段和样例以[配置参考](docs/configuration-reference.md)为准。供应商接入指南仍保留在 [`docs/`](docs/README.md)，其中的额度和模型示例可能过时，使用前请核对官方文档。
 
@@ -58,14 +60,16 @@
 ### Docker
 
 ```sh
+docker pull ghcr.io/fruitbars/simple-one-api:latest
+
 docker run -d --name simple-one-api -p 9090:9090 \
   -v /absolute/path/config.json:/app/config.json:ro \
   -v /absolute/path/data:/app/data \
   -e SIMPLE_ONE_API_DB=/app/data/config.db \
-  fruitbars/simple-one-api
+  ghcr.io/fruitbars/simple-one-api:latest
 ```
 
-仓库内的 `docker-compose.yml` 可直接作为模板；请替换配置文件和数据目录的绝对路径。配置文件只读挂载时，必须把 SQLite 指向可写目录。
+正式环境建议将 `latest` 替换为固定版本，例如 `v0.10.1`。镜像同时支持 `linux/amd64` 和 `linux/arm64`，内置 `/healthz` 健康检查。仓库内的 `docker-compose.yml` 默认挂载当前目录的 `config.json` 和 `data/`；配置文件只读挂载时，SQLite 必须指向可写数据目录。
 
 其他部署方式：[systemd](docs/startup/systemd_startup.md) · [nohup](docs/startup/nohup_startup.md)。
 
@@ -142,10 +146,12 @@ OpenAI 兼容 SDK 可将 `base_url` 指向 `http://host:9090/v1`。Codex 使用 
 
 Provider 的申请/接入文档是历史辅助材料；模型、额度、URL 和认证方式可能变化，请以官方文档为准。
 
+## 发布产物
+
+- [GitHub Releases](https://github.com/fruitbars/simple-one-api/releases)：服务端多平台归档、桌面端包和 `SHA256SUMS`。
+- [GHCR 镜像](https://github.com/fruitbars/simple-one-api/pkgs/container/simple-one-api)：`linux/amd64`、`linux/arm64` 多架构镜像。
+- 推送 `v*` Tag 后，两类产物由同一个 Release workflow 构建；只有所有平台和容器镜像都成功后才创建 GitHub Release。
+
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request。提交前请运行 `go test ./...`、`go vet ./...`，以及 `cd web && pnpm typecheck && pnpm test && pnpm build`。
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=fruitbars/simple-one-api&type=Date)](https://star-history.com/#fruitbars/simple-one-api&Date)

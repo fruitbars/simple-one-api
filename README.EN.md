@@ -18,6 +18,8 @@ This project does not track provider billing or quotas. Model names, prices, fre
 - SQLite configuration repository with JSON/YAML import, validation, save, and atomic runtime activation.
 - Wails v2 desktop app sharing the same UI and Go routes without opening a local HTTP port.
 - Global and per-provider proxies, rate limits, model aliases, translation, and multimodal routing.
+- Provider/model circuit breaking with half-open recovery, passthrough vendor parameters, and streamed reasoning display.
+- GitHub Release automation for server and desktop artifacts plus amd64/arm64 images published to GHCR.
 
 See the [configuration reference](docs/configuration-reference.md) for the authoritative provider list, fields, and samples. Historical provider guides remain under [`docs/`](docs/README.md); quota and model examples may be outdated, so verify them with the provider.
 
@@ -58,14 +60,16 @@ See the [configuration reference](docs/configuration-reference.md) for the compl
 ### Docker
 
 ```sh
+docker pull ghcr.io/fruitbars/simple-one-api:latest
+
 docker run -d --name simple-one-api -p 9090:9090 \
   -v /absolute/path/config.json:/app/config.json:ro \
   -v /absolute/path/data:/app/data \
   -e SIMPLE_ONE_API_DB=/app/data/config.db \
-  fruitbars/simple-one-api
+  ghcr.io/fruitbars/simple-one-api:latest
 ```
 
-Use `docker-compose.yml` as a template and replace the configuration and data paths. If the configuration is mounted read-only, the SQLite database must point to a writable directory.
+For production, replace `latest` with a fixed version such as `v0.10.1`. The image supports both `linux/amd64` and `linux/arm64` and includes a `/healthz` health check. The bundled `docker-compose.yml` mounts `config.json` and `data/` from the current directory. If configuration is read-only, SQLite must point to the writable data directory.
 
 Other deployment options: [systemd](docs/startup/systemd_startup.md) · [nohup](docs/startup/nohup_startup.md).
 
@@ -142,10 +146,12 @@ OpenAI-compatible SDKs can set `base_url` to `http://host:9090/v1`. Codex uses t
 
 Provider setup guides are retained as historical aids. Models, quotas, URLs, and authentication methods may change; prefer official provider documentation.
 
+## Release artifacts
+
+- [GitHub Releases](https://github.com/fruitbars/simple-one-api/releases) provides multi-platform server archives, desktop packages, and `SHA256SUMS`.
+- [GHCR](https://github.com/fruitbars/simple-one-api/pkgs/container/simple-one-api) provides multi-architecture `linux/amd64` and `linux/arm64` images.
+- A `v*` tag builds both channels in one workflow. The GitHub Release is created only after every platform and the container image succeed.
+
 ## Contributing
 
 Issues and pull requests are welcome. Before submitting, run `go test ./...`, `go vet ./...`, and `cd web && pnpm typecheck && pnpm test && pnpm build`.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=fruitbars/simple-one-api&type=Date)](https://star-history.com/#fruitbars/simple-one-api&Date)

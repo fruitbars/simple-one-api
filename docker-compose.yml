@@ -1,12 +1,12 @@
 services:
   simple-one-api:
-    image: fruitbars/simple-one-api
+    image: ghcr.io/fruitbars/simple-one-api:latest
     container_name: simple-one-api
     ports:
       - "9090:9090"
     volumes:
-      - /path/to/config.json:/app/config.json:ro
-      - /path/to/data:/app/data
+      - ./config.json:/app/config.json:ro
+      - ./data:/app/data
     environment:
       SIMPLE_ONE_API_DB: /app/data/config.db
     restart: unless-stopped

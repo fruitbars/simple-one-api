@@ -1,18 +1,16 @@
-# 使用一个轻量级的基础镜像
 FROM alpine:3.22
 
-# 设置工作目录
 WORKDIR /app
 
-# 通过构建参数选择架构
-ARG ARCH=amd64
+ARG TARGETARCH=amd64
 RUN addgroup -S app && adduser -S -G app app && chown app:app /app
-COPY --chown=app:app build/linux-${ARCH}/simple-one-api /app/simple-one-api
+COPY --chown=app:app build/linux-${TARGETARCH}/simple-one-api /app/simple-one-api
 
-# 暴露应用运行的端口（假设为9090）
 EXPOSE 9090
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:9090/healthz || exit 1
 
 USER app
 
-# 运行可执行文件
 CMD ["./simple-one-api"]

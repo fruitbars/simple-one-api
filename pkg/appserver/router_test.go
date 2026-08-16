@@ -43,6 +43,19 @@ func TestWebCanBeDisabled(t *testing.T) {
 	}
 }
 
+func TestHealthEndpointDoesNotDependOnWebOrModels(t *testing.T) {
+	router := NewRouterWithOptions(Options{EnableWeb: false})
+	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("health endpoint returned %d: %s", response.Code, response.Body.String())
+	}
+	if response.Body.String() != `{"status":"ok"}` {
+		t.Fatalf("unexpected health response: %s", response.Body.String())
+	}
+}
+
 func TestWildcardCORSDoesNotAllowCredentials(t *testing.T) {
 	router := NewRouterWithOptions(Options{})
 	request := httptest.NewRequest(http.MethodOptions, "/v1/models", nil)
