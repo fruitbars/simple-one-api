@@ -6,13 +6,19 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
 // GenerateEmbedding 生成文本的嵌入向量
-func OpenAIEmbedding(embReq *EmbeddingRequest, apiKey string, proxyTransport *http.Transport) (*EmbeddingResponse, error) {
+func OpenAIEmbedding(embReq *EmbeddingRequest, apiKey string, serverURL string, proxyTransport *http.Transport) (*EmbeddingResponse, error) {
 
-	url := "https://api.openai.com/v1/embeddings"
+	url := serverURL
+	if url == "" {
+		url = "https://api.openai.com/v1/embeddings"
+	} else {
+		url = strings.TrimRight(url, "/") + "/embeddings"
+	}
 	requestBody, err := json.Marshal(embReq)
 	if err != nil {
 		return nil, fmt.Errorf("JSON 编码错误: %v", err)

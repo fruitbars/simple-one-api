@@ -75,7 +75,7 @@ func EmbeddingsHandler(c *gin.Context) {
 	case "qianfan":
 		oaiResp, err = baiduqianfan.BaiduQianfanEmbedding(&oaiEmbReq, apiKey, secretKey, proxyTransport)
 	case "openai":
-		oaiResp, err = oai.OpenAIEmbedding(&oaiEmbReq, apiKey, proxyTransport)
+		oaiResp, err = oai.OpenAIEmbedding(&oaiEmbReq, apiKey, s.ServerURL, proxyTransport)
 	default:
 		mylog.Logger.Error("Unsupported service", zap.String("service", s.ServiceName))
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Unsupported service"})
