@@ -1,66 +1,68 @@
-# v1 Upgrade Architecture
+# 架构与交付状态
 
-## Accepted decisions
+本文记录 `v0.10.x` 已采用的架构决策和仍未交付的边界，不是版本路线承诺。
 
-1. The server remains easy to self-host and embeds the production Web bundle into the Go executable.
-2. Wails is the desktop shell and consumes the same React application as the Web server.
-3. Gateway, control-plane, chat, and provider concerns become explicit Go package boundaries, but may ship in one process.
-4. Existing JSON/YAML configuration remains supported for import/export and migration.
-5. Runtime configuration uses immutable, versioned snapshots with atomic publication.
-6. SQLite is the default durable store; storage interfaces must not prevent a later PostgreSQL implementation.
-7. Provider secrets are masked at API boundaries and redacted from normal admin responses. SQLite at-rest encryption is not implemented yet; the database currently relies on `0600` file permissions. Server master-key encryption and desktop OS keychain integration remain future work.
-8. Current single-operator deployments use the primary gateway `api_key` to gate `/api/admin/*`. If `api_key` is empty, loopback requests can initialize directly and remote requests require a temporary bootstrap token from startup logs or `SIMPLE_ONE_API_BOOTSTRAP_TOKEN`. Separate admin sessions, CSRF protection, RBAC, and audit events remain future hardening.
-9. Client compatibility includes OpenAI Chat Completions, OpenAI Responses, and Anthropic Messages. All three reuse the same provider routing, authentication, limits, proxy policy, cancellation, and error boundary.
+## 已采用的决策
 
-## Delivery slices
+1. 服务端保持易于自托管，生产 Web 资源嵌入 Go 可执行文件。
+2. Wails 作为桌面外壳，与 Web 服务端复用同一个 React 应用。
+3. 网关、控制面、聊天和 Provider 采用明确的 Go 包边界，但仍可在单进程中交付。
+4. 现有 JSON/YAML 配置继续用于导入、导出和迁移。
+5. 运行时配置使用不可变的版本快照，并通过原子操作发布。
+6. SQLite 是默认持久化存储；存储接口保留未来接入 PostgreSQL 的可能性。
+7. Provider 密钥在 API 边界进行掩码，并从常规后台响应中脱敏。SQLite 尚未实现静态加密，目前依赖 `0600` 文件权限；服务端主密钥加密和桌面系统钥匙串仍是后续工作。
+8. 当前单管理员部署使用网关主 `api_key` 保护 `/api/admin/*`。未设置 `api_key` 时，本机回环请求可直接初始化，远程请求需要启动日志中的临时 token 或 `SIMPLE_ONE_API_BOOTSTRAP_TOKEN`。独立管理员会话、CSRF 防护、RBAC 和审计事件仍待加强。
+9. 客户端兼容 OpenAI Chat Completions、OpenAI Responses 和 Anthropic Messages；三种协议复用 Provider 路由、鉴权、限流、代理、取消传播和错误边界。
 
-### Slice 1: safe executable foundation
+## 交付分层
 
-Status: delivered.
+### 第一阶段：可独立运行的安全基础
 
-- Extract router construction from `main.go` so it can be tested.
-- Embed the shared Web production bundle with `go:embed`.
-- Replace the legacy runtime `./static` dependency.
-- Establish React chat shell, streaming client, responsive layout, and design tokens.
-- Remove high-risk secret logging and unsafe WebSocket/browser defaults.
-- Add CI-ready Go and frontend tests.
+状态：已交付。
 
-### Slice 2: versioned configuration and admin API
+- 从 `main.go` 提取可测试的路由构造。
+- 使用 `go:embed` 嵌入共享 Web 生产资源。
+- 移除运行时对旧 `./static` 目录的依赖。
+- 建立 React 聊天界面、流式客户端、响应式布局和设计变量。
+- 移除高风险密钥日志与不安全的 WebSocket/浏览器默认行为。
+- 建立可在 CI 中运行的 Go 和前端测试。
 
-Status: delivered for the single-operator control plane.
+### 第二阶段：版本化配置与后台 API
 
-- Introduce stable provider/model identifiers.
-- Add configuration repository, validation, revisions, atomic activation, and rollback.
-- Add SQLite migrations and legacy config import/export.
-- Add `/api/admin/config/draft`, validation, publish, revision list, and activation endpoints.
-- Add a visual-first configuration editor with system, Provider, access, proxy, source, and real-time log sections, plus validation and save. Revision list and activation remain available through the Admin API for compatibility and operations.
-- Keep secrets masked in drafts and admin summaries; restore unchanged masked values on publish.
-- Track restart-required fields for `server_port`, `enable_web`, and `debug`/`log_level`.
-- Defer authenticated admin sessions, CSRF protection, RBAC, audit events, and specialized controls for complex nested credentials. Typed Provider/model/access-key/proxy/system screens are now implemented; Configuration Source remains the lossless escape hatch.
+状态：单管理员控制面已交付。
 
-### Slice 3: conversation domain and desktop
+- 引入稳定的 Provider/模型标识。
+- 增加配置仓库、校验、修订、原子激活和回滚。
+- 增加 SQLite 迁移与旧配置导入导出。
+- 提供草稿、校验、发布、修订列表和激活等 Admin API。
+- 提供系统、Provider、访问密钥、代理、配置源码和实时日志等可视化配置区域；修订与激活 API 继续用于兼容和运维。
+- 草稿和后台摘要保持密钥掩码，发布时恢复未变更的掩码值。
+- 标记 `server_port`、`enable_web`、`debug` 和 `log_level` 等需要重启的字段。
+- Provider、模型、访问密钥、代理和系统设置已有类型化界面，配置源码保留为复杂嵌套凭证与未知字段的无损入口；管理员会话、CSRF、RBAC 和审计仍未交付。
 
-Status: partly delivered. The shared chat shell, Wails binding, and bounded local multi-conversation storage are delivered; cross-device synchronization, OS credential storage, and signed update distribution remain future work.
+### 第三阶段：对话与桌面端
 
-- Add conversations/messages, streamed run state, local switching/deletion, and bounded WebView/browser persistence. Delivered.
-- Add local and remote connection modes.
-- Bind the shared application services into Wails.
-- Use OS credential storage for desktop secrets.
-- Add signed installers, update verification, and platform smoke tests.
+状态：部分交付。共享聊天界面、Wails 绑定和有容量限制的本地多会话存储已经完成；跨设备同步、操作系统凭证存储和签名更新分发尚未交付。
 
-## Compatibility invariants
+- 对话、消息、流式运行状态、本地切换/删除和有容量限制的 WebView/浏览器持久化：已交付。
+- 本地和远程连接模式：部分交付。
+- 共享应用服务的 Wails 绑定：已交付。
+- 桌面密钥使用操作系统凭证存储：未交付。
+- 签名安装包、更新验证和平台启动冒烟测试：未交付。
 
-- Existing OpenAI-compatible routes keep their paths and response formats unless a versioned migration is documented.
-- A normal server release does not require a `static` directory beside the executable.
-- Provider credentials never appear in normal logs, browser responses, crash reports, or desktop diagnostics.
-- SQLite currently stores configuration JSON without at-rest encryption; deployments that need stronger local secret protection must add an external storage control until master-key/keychain support lands.
-- Web and desktop render model output as untrusted content.
-- File configuration remains readable until a documented major-version removal.
+## 兼容性约束
 
-## Verification gates
+- 现有 OpenAI 兼容路由保持路径和响应格式，除非有明确的版本化迁移说明。
+- 常规服务端发布不要求可执行文件旁存在 `static` 目录。
+- Provider 凭证不得出现在常规日志、浏览器响应、崩溃报告或桌面诊断中。
+- SQLite 当前以明文 JSON 存储配置；需要更强本地密钥保护的部署必须增加外部存储控制，直到主密钥/钥匙串支持完成。
+- Web 和桌面端都把模型输出作为不可信内容渲染。
+- 在明确发布大版本移除说明前，文件配置保持可读。
 
-- `go test ./...`, `go vet ./...`, and `govulncheck ./...` pass.
-- `pnpm test`, `pnpm typecheck`, and `pnpm build` pass for the shared Web application.
-- A temporary directory containing only the built server executable can serve `/`, `/assets/*`, and `/v1/models`.
-- Wails production build starts, loads the shared bundle, and does not require a separately copied Web directory.
-- Contract tests cover authentication, streaming, CORS/origin handling, and legacy configuration parsing.
+## 当前验证门禁
+
+- CI 要求 `go test ./...`、`go test -tags bindings ./...` 和 `go vet ./...` 通过；`govulncheck` 尚未纳入默认门禁。
+- 共享 Web 应用必须通过 `pnpm test`、`pnpm typecheck` 和 `pnpm build`。
+- 仅包含服务端可执行文件的临时目录可以正常提供 `/`、`/assets/*` 和 `/v1/models`。
+- Wails 生产构建可以启动并加载共享资源，不依赖额外复制的 Web 目录。
+- 契约测试覆盖鉴权、流式协议、请求取消、错误映射和旧配置解析；CORS/origin 仍需继续补强。

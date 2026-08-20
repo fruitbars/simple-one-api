@@ -69,7 +69,7 @@ docker run -d --name simple-one-api -p 9090:9090 \
   ghcr.io/fruitbars/simple-one-api:latest
 ```
 
-正式环境建议将 `latest` 替换为固定版本，例如 `v0.10.1`。镜像同时支持 `linux/amd64` 和 `linux/arm64`，内置 `/healthz` 健康检查。仓库内的 `docker-compose.yml` 默认挂载当前目录的 `config.json` 和 `data/`；配置文件只读挂载时，SQLite 必须指向可写数据目录。
+正式环境建议将 `latest` 替换为固定版本，例如 `v0.10.3`。镜像同时支持 `linux/amd64` 和 `linux/arm64`，内置 `/healthz` 健康检查。仓库内的 `docker-compose.yml` 默认挂载当前目录的 `config.json` 和 `data/`；配置文件只读挂载时，SQLite 必须指向可写数据目录。
 
 其他部署方式：[systemd](docs/startup/systemd_startup.md) · [nohup](docs/startup/nohup_startup.md)。
 

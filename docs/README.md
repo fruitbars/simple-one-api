@@ -1,13 +1,11 @@
 # 文档目录
 
-## 先看这几篇
+## 使用与配置
 
 - [项目总览](../README.md)
 - [配置参考](./configuration-reference.md)
-- [构建与发布](./build-and-release.md)
-- [v1 架构说明](./architecture-v1.md)
 - [桌面端开发](../cmd/desktop/README.md)
-- [更新日志](./CHANGELOG.md)
+- [样例配置](../samples/)
 
 ## 客户端协议
 
@@ -16,14 +14,20 @@
 - Anthropic Messages / Claude Code：`POST /v1/messages`
 - 字段、鉴权、流式行为和限制见[配置参考](./configuration-reference.md#客户端协议)。
 
-## 部署
+## 部署与维护
 
+- [构建与发布](./build-and-release.md)
 - [systemd 启动](./startup/systemd_startup.md)
 - [nohup 启动](./startup/nohup_startup.md)
 
-## Provider 接入指南（历史资料）
+## 设计与版本
 
-以下文档保留已有链接和接入背景，但不是当前额度、模型或控制台信息的权威来源。使用前请先核对厂商官方文档，配置结构以[配置参考](./configuration-reference.md)为准。
+- [架构与交付状态](./architecture-v1.md)
+- [更新日志](./CHANGELOG.md)
+
+## Provider 接入指南
+
+以下资料用于辅助找到厂商配置入口，不承诺额度、模型、价格、URL 或控制台截图仍然最新。配置结构以[配置参考](./configuration-reference.md)为准，供应商信息以其官方文档为准。
 
 - [OpenAI 兼容协议](./兼容OpenAI模型协议接入指南.md)
 - [Cloudflare Workers AI](./Cloudflare_Workers_AI申请使用流程.md)
@@ -40,6 +44,6 @@
 - [零一万物](./零一万物接入指南.md)
 - [Llama Family](./llama_family接入指南.md)
 
-## 客户端接入（历史资料）
+## 第三方客户端接入
 
 - [沉浸式翻译](./在沉浸式翻译中使用simple-one-api.md)

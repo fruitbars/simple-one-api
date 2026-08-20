@@ -1,6 +1,6 @@
 # 构建与发布
 
-本文档是当前构建入口的唯一说明。旧的 `docs/build.sh编译说明.md`、`docs/build.sh_and_build_docker.sh_usage.md` 和 `docs/build_docker.sh使用说明.md` 仅保留为兼容链接。
+本文档是当前构建、打包和发布流程的唯一说明。
 
 ## 环境要求
 
@@ -85,26 +85,26 @@ docker build --platform linux/amd64 --build-arg TARGETARCH=amd64 --tag fruitbars
 或直接使用脚本。脚本会先刷新 Web、构建 Linux 服务端，再构建镜像；它不会自动推送：
 
 ```bash
-./build_docker.sh v1.0.0
+./build_docker.sh v0.10.3
 ```
 
 `IMAGE_NAME` 环境变量可以覆盖默认镜像名：
 
 ```bash
-IMAGE_NAME=registry.example.com/team/simple-one-api ./build_docker.sh v1.0.0
+IMAGE_NAME=registry.example.com/team/simple-one-api ./build_docker.sh v0.10.3
 ```
 
 默认目标为 `amd64`，构建 ARM64 镜像时设置 `ARCH=arm64`：
 
 ```bash
-ARCH=arm64 ./build_docker.sh v1.0.0
+ARCH=arm64 ./build_docker.sh v0.10.3
 ```
 
 正式版本由 Release workflow 自动发布到 GHCR：
 
 ```bash
 docker pull ghcr.io/fruitbars/simple-one-api:latest
-docker pull ghcr.io/fruitbars/simple-one-api:v1.0.0
+docker pull ghcr.io/fruitbars/simple-one-api:v0.10.3
 ```
 
 每个版本是同时包含 `linux/amd64` 和 `linux/arm64` 的多架构 manifest，并附带 provenance 与 SBOM。发布标签包括原始 Git Tag（如 `v1.2.3`）、语义化标签（`1.2.3`、`1.2`、`1`）；稳定版本还会更新 `latest`，带连字符的预发布版本不会覆盖 `latest`。
@@ -127,10 +127,10 @@ docker pull ghcr.io/fruitbars/simple-one-api:v1.0.0
 发布示例：
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
 ```
 
-推荐先把发布提交推送到 `main` 并等待 CI 全绿，再在同一提交上创建标签。发布工作区必须干净，`docs/CHANGELOG.md` 的版本与标签应保持一致。
+推荐先把发布提交推送到 `main` 并等待 CI 全绿，再在同一提交上创建带注释的版本标签。发布工作区必须干净，`docs/CHANGELOG.md` 的版本与标签应保持一致。
 
 Release workflow 使用仓库自带的 `GITHUB_TOKEN` 创建 Release 并推送 GHCR，不需要 Docker Hub 或第三方发布密钥。首次发布后，在仓库 Packages 页面打开 `simple-one-api`，将 Package visibility 设置为 Public；后续版本不需要重复设置。Docker Hub 镜像仍由维护者按需手工发布，不属于自动发布链路。

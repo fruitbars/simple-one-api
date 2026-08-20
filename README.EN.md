@@ -69,7 +69,7 @@ docker run -d --name simple-one-api -p 9090:9090 \
   ghcr.io/fruitbars/simple-one-api:latest
 ```
 
-For production, replace `latest` with a fixed version such as `v0.10.1`. The image supports both `linux/amd64` and `linux/arm64` and includes a `/healthz` health check. The bundled `docker-compose.yml` mounts `config.json` and `data/` from the current directory. If configuration is read-only, SQLite must point to the writable data directory.
+For production, replace `latest` with a fixed version such as `v0.10.3`. The image supports both `linux/amd64` and `linux/arm64` and includes a `/healthz` health check. The bundled `docker-compose.yml` mounts `config.json` and `data/` from the current directory. If configuration is read-only, SQLite must point to the writable data directory.
 
 Other deployment options: [systemd](docs/startup/systemd_startup.md) · [nohup](docs/startup/nohup_startup.md).
 
