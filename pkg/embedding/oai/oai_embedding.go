@@ -2,23 +2,58 @@ package oai
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
-// GenerateEmbedding 生成文本的嵌入向量
-func OpenAIEmbedding(embReq *EmbeddingRequest, apiKey string, proxyTransport *http.Transport) (*EmbeddingResponse, error) {
+const defaultEmbeddingURL = "https://api.openai.com/v1/embeddings"
+const maxEmbeddingErrorBytes = 1 << 20
 
-	url := "https://api.openai.com/v1/embeddings"
+func resolveEmbeddingURL(serverURL string) (string, error) {
+	serverURL = strings.TrimSpace(serverURL)
+	if serverURL == "" {
+		return defaultEmbeddingURL, nil
+	}
+
+	endpoint, err := url.Parse(serverURL)
+	if err != nil || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.Host == "" {
+		return "", fmt.Errorf("invalid OpenAI embedding server_url %q", serverURL)
+	}
+	if endpoint.Fragment != "" {
+		return "", fmt.Errorf("OpenAI embedding server_url must not contain a fragment")
+	}
+
+	path := strings.TrimRight(endpoint.Path, "/")
+	switch {
+	case strings.HasSuffix(path, "/embeddings"):
+	case strings.HasSuffix(path, "/chat/completions"):
+		path = strings.TrimSuffix(path, "/chat/completions") + "/embeddings"
+	default:
+		path += "/embeddings"
+	}
+	endpoint.Path = path
+	endpoint.RawPath = ""
+	return endpoint.String(), nil
+}
+
+// OpenAIEmbedding sends an embedding request to OpenAI or a compatible endpoint.
+func OpenAIEmbedding(ctx context.Context, embReq *EmbeddingRequest, apiKey, serverURL string, proxyTransport *http.Transport) (*EmbeddingResponse, error) {
+	endpoint, err := resolveEmbeddingURL(serverURL)
+	if err != nil {
+		return nil, err
+	}
 	requestBody, err := json.Marshal(embReq)
 	if err != nil {
 		return nil, fmt.Errorf("JSON 编码错误: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(requestBody))
 	if err != nil {
 		return nil, fmt.Errorf("创建请求错误: %v", err)
 	}
@@ -40,9 +75,17 @@ func OpenAIEmbedding(embReq *EmbeddingRequest, apiKey string, proxyTransport *ht
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("请求错误: %v", err)
+		return nil, fmt.Errorf("请求错误: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxEmbeddingErrorBytes))
+		if readErr != nil {
+			return nil, fmt.Errorf("读取错误响应失败: %v", readErr)
+		}
+		return nil, fmt.Errorf("embedding upstream returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

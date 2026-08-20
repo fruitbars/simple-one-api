@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+1. OpenAI 兼容 Embedding 请求支持 Provider `server_url`，可识别基础地址、Chat Completions 地址和完整 Embeddings 地址，并保留查询参数。
+2. Embedding 上游请求支持客户端取消传播、非 2xx 错误映射和错误响应体大小限制。
+
+## v0.10.3 - 2026-08-17
+
+1. 修复 GitHub Release 汇总下载产物失败的问题，改为逐个下载服务端和桌面端归档。
+2. 成功发布 8 个服务端平台归档、4 个桌面端归档、`SHA256SUMS` 和公开 GHCR 多架构镜像。
+
+## v0.10.2 - 2026-08-17
+
 1. Release workflow 同步发布 `linux/amd64`、`linux/arm64` 多架构 GHCR 镜像，包含语义化标签、provenance 和 SBOM。
 2. Docker 镜像增加非 root 运行、`/healthz` 健康检查，并统一 Compose、本地构建脚本和跨架构参数。
 3. 更新中英文 README 和构建发布文档，增加 GitHub Release/GHCR 入口并移除失效的外部统计图。
