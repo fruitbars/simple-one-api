@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.10.4 - 2026-08-21
+
 1. OpenAI 兼容 Embedding 请求支持 Provider `server_url`，可识别基础地址、Chat Completions 地址和完整 Embeddings 地址，并保留查询参数。
 2. Embedding 上游请求支持客户端取消传播、非 2xx 错误映射和错误响应体大小限制。
 
