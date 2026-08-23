@@ -129,6 +129,9 @@ func validateNormalizedConfiguration(conf Configuration) []ValidationIssue {
 	if conf.CircuitBreaker.FailureThreshold < 0 || conf.CircuitBreaker.RecoveryTimeoutSeconds < 0 || conf.CircuitBreaker.HalfOpenMaxRequests < 0 {
 		issues = append(issues, ValidationIssue{Path: "circuit_breaker", Message: "thresholds and timeouts must not be negative"})
 	}
+	if conf.Statistics.RetentionDays < 1 || conf.Statistics.RetentionDays > 3650 {
+		issues = append(issues, ValidationIssue{Path: "statistics.retention_days", Message: "must be between 1 and 3650 days"})
+	}
 	seenServiceIDs := make(map[string]struct{})
 	for serviceName, models := range conf.Services {
 		if _, supported := SupportedServiceTypes[serviceName]; !supported {
@@ -210,6 +213,13 @@ func PrepareConfiguration(conf Configuration, configPath string) (*PreparedConfi
 }
 
 func normalizeConfiguration(immutable *Configuration) {
+	if immutable.Statistics.Enabled == nil {
+		enabled := true
+		immutable.Statistics.Enabled = &enabled
+	}
+	if immutable.Statistics.RetentionDays == 0 {
+		immutable.Statistics.RetentionDays = 30
+	}
 	immutable.LoadBalancing = strings.ToLower(strings.TrimSpace(immutable.LoadBalancing))
 	if immutable.CircuitBreaker.FailureThreshold == 0 {
 		immutable.CircuitBreaker.FailureThreshold = 5

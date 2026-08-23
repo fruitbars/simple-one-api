@@ -224,7 +224,13 @@ export function App() {
     }
     followOutputRef.current = true;
     setAtChatBottom(true);
-    setMessages([...nextMessages, { id: assistantID, role: "assistant", content: "", status: "streaming" }]);
+    setMessages([...nextMessages, {
+      id: assistantID,
+      role: "assistant",
+      content: "",
+      status: "streaming",
+      reasoningRequested: thinking,
+    }]);
     setDraft("");
     setError("");
 
@@ -444,10 +450,14 @@ export function App() {
                   <div className="message-avatar">{message.role === "user" ? "你" : "S"}</div>
                   <div className="message-body">
                     <div className="message-label">{message.role === "user" ? "你" : model}</div>
-                    {message.role === "assistant" && message.reasoningContent && (
+                    {message.role === "assistant" && (message.reasoningContent || (message.status === "streaming" && message.reasoningRequested)) && (
                       <details className="reasoning-panel" open={message.status === "streaming"}>
-                        <summary><Brain size={14} />思考过程</summary>
-                        <div>{message.reasoningContent}</div>
+                        <summary>
+                          <Brain size={14} />
+                          {message.status === "streaming" ? "思考中" : "思考过程"}
+                          {message.status === "streaming" && <span className="reasoning-pulse" aria-hidden="true" />}
+                        </summary>
+                        {message.reasoningContent && <div>{message.reasoningContent}</div>}
                       </details>
                     )}
                     <div className={`message-content ${message.status === "error" ? "message-error" : ""}`}>

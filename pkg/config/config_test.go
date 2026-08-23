@@ -226,6 +226,21 @@ func TestPrepareConfigurationGeneratesStableIDsAndNormalizesModels(t *testing.T)
 	}
 }
 
+func TestStatisticsDefaultsAndRetentionValidation(t *testing.T) {
+	prepared, err := PrepareConfiguration(Configuration{}, "test.json")
+	if err != nil {
+		t.Fatalf("prepare defaults: %v", err)
+	}
+	statistics := prepared.Configuration().Statistics
+	if statistics.Enabled == nil || !*statistics.Enabled || statistics.RetentionDays != 30 {
+		t.Fatalf("unexpected statistics defaults: %#v", statistics)
+	}
+	_, err = PrepareConfiguration(Configuration{Statistics: StatisticsConf{RetentionDays: -1}}, "test.json")
+	if err == nil || !strings.Contains(err.Error(), "statistics.retention_days") {
+		t.Fatalf("expected retention validation error, got %v", err)
+	}
+}
+
 func TestExplicitServiceIDsSurviveProviderReordering(t *testing.T) {
 	conf := Configuration{Services: map[string][]ServiceModel{
 		"openai": {

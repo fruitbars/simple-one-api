@@ -10,6 +10,7 @@ import (
 
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/configstore"
+	"simple-one-api/pkg/statistics"
 )
 
 func TestSetupImportsFileConfigurationIntoSQLite(t *testing.T) {
@@ -287,12 +288,17 @@ func TestPublishAndActivateConfigurationUpdateRuntimeSnapshot(t *testing.T) {
 
 func resetInitializerForTest(t *testing.T) {
 	t.Helper()
+	statistics.SetDefault(nil)
+	if statisticsService != nil {
+		_ = statisticsService.Close()
+	}
 	if repository != nil {
 		_ = repository.Close()
 	}
 	once = sync.Once{}
 	setupErr = nil
 	repository = nil
+	statisticsService = nil
 }
 
 func writeConfigForTest(t *testing.T, conf config.Configuration) string {

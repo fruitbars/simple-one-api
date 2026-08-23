@@ -11,6 +11,7 @@ import (
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/configstore"
 	"simple-one-api/pkg/mylog"
+	"simple-one-api/pkg/statistics"
 	"strings"
 	"sync"
 )
@@ -18,6 +19,7 @@ import (
 var once sync.Once
 var setupErr error
 var repository *configstore.Store
+var statisticsService *statistics.Service
 var publishMu sync.Mutex
 
 const legacyChecksumKey = "legacy_config_checksum"
@@ -42,6 +44,13 @@ func Setup(configName string) error {
 		if setupErr != nil {
 			return
 		}
+		statisticsService, setupErr = statistics.Open(repository.Path(), statisticsSettings(config.CurrentConfiguration()))
+		if setupErr != nil {
+			_ = repository.Close()
+			repository = nil
+			return
+		}
+		statistics.SetDefault(statisticsService)
 
 		if !config.CurrentDebug() {
 			gin.SetMode(gin.ReleaseMode)
@@ -118,6 +127,13 @@ func reconcileMissingFileConfiguration(ctx context.Context, store *configstore.S
 
 func ConfigStore() *configstore.Store { return repository }
 
+func StatisticsService() *statistics.Service { return statisticsService }
+
+func statisticsSettings(conf *config.Configuration) statistics.Settings {
+	enabled := conf.Statistics.Enabled == nil || *conf.Statistics.Enabled
+	return statistics.Settings{Enabled: enabled, RetentionDays: conf.Statistics.RetentionDays}
+}
+
 func PublishConfiguration(ctx context.Context, conf config.Configuration, source, note string) (configstore.Revision, error) {
 	publishMu.Lock()
 	defer publishMu.Unlock()
@@ -143,6 +159,9 @@ func PublishConfiguration(ctx context.Context, conf config.Configuration, source
 		return configstore.Revision{}, err
 	}
 	prepared.Publish()
+	if statisticsService != nil {
+		statisticsService.Configure(statisticsSettings(config.CurrentConfiguration()))
+	}
 	return revision, nil
 }
 
@@ -172,6 +191,9 @@ func ActivateConfiguration(ctx context.Context, id int64) (configstore.Revision,
 		return configstore.Revision{}, err
 	}
 	prepared.Publish()
+	if statisticsService != nil {
+		statisticsService.Configure(statisticsSettings(config.CurrentConfiguration()))
+	}
 	return revision, nil
 }
 
@@ -187,6 +209,11 @@ func (e *ConfigurationValidationError) Error() string {
 }
 
 func Cleanup() {
+	statistics.SetDefault(nil)
+	if statisticsService != nil {
+		_ = statisticsService.Close()
+		statisticsService = nil
+	}
 	if repository != nil {
 		repository.Close()
 	}

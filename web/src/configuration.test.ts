@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createService, displayStringList, scalarCredentialEntries, stringList } from "./configuration";
+import {
+  createService,
+  displayStringList,
+  removeModelAlias,
+  scalarCredentialEntries,
+  setModelAlias,
+  stringList,
+} from "./configuration";
 
 describe("configuration helpers", () => {
   it("normalizes comma and newline separated model lists", () => {
@@ -28,5 +35,20 @@ describe("configuration helpers", () => {
       ["retries", 2],
       ["enabled", true],
     ]);
+  });
+
+  it("keeps provider aliases and public model names in sync", () => {
+    expect(setModelAlias(["gpt-4o"], {}, "", "fast", "gpt-4o")).toEqual({
+      models: ["gpt-4o", "fast"],
+      modelMap: { fast: "gpt-4o" },
+    });
+    expect(setModelAlias(["gpt-4o", "fast"], { fast: "gpt-4o" }, "fast", "quick", "gpt-4.1-mini")).toEqual({
+      models: ["gpt-4o", "quick"],
+      modelMap: { quick: "gpt-4.1-mini" },
+    });
+    expect(removeModelAlias(["gpt-4o", "quick"], { quick: "gpt-4.1-mini" }, "quick")).toEqual({
+      models: ["gpt-4o"],
+      modelMap: {},
+    });
   });
 });

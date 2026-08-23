@@ -1,6 +1,8 @@
 import {
   Boxes,
   Braces,
+  BarChart3,
+  ArrowRight,
   CheckCircle2,
   ChevronDown,
   CircleCheck,
@@ -41,6 +43,8 @@ import {
   createService,
   displayStringList,
   scalarCredentialEntries,
+  setModelAlias,
+  removeModelAlias,
   serviceTypes,
   stringList,
   type AccessKeyConfiguration,
@@ -48,6 +52,7 @@ import {
   type ServiceConfiguration,
 } from "./configuration";
 import type { SourceFormat } from "./sourceDocument";
+import StatisticsPanel from "./StatisticsPanel";
 
 const ConfigurationSourceEditor = lazy(() => import("./ConfigurationSourceEditor"));
 
@@ -57,7 +62,7 @@ interface AdminWorkspaceProps {
   onBack: () => void;
 }
 
-type AdminSection = "system" | "providers" | "access" | "network" | "advanced" | "logs";
+type AdminSection = "system" | "providers" | "access" | "network" | "advanced" | "statistics" | "logs";
 
 const sectionMeta: Array<{ id: AdminSection; label: string; description: string; icon: typeof Settings2 }> = [
   { id: "system", label: "基础设置", description: "服务、日志与负载均衡", icon: Settings2 },
@@ -65,6 +70,7 @@ const sectionMeta: Array<{ id: AdminSection; label: string; description: string;
   { id: "access", label: "访问控制", description: "网关密钥和模型权限", icon: KeyRound },
   { id: "network", label: "网络代理", description: "HTTP、HTTPS 与 SOCKS5", icon: Network },
   { id: "advanced", label: "配置源码", description: "迁移与高级字段", icon: Braces },
+  { id: "statistics", label: "使用统计", description: "请求、Tokens 与延迟", icon: BarChart3 },
   { id: "logs", label: "实时日志", description: "运行状态与错误诊断", icon: ScrollText },
 ];
 
@@ -400,7 +406,7 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
           <div><h1>{activeMeta.label}</h1><p>{activeMeta.description}</p></div>
           <div className="admin-header-actions">
             {dirty && <span className="dirty-badge">未发布更改</span>}
-            <button className="secondary-button" onClick={() => void refresh()} disabled={loading || saving}><RefreshCw size={16} />刷新</button>
+            {section !== "statistics" && <button className="secondary-button" onClick={() => void refresh()} disabled={loading || saving}><RefreshCw size={16} />刷新</button>}
           </div>
         </header>
 
@@ -422,14 +428,14 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
           </section>
         )}
 
-        {!bootstrapRequired && section !== "logs" && <section className="admin-metrics">
+        {!bootstrapRequired && section !== "logs" && section !== "statistics" && <section className="admin-metrics">
           <div className="metric-card"><Database size={19} /><div><span>SQLite 数据库</span><strong title={databasePath}>{databasePath || "未连接"}</strong></div></div>
           <div className="metric-card"><Boxes size={19} /><div><span>Provider</span><strong>{enabledCount}/{providerCount} 启用</strong></div></div>
           <div className="metric-card"><Settings2 size={19} /><div><span>可用模型</span><strong>{modelCount}</strong></div></div>
         </section>}
 
         {!bootstrapRequired && <div className="admin-grid visual-admin-grid">
-          <section className={`admin-panel visual-config-panel ${section === "providers" ? "provider-config-panel" : ""} ${section === "advanced" ? "source-config-panel" : ""}`}>
+          <section className={`admin-panel visual-config-panel ${section === "providers" ? "provider-config-panel" : ""} ${section === "advanced" ? "source-config-panel" : ""} ${section === "statistics" ? "statistics-config-panel" : ""}`}>
             {section === "system" && (
               <SystemForm configuration={configuration} onChange={replaceConfiguration} />
             )}
@@ -480,6 +486,7 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
                 </div>
               </div>
             )}
+            {section === "statistics" && <StatisticsPanel apiKey={apiKey} />}
             {section === "logs" && <LiveLogsPanel apiKey={apiKey} />}
 
             {issues.length > 0 && (
@@ -487,7 +494,7 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
                 {issues.map((issue, index) => <div key={`${issue.path}-${index}`}><code>{issue.path}</code><span>{issue.message}</span></div>)}
               </div>
             )}
-            {section !== "logs" && <div className="publish-row visual-publish-row">
+            {section !== "logs" && section !== "statistics" && <div className="publish-row visual-publish-row">
               <div className={`publish-state ${sourceEditing ? "attention" : dirty ? "pending" : "synced"}`}>
                 {sourceEditing ? <Braces size={15} /> : dirty ? <RefreshCw size={15} /> : <CheckCircle2 size={15} />}
                 <span>{sourceChanged ? "源码有未应用的更改" : sourceEditing ? "正在编辑源码，应用后才能校验和保存" : dirty ? "配置有未保存的更改" : "配置已与运行状态同步"}</span>
@@ -619,6 +626,7 @@ function SystemForm({ configuration, onChange }: { configuration: AppConfigurati
       </section>
       <div className="toggle-list">
         <Toggle label="Provider 熔断与自动恢复" description="连续失败后暂停该 Provider 的当前模型，到期后自动进行半开探测。" checked={configuration.circuit_breaker?.enabled ?? true} onChange={(value) => update({ circuit_breaker: { ...configuration.circuit_breaker, enabled: value } })} />
+        <Toggle label="记录使用统计" description="仅保存请求结果、路由、延迟和 Token 数，不保存请求或响应正文。" checked={configuration.statistics?.enabled ?? true} onChange={(value) => update({ statistics: { ...configuration.statistics, enabled: value } })} />
         <Toggle label="启用 Web 与后台" description="关闭后需要重启，浏览器界面将不再提供。" checked={configuration.enable_web ?? false} onChange={(value) => update({ enable_web: value })} />
         <Toggle label="调试模式" description="输出更多诊断信息；生产环境不建议开启。" checked={configuration.debug ?? false} onChange={(value) => update({ debug: value })} />
       </div>
@@ -626,6 +634,9 @@ function SystemForm({ configuration, onChange }: { configuration: AppConfigurati
         <Field label="失败阈值" hint="连续失败多少次后熔断"><input type="number" min="1" value={configuration.circuit_breaker?.failure_threshold ?? 5} onChange={(event) => update({ circuit_breaker: { ...configuration.circuit_breaker, failure_threshold: Number(event.target.value) } })} /></Field>
         <Field label="恢复等待（秒）" hint="到期后允许半开探测"><input type="number" min="1" value={configuration.circuit_breaker?.recovery_timeout_seconds ?? 30} onChange={(event) => update({ circuit_breaker: { ...configuration.circuit_breaker, recovery_timeout_seconds: Number(event.target.value) } })} /></Field>
         <Field label="半开探测数" hint="恢复期间允许的并发探测"><input type="number" min="1" value={configuration.circuit_breaker?.half_open_max_requests ?? 1} onChange={(event) => update({ circuit_breaker: { ...configuration.circuit_breaker, half_open_max_requests: Number(event.target.value) } })} /></Field>
+      </div>}
+      {(configuration.statistics?.enabled ?? true) && <div className="statistics-settings">
+        <Field label="统计数据保留（天）" hint="过期记录会自动清理，建议保留 30 天"><input type="number" min="1" max="3650" value={configuration.statistics?.retention_days ?? 30} onChange={(event) => update({ statistics: { ...configuration.statistics, retention_days: Number(event.target.value) } })} /></Field>
       </div>}
     </div>
   );
@@ -652,7 +663,7 @@ function ProviderForm(props: ProviderFormProps) {
     if (status === "enabled" && !service.enabled) return false;
     if (status === "disabled" && service.enabled) return false;
     if (!normalizedQuery) return true;
-    return [serviceName, service.name, service.id, service.server_url, ...(service.models ?? [])]
+    return [serviceName, service.name, service.id, service.server_url, ...(service.models ?? []), ...Object.entries(service.model_map ?? {}).flat()]
       .some((value) => String(value ?? "").toLowerCase().includes(normalizedQuery));
   });
   const toggleCollapsed = (key: string) => setCollapsed((current) => {
@@ -680,7 +691,7 @@ function ProviderForm(props: ProviderFormProps) {
             <header className="provider-card-header">
               <button className="provider-title" onClick={() => toggleCollapsed(cardKey)} aria-expanded={!isCollapsed}>
                 <span className={`provider-status ${service.enabled ? "enabled" : ""}`} />
-                <div><strong>{service.name?.trim() || serviceName}</strong><code>{serviceName} · {service.models?.length ?? 0} 个模型</code></div>
+                <div><strong>{service.name?.trim() || serviceName}</strong><code>{serviceName} · {service.models?.length ?? 0} 个模型 · {Object.keys(service.model_map ?? {}).length} 个别名</code></div>
               </button>
               <div className="provider-actions"><Toggle compact label="启用" checked={service.enabled ?? false} onChange={(enabled) => props.onUpdate(serviceName, index, { enabled })} /><button className="provider-collapse-button" onClick={() => toggleCollapsed(cardKey)} aria-label={isCollapsed ? `展开 ${service.name || serviceName}` : `折叠 ${service.name || serviceName}`}><ChevronDown size={17} /></button><button className="icon-danger-button" onClick={() => props.onRemove(serviceName, index)} aria-label={`删除 ${service.name || serviceName}`}><Trash2 size={16} /></button></div>
             </header>
@@ -707,6 +718,11 @@ function ProviderForm(props: ProviderFormProps) {
                 <StringListEditor multiline values={service.embedding_models} onChange={(embedding_models) => props.onUpdate(serviceName, index, { embedding_models })} placeholder="text-embedding-3-small" />
               </Field>
             </div>
+            <ModelAliasEditor
+              models={service.models}
+              modelMap={service.model_map}
+              onChange={(models, model_map) => props.onUpdate(serviceName, index, { models, model_map })}
+            />
             <div className="credential-section">
               <div className="subsection-heading"><div><strong>更多凭证</strong><span>Access Key、Secret Key 等服务商专用字段。</span></div><button onClick={() => props.onAddCredential(serviceName, index)}><Plus size={14} />添加字段</button></div>
               <div className="credential-list">
@@ -741,6 +757,125 @@ function ProviderForm(props: ProviderFormProps) {
           </article>;
         })}
       </div>
+    </div>
+  );
+}
+
+function ModelAliasEditor({
+  models,
+  modelMap,
+  onChange,
+}: {
+  models?: string[];
+  modelMap?: Record<string, string>;
+  onChange: (models: string[], modelMap: Record<string, string>) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [newAlias, setNewAlias] = useState("");
+  const [newTarget, setNewTarget] = useState("");
+  const [newError, setNewError] = useState("");
+  const aliases = Object.entries(modelMap ?? {});
+
+  const commit = (previousAlias: string, alias: string, target: string): string => {
+    const normalizedAlias = alias.trim();
+    const normalizedTarget = target.trim();
+    if (!normalizedAlias || !normalizedTarget) return "请同时填写对外模型名和上游模型名";
+    if (normalizedAlias !== previousAlias && Object.prototype.hasOwnProperty.call(modelMap ?? {}, normalizedAlias)) {
+      return "对外模型名不能重复";
+    }
+    const updated = setModelAlias(models, modelMap, previousAlias, normalizedAlias, normalizedTarget);
+    onChange(updated.models, updated.modelMap);
+    return "";
+  };
+  const add = () => {
+    const error = commit("", newAlias, newTarget);
+    setNewError(error);
+    if (error) return;
+    setNewAlias("");
+    setNewTarget("");
+    setAdding(false);
+  };
+  const remove = (alias: string) => {
+    const updated = removeModelAlias(models, modelMap, alias);
+    onChange(updated.models, updated.modelMap);
+  };
+
+  return (
+    <section className="model-alias-section" aria-label="模型别名">
+      <div className="subsection-heading">
+        <div><strong>模型别名</strong><span>客户端使用对外名称，请求上游时自动替换为真实模型名。</span></div>
+        {!adding && <button type="button" onClick={() => { setAdding(true); setNewError(""); }}><Plus size={14} />添加别名</button>}
+      </div>
+      {(aliases.length > 0 || adding) && <div className="model-alias-labels" aria-hidden="true"><span>对外模型名</span><span /><span>上游真实模型名</span><span /></div>}
+      <div className="model-alias-list">
+        {aliases.map(([alias, target]) => (
+          <ModelAliasRow
+            key={alias}
+            alias={alias}
+            target={target}
+            aliases={modelMap ?? {}}
+            onCommit={(nextAlias, nextTarget) => commit(alias, nextAlias, nextTarget)}
+            onRemove={() => remove(alias)}
+          />
+        ))}
+        {adding && (
+          <div className="model-alias-row adding">
+            <input autoFocus aria-label="新别名的对外模型名" value={newAlias} onChange={(event) => { setNewAlias(event.target.value); setNewError(""); }} onKeyDown={(event) => { if (event.key === "Enter") add(); }} placeholder="例如 doubao32k" />
+            <ArrowRight size={15} aria-hidden="true" />
+            <input aria-label="新别名的上游真实模型名" value={newTarget} onChange={(event) => { setNewTarget(event.target.value); setNewError(""); }} onKeyDown={(event) => { if (event.key === "Enter") add(); }} placeholder="例如 ep-20240612090709-hzjz5" />
+            <div className="model-alias-actions">
+              <button type="button" onClick={add} aria-label="确认添加模型别名" title="确认"><CheckCircle2 size={15} /></button>
+              <button type="button" onClick={() => { setAdding(false); setNewAlias(""); setNewTarget(""); setNewError(""); }} aria-label="取消添加模型别名" title="取消"><X size={15} /></button>
+            </div>
+            {newError && <span className="model-alias-error">{newError}</span>}
+          </div>
+        )}
+        {aliases.length === 0 && !adding && <div className="model-alias-empty">未设置别名，客户端直接使用聊天模型中的名称。</div>}
+      </div>
+    </section>
+  );
+}
+
+function ModelAliasRow({
+  alias,
+  target,
+  aliases,
+  onCommit,
+  onRemove,
+}: {
+  alias: string;
+  target: string;
+  aliases: Record<string, string>;
+  onCommit: (alias: string, target: string) => string;
+  onRemove: () => void;
+}) {
+  const [draftAlias, setDraftAlias] = useState(alias);
+  const [draftTarget, setDraftTarget] = useState(target);
+  const [error, setError] = useState("");
+
+  useEffect(() => { setDraftAlias(alias); setDraftTarget(target); }, [alias, target]);
+  const save = () => {
+    const normalizedAlias = draftAlias.trim();
+    if (normalizedAlias !== alias && Object.prototype.hasOwnProperty.call(aliases, normalizedAlias)) {
+      setError("对外模型名不能重复");
+      return;
+    }
+    const nextError = onCommit(draftAlias, draftTarget);
+    setError(nextError);
+    if (!nextError) {
+      setDraftAlias(draftAlias.trim());
+      setDraftTarget(draftTarget.trim());
+    }
+  };
+  return (
+    <div className="model-alias-row" onBlur={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) save();
+    }}>
+      <input aria-label={`${alias} 的对外模型名`} value={draftAlias} onChange={(event) => { setDraftAlias(event.target.value); setError(""); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />
+      <ArrowRight size={15} aria-hidden="true" />
+      <input aria-label={`${alias} 的上游真实模型名`} value={draftTarget} onChange={(event) => { setDraftTarget(event.target.value); setError(""); }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />
+      <div className="model-alias-actions"><button type="button" onClick={onRemove} aria-label={`删除模型别名 ${alias}`} title="删除别名"><Trash2 size={14} /></button></div>
+      {error && <span className="model-alias-error">{error}</span>}
     </div>
   );
 }

@@ -30,6 +30,8 @@ func main() {
 		return
 	}
 	defer initializer.Cleanup()
+	desktopAPI := appserver.NewRouterWithOptions(appserver.Options{EnableWeb: false, TrustedLocalAdminBootstrap: true})
+	bridge := NewDesktopBridge(desktopAPI)
 
 	err = wails.Run(&options.App{
 		Title:                    "Simple One",
@@ -41,9 +43,12 @@ func main() {
 		EnableDefaultContextMenu: false,
 		SingleInstanceLock:       &options.SingleInstanceLock{UniqueId: "com.simple-one-api.desktop"},
 		DragAndDrop:              &options.DragAndDrop{DisableWebViewDrop: true},
+		OnStartup:                bridge.startup,
+		OnShutdown:               bridge.shutdown,
+		Bind:                     []interface{}{bridge},
 		AssetServer: &assetserver.Options{
 			Assets:     webui.Assets(),
-			Middleware: appserver.DesktopAssetMiddleware,
+			Middleware: appserver.DesktopAssetMiddlewareFor(desktopAPI),
 		},
 	})
 	if err != nil {

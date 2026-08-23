@@ -11,5 +11,5 @@ import (
 // bindings. The desktop app exposes no native bindings, so keep that helper
 // side-effect free and avoid creating a user configuration during builds.
 func main() {
-	_ = wails.Run(&options.App{})
+	_ = wails.Run(&options.App{Bind: []interface{}{&DesktopBridge{}}})
 }

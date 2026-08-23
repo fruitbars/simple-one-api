@@ -15,6 +15,7 @@ import (
 	"simple-one-api/pkg/mycommon"
 	"simple-one-api/pkg/mylimiter"
 	"simple-one-api/pkg/mylog"
+	"simple-one-api/pkg/statistics"
 	"simple-one-api/pkg/utils"
 	"strings"
 	"time"
@@ -167,6 +168,7 @@ func OpenAIHandler(c *gin.Context) {
 func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 
 	clientModel := oaiReq.Model
+	statistics.SetRoute(c, clientModel, "", "", "")
 	extraFields := requestExtraFields(c)
 
 	//全局模型重定向名称
@@ -186,6 +188,7 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 	mpModel := config.GetModelMapping(s, mrModel)
 
 	oaiReq.Model = mpModel
+	statistics.SetRoute(c, clientModel, s.ServiceID, s.ServiceName, oaiReq.Model)
 
 	mylog.Logger.Info("Service details",
 		zap.String("service_name", s.ServiceName),

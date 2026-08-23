@@ -12,6 +12,7 @@ import (
 	"simple-one-api/pkg/mycommon"
 	"simple-one-api/pkg/mylimiter"
 	"simple-one-api/pkg/mylog"
+	"simple-one-api/pkg/statistics"
 	"simple-one-api/pkg/utils"
 	"time"
 )
@@ -36,6 +37,7 @@ func EmbeddingsHandler(c *gin.Context) {
 	mrModel := config.GetModelRedirect(s, serviceModelName)
 
 	oaiEmbReq.Model = mrModel
+	statistics.SetRoute(c, clientModel, s.ServiceID, s.ServiceName, oaiEmbReq.Model)
 
 	mylog.Logger.Info("Service details",
 		zap.String("service_name", s.ServiceName),

@@ -14,6 +14,7 @@ import (
 	"simple-one-api/pkg/embedding"
 	"simple-one-api/pkg/handler"
 	"simple-one-api/pkg/mywebui"
+	"simple-one-api/pkg/statistics"
 	"simple-one-api/pkg/translation"
 )
 
@@ -35,11 +36,12 @@ func NewRouterWithOptions(options Options) *gin.Engine {
 	}
 	router := gin.New()
 	router.Use(gin.Recovery())
+	router.Use(statistics.Middleware())
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "x-api-key", "anthropic-version", "anthropic-beta"},
-		ExposeHeaders:    []string{"Content-Length"},
+		ExposeHeaders:    []string{"Content-Length", "X-Request-ID"},
 		AllowCredentials: false,
 		MaxAge:           12 * time.Hour,
 	}))
@@ -73,6 +75,8 @@ func registerAPI(router *gin.Engine, options Options) {
 	admin.POST("/config/revisions", apis.AdminConfigPublishHandler)
 	admin.GET("/config/revisions", apis.AdminConfigRevisionsHandler)
 	admin.GET("/logs", apis.AdminLogsHandler)
+	admin.GET("/statistics/overview", apis.AdminStatisticsOverviewHandler)
+	admin.GET("/statistics/export", apis.AdminStatisticsExportHandler)
 	admin.POST("/config/revisions/:id/activate", apis.AdminConfigActivateHandler)
 
 	v1 := router.Group("/v1", requireAPIAccess(), limitRequestBody(maxAPIRequestBodyBytes))

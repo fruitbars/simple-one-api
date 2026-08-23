@@ -11,14 +11,22 @@ import (
 // server while leaving Web assets to Wails. No loopback port is opened.
 func DesktopAssetMiddleware(next http.Handler) http.Handler {
 	api := NewRouterWithOptions(Options{EnableWeb: false, TrustedLocalAdminBootstrap: true})
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		webui.ApplySecurityHeaders(writer.Header())
-		if isDesktopAPIPath(request.URL.Path) {
-			api.ServeHTTP(writer, request)
-			return
-		}
-		next.ServeHTTP(writer, request)
-	})
+	return DesktopAssetMiddlewareFor(api)(next)
+}
+
+// DesktopAssetMiddlewareFor routes API requests through a shared in-process
+// handler so the Wails bridge and asset server use the same router.
+func DesktopAssetMiddlewareFor(api http.Handler) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			webui.ApplySecurityHeaders(writer.Header())
+			if isDesktopAPIPath(request.URL.Path) {
+				api.ServeHTTP(writer, request)
+				return
+			}
+			next.ServeHTTP(writer, request)
+		})
+	}
 }
 
 func isDesktopAPIPath(requestPath string) bool {

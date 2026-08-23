@@ -72,6 +72,7 @@ type PublicConfig struct {
 	LogLevel           string                          `json:"log_level"`
 	LoadBalancing      string                          `json:"load_balancing"`
 	CircuitBreaker     config.CircuitBreakerConf       `json:"circuit_breaker"`
+	Statistics         config.StatisticsConf           `json:"statistics"`
 	EnableWeb          bool                            `json:"enable_web"`
 	Proxy              PublicProxyConfig               `json:"proxy"`
 	Translation        PublicTranslation               `json:"translation"`
@@ -123,6 +124,7 @@ func AdminConfigHandler(c *gin.Context) {
 		LogLevel:       conf.LogLevel,
 		LoadBalancing:  conf.LoadBalancing,
 		CircuitBreaker: conf.CircuitBreaker,
+		Statistics:     conf.Statistics,
 		EnableWeb:      conf.EnableWeb,
 		Proxy:          publicProxyConfig(conf.Proxy),
 		Translation: PublicTranslation{

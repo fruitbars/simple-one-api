@@ -107,6 +107,11 @@ type CircuitBreakerConf struct {
 	HalfOpenMaxRequests    int   `json:"half_open_max_requests" yaml:"half_open_max_requests"`
 }
 
+type StatisticsConf struct {
+	Enabled       *bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	RetentionDays int   `json:"retention_days" yaml:"retention_days"`
+}
+
 type Configuration struct {
 	ServerPort         string                    `json:"server_port" yaml:"server_port"`
 	Debug              bool                      `json:"debug" yaml:"debug"`
@@ -115,6 +120,7 @@ type Configuration struct {
 	APIKey             string                    `json:"api_key" yaml:"api_key"`
 	LoadBalancing      string                    `json:"load_balancing" yaml:"load_balancing"`
 	CircuitBreaker     CircuitBreakerConf        `json:"circuit_breaker" yaml:"circuit_breaker"`
+	Statistics         StatisticsConf            `json:"statistics" yaml:"statistics"`
 	MultiContentModels []string                  `json:"multi_content_models" yaml:"multi_content_models"`
 	ModelRedirect      map[string]string         `json:"model_redirect" yaml:"model_redirect"`
 	ParamsRange        map[string]ModelParams    `json:"params_range" yaml:"params_range"`

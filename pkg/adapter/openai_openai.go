@@ -49,6 +49,12 @@ func OpenAIResponseToOpenAIResponse(resp *openai.ChatCompletionResponse) *myopen
 		CompletionTokens: resp.Usage.CompletionTokens,
 		TotalTokens:      resp.Usage.TotalTokens,
 	}
+	if resp.Usage.PromptTokensDetails != nil {
+		usage.PromptTokensDetails = &myopenai.PromptTokensDetails{CachedTokens: resp.Usage.PromptTokensDetails.CachedTokens}
+	}
+	if resp.Usage.CompletionTokensDetails != nil {
+		usage.CompletionTokensDetails = &myopenai.CompletionTokensDetails{ReasoningTokens: resp.Usage.CompletionTokensDetails.ReasoningTokens}
+	}
 
 	idStr := resp.ID
 	if idStr == "" {

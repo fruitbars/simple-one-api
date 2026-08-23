@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	openaisdk "github.com/sashabaranov/go-openai"
+	"simple-one-api/pkg/statistics"
 )
 
 type compatibilityBuffer struct {
@@ -62,6 +63,7 @@ func executeCompatibilityStream(c *gin.Context, request *openaisdk.ChatCompletio
 	writer := &compatibilityStreamWriter{ResponseWriter: c.Writer, header: make(http.Header), status: http.StatusOK, emitter: emitter}
 	inner, _ := gin.CreateTestContext(writer)
 	inner.Request = c.Request.Clone(c.Request.Context())
+	statistics.ShareTracker(inner, c)
 	request.Stream = true
 	request.StreamOptions = &openaisdk.StreamOptions{IncludeUsage: true}
 	HandleOpenAIRequest(inner, request)
@@ -196,6 +198,7 @@ func (emitter *compatibilityStreamEmitter) emit(chunk openaisdk.ChatCompletionSt
 	emitter.ensureStarted(chunk)
 	if chunk.Usage != nil {
 		emitter.usage = chunk.Usage
+		reportCompatibilityUsage(emitter.context, chunk.Usage)
 	}
 	for _, choice := range chunk.Choices {
 		delta := choice.Delta
@@ -213,6 +216,7 @@ func (emitter *compatibilityStreamEmitter) emit(chunk openaisdk.ChatCompletionSt
 }
 
 func (emitter *compatibilityStreamEmitter) emitText(delta string) {
+	statistics.MarkFirstToken(emitter.context)
 	if !emitter.textStarted {
 		emitter.textStarted = true
 		if emitter.protocol == compatibilityProtocolResponses {
@@ -232,6 +236,7 @@ func (emitter *compatibilityStreamEmitter) emitText(delta string) {
 }
 
 func (emitter *compatibilityStreamEmitter) emitTool(call openaisdk.ToolCall) {
+	statistics.MarkFirstToken(emitter.context)
 	index := 0
 	if call.Index != nil {
 		index = *call.Index
@@ -272,6 +277,23 @@ func (emitter *compatibilityStreamEmitter) emitTool(call openaisdk.ToolCall) {
 	} else {
 		writeSSE(emitter.context, "content_block_delta", map[string]any{"type": "content_block_delta", "index": state.blockIndex, "delta": map[string]any{"type": "input_json_delta", "partial_json": call.Function.Arguments}})
 	}
+}
+
+func reportCompatibilityUsage(c *gin.Context, usage *openaisdk.Usage) {
+	if usage == nil {
+		return
+	}
+	reported := statistics.Usage{
+		InputTokens: statistics.Int64(int64(usage.PromptTokens)), OutputTokens: statistics.Int64(int64(usage.CompletionTokens)),
+		TotalTokens: statistics.Int64(int64(usage.TotalTokens)), Source: "upstream",
+	}
+	if usage.PromptTokensDetails != nil {
+		reported.CachedTokens = statistics.Int64(int64(usage.PromptTokensDetails.CachedTokens))
+	}
+	if usage.CompletionTokensDetails != nil {
+		reported.ReasoningTokens = statistics.Int64(int64(usage.CompletionTokensDetails.ReasoningTokens))
+	}
+	statistics.SetUsage(c, reported)
 }
 
 func (emitter *compatibilityStreamEmitter) finish() {

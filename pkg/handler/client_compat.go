@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	openaisdk "github.com/sashabaranov/go-openai"
 	myopenai "simple-one-api/pkg/openai"
+	"simple-one-api/pkg/statistics"
 )
 
 type responsesRequest struct {
@@ -245,6 +246,7 @@ func executeCompatibilityRequest(c *gin.Context, request *openaisdk.ChatCompleti
 	writer := newCompatibilityBuffer(c.Writer)
 	inner, _ := gin.CreateTestContext(writer)
 	inner.Request = c.Request.Clone(c.Request.Context())
+	statistics.ShareTracker(inner, c)
 	HandleOpenAIRequest(inner, request)
 	body := writer.Bytes()
 	if writer.Status() >= http.StatusBadRequest {
@@ -280,6 +282,12 @@ func buildResponsesResponse(response *myopenai.OpenAIResponse) map[string]any {
 	usage := map[string]any{"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 	if response.Usage != nil {
 		usage = map[string]any{"input_tokens": response.Usage.PromptTokens, "output_tokens": response.Usage.CompletionTokens, "total_tokens": response.Usage.TotalTokens}
+		if response.Usage.PromptTokensDetails != nil {
+			usage["input_tokens_details"] = map[string]any{"cached_tokens": response.Usage.PromptTokensDetails.CachedTokens}
+		}
+		if response.Usage.CompletionTokensDetails != nil {
+			usage["output_tokens_details"] = map[string]any{"reasoning_tokens": response.Usage.CompletionTokensDetails.ReasoningTokens}
+		}
 	}
 	return map[string]any{
 		"id": responseID, "object": "response", "created_at": now, "status": "completed", "model": response.Model,
@@ -518,6 +526,9 @@ func buildAnthropicResponse(response *myopenai.OpenAIResponse) map[string]any {
 	usage := map[string]any{"input_tokens": 0, "output_tokens": 0}
 	if response.Usage != nil {
 		usage = map[string]any{"input_tokens": response.Usage.PromptTokens, "output_tokens": response.Usage.CompletionTokens}
+		if response.Usage.PromptTokensDetails != nil {
+			usage["cache_read_input_tokens"] = response.Usage.PromptTokensDetails.CachedTokens
+		}
 	}
 	return map[string]any{"id": response.ID, "type": "message", "role": "assistant", "model": response.Model, "content": content, "stop_reason": stopReason, "stop_sequence": nil, "usage": usage}
 }

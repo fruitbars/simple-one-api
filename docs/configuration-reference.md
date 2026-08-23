@@ -16,6 +16,10 @@ JSON 和 YAML 都可以作为启动时的导入格式。启动后 SQLite 是运�
     "recovery_timeout_seconds": 30,
     "half_open_max_requests": 1
   },
+  "statistics": {
+    "enabled": true,
+    "retention_days": 30
+  },
   "services": {}
 }
 ```
@@ -34,6 +38,7 @@ JSON 和 YAML 都可以作为启动时的导入格式。启动后 SQLite 是运�
 | `log_level` | string | `debug`、`info`、`warn`、`error`、`prodj` 等兼容值，变更需要重启。 |
 | `load_balancing` | string | `random`、`first`、`round_robin`、`hash`。 |
 | `circuit_breaker` | object | Provider/模型粒度的熔断与自动恢复；默认连续失败 5 次后暂停 30 秒，并放行 1 个半开探测请求。 |
+| `statistics` | object | 轻量使用统计；默认启用并保留 30 天，保留期范围为 1–3650 天。 |
 | `services` | object | Provider 配置，键名是支持的服务类型。 |
 | `proxy` | object | 全局 HTTP/HTTPS/SOCKS5 代理。 |
 | `multi_content_models` | string[] | 允许多模态内容的模型匹配列表。 |
@@ -109,6 +114,18 @@ Chat Completions 会将 SDK 未建模的顶层 JSON 字段原样透传给 OpenAI
 - 权威来源采用兼容模式：运行期间以 SQLite 的 active revision 为准；重启时，如果启动文件 checksum 发生变化，文件会作为新的 active revision 导入，因此运维人员仍可通过显式修改启动文件覆盖后台最近发布的版本。
 - 未知 JSON/YAML 字段会被保留，表单编辑不会清除它们。
 - SQLite 当前未做静态加密，数据库文件权限尽量设置为 `0600`；生产环境应限制数据目录权限。
+
+## 使用统计
+
+- 配置台“使用统计”提供预设及自定义时间范围、上一周期对比，并可按 Provider、模型、协议、访问密钥和状态组合筛选。
+- 摘要包含输入/输出 Token、Usage 完整率、P50/P95 延迟、流式 TTFT 和输出 Token 速率；Provider/模型分布会分别显示 Usage 完整率。
+- 每个 `/v1/*` POST 请求都会返回 `X-Request-ID`。数据库只记录请求 ID、时间、协议、Access Key 指纹、模型、Provider、状态码、延迟和上游返回的 Token 数。
+- 不记录原始 API Key、请求或响应正文、IP、User-Agent。Access Key 只保存不可逆 SHA-256 短指纹。
+- 上游未返回 Usage 时，Token 字段保存为 `NULL`，不会估算成 0。支持输入、输出、缓存输入、缓存写入、推理和总 Token 字段。
+- 写入使用有界异步队列、批量事务和 SQLite WAL，不阻塞推理响应；队列或数据库繁忙造成的丢弃数会显示在统计页底部。
+- `statistics.enabled` 和 `statistics.retention_days` 保存后立即生效。过期记录会自动从同一个 SQLite 数据库的 `request_stats` 表清理。
+- 管理聚合接口为 `GET /api/admin/statistics/overview?from=<RFC3339>&to=<RFC3339>&bucket=hour|day`，可选筛选参数为 `provider`、`model`、`protocol`、`access_key` 和 `status=success|failure`。
+- CSV 接口为 `GET /api/admin/statistics/export`，接受与聚合接口相同的时间和筛选参数，并使用现有 Admin 鉴权。
 
 ## 配置台保存流程
 
