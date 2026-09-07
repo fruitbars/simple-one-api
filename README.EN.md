@@ -143,7 +143,7 @@ wails build -clean
 
 Artifacts are written to `cmd/desktop/build/bin/`. See [`cmd/desktop/README.md`](cmd/desktop/README.md) for desktop details.
 
-The desktop app also listens on `127.0.0.1:<server_port>` (port `9090` by default). Local clients can therefore use `http://127.0.0.1:9090/v1` as their Base URL. Closing the app shuts down the gateway process and releases the port.
+The desktop app also listens on `127.0.0.1:<server_port>` (port `9090` by default). Local clients can therefore use `http://127.0.0.1:9090/v1` as their Base URL. With `enable_web: true`, browsers can also open `/`, `/admin`, and `/chat`; the configuration workspace prompts for the gateway key. Closing the app shuts down the gateway process and releases the port.
 
 ## API examples
 

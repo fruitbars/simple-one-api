@@ -1,5 +1,9 @@
 # simple-one-api更新日志
 
+## Unreleased
+
+1. 修复桌面 App 的 loopback 网关忽略 `enable_web`、导致 `/`、`/admin` 和 `/chat` 返回 404；浏览器直接进入配置台时增加网关主密钥解锁页。
+
 ## v0.12.0 - 2026-09-07
 
 1. 增加 Provider API Key 号池，可配置稳定 ID、显示名称、启停状态、Key 总限制和 Key-模型限制。

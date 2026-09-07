@@ -18,7 +18,7 @@ import (
 
 func TestEmbeddedWebRoutes(t *testing.T) {
 	router := NewRouterWithOptions(Options{EnableWeb: true})
-	for _, target := range []string{"/", "/settings"} {
+	for _, target := range []string{"/", "/admin", "/chat", "/settings"} {
 		request := httptest.NewRequest(http.MethodGet, target, nil)
 		request.Header.Set("Accept", "text/html")
 		response := httptest.NewRecorder()

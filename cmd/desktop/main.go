@@ -32,7 +32,7 @@ func main() {
 		return
 	}
 	defer initializer.Cleanup()
-	desktopAPI := appserver.NewRouterWithOptions(appserver.Options{EnableWeb: false, TrustedLocalAdminBootstrap: true})
+	desktopAPI := appserver.NewDesktopRouter()
 	bridge := NewDesktopBridge(desktopAPI)
 	gateway, _, gatewayErr := startDesktopGateway(desktopAPI, config.CurrentServerPort())
 	if gatewayErr != nil {

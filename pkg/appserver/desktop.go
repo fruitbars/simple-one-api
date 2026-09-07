@@ -8,10 +8,20 @@ import (
 	"simple-one-api/pkg/config"
 )
 
+// NewDesktopRouter builds the shared router used by the Wails bridge and its
+// loopback gateway. Web routes follow the persisted enable_web setting just as
+// they do in the standalone server.
+func NewDesktopRouter() http.Handler {
+	return NewRouterWithOptions(Options{
+		EnableWeb:                  config.CurrentConfiguration().EnableWeb,
+		TrustedLocalAdminBootstrap: true,
+	})
+}
+
 // DesktopAssetMiddleware sends API calls to the same Gin router used by the
-// server while leaving Web assets to Wails. No loopback port is opened.
+// server while leaving Web assets to Wails.
 func DesktopAssetMiddleware(next http.Handler) http.Handler {
-	api := NewRouterWithOptions(Options{EnableWeb: false, TrustedLocalAdminBootstrap: true})
+	api := NewDesktopRouter()
 	return DesktopAssetMiddlewareFor(api)(next)
 }
 

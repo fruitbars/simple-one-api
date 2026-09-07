@@ -144,7 +144,7 @@ wails build -clean
 
 产物位于 `cmd/desktop/build/bin/`。桌面端说明见 [`cmd/desktop/README.md`](cmd/desktop/README.md)。
 
-桌面 App 启动后会同时监听 `127.0.0.1:<server_port>`（默认 `9090`），因此本地客户端可将 Base URL 配置为 `http://127.0.0.1:9090/v1`。退出 App 后该网关进程和监听端口会一起关闭。
+桌面 App 启动后会同时监听 `127.0.0.1:<server_port>`（默认 `9090`），因此本地客户端可将 Base URL 配置为 `http://127.0.0.1:9090/v1`。`enable_web: true` 时，浏览器也可以打开 `/`、`/admin` 和 `/chat`；配置台会要求输入网关主密钥。退出 App 后该网关进程和监听端口会一起关闭。
 
 ## API 示例
 

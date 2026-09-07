@@ -5,7 +5,9 @@ The desktop application uses Wails v2 and the shared React application in
 also starts the same API gateway on `127.0.0.1:<server_port>` (port `9090` by
 default), allowing local clients such as Codex and zcode to use
 `http://127.0.0.1:9090/v1`. Closing the app shuts down that gateway and releases
-the port.
+the port. When `enable_web` is true, the loopback gateway also serves `/`,
+`/admin`, and `/chat`; browser admin requests require the configured gateway
+key.
 
 The first screen is the visual configuration workspace. Switch to Chat from the
 left navigation. Chat conversations are stored only in the local WebView

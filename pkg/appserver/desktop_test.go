@@ -3,6 +3,7 @@ package appserver
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"simple-one-api/pkg/config"
@@ -61,5 +62,28 @@ func TestDesktopMiddlewareUsesConfiguredKeyForInternalRequests(t *testing.T) {
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/admin/status", nil))
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected configured desktop admin to authorize internally, got %d: %s", response.Code, response.Body.String())
+	}
+}
+
+func TestDesktopRouterHonorsWebSetting(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		enableWeb  bool
+		wantStatus int
+	}{
+		{name: "enabled", enableWeb: true, wantStatus: http.StatusOK},
+		{name: "disabled", enableWeb: false, wantStatus: http.StatusNotFound},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			setTestConfiguration(t, config.Configuration{EnableWeb: test.enableWeb})
+			response := httptest.NewRecorder()
+			NewDesktopRouter().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/admin", nil))
+			if response.Code != test.wantStatus {
+				t.Fatalf("GET /admin returned %d, want %d: %s", response.Code, test.wantStatus, response.Body.String())
+			}
+			if test.enableWeb && !strings.Contains(response.Body.String(), `<div id="root"></div>`) {
+				t.Fatalf("GET /admin did not return the embedded app: %s", response.Body.String())
+			}
+		})
 	}
 }

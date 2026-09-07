@@ -94,6 +94,8 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [adminCredential, setAdminCredential] = useState("");
   const [bootstrapRequired, setBootstrapRequired] = useState(false);
   const [bootstrapCredential, setBootstrapCredential] = useState("");
   const [sourceEditing, setSourceEditing] = useState(false);
@@ -123,7 +125,7 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
   }, [message, messagePersistent]);
 
   useEffect(() => {
-    if (section !== "providers" || bootstrapRequired) {
+    if (section !== "providers" || authRequired || bootstrapRequired) {
       setCapacityStatuses([]);
       return;
     }
@@ -148,7 +150,7 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [apiKey, bootstrapRequired, section]);
+  }, [apiKey, authRequired, bootstrapRequired, section]);
 
   function showMessage(value: string, persistent = false) {
     setMessagePersistent(persistent);
@@ -168,13 +170,20 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
       setDirty(false);
       setSourceEditing(false);
       setSourceChanged(false);
+      setAuthRequired(false);
       setBootstrapRequired(false);
       return true;
     } catch (reason) {
       if (reason instanceof AdminRequestError && reason.code === "admin_bootstrap_required") {
+        setAuthRequired(false);
         setBootstrapRequired(true);
         setError("");
+      } else if (reason instanceof AdminRequestError && reason.status === 401) {
+        setAuthRequired(true);
+        setBootstrapRequired(false);
+        setError(credential.trim() ? "网关主密钥不正确，请重新输入。" : "请输入网关主密钥以访问配置台。");
       } else {
+        setAuthRequired(false);
         setError(reason instanceof Error ? reason.message : "无法读取配置仓库");
       }
       return false;
@@ -194,6 +203,19 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
       setBootstrapCredential("");
       setSection("system");
       showMessage("后台已临时解锁。请设置网关主密钥并发布配置，完成首次初始化。", true);
+    }
+  }
+
+  async function unlockAdmin() {
+    const credential = adminCredential.trim();
+    if (!credential) {
+      setError("请输入网关主密钥。");
+      return;
+    }
+    if (await refresh(credential)) {
+      onApiKeyChange(credential);
+      setAdminCredential("");
+      showMessage("配置台已解锁。", true);
     }
   }
 
@@ -450,6 +472,21 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
         {error && <div className="admin-alert error" role="alert">{error}</div>}
         {message && <div className="admin-alert success" role="status" aria-live="polite"><CheckCircle2 size={17} />{message}</div>}
 
+        {authRequired && (
+          <section className="admin-bootstrap-panel">
+            <div className="bootstrap-icon"><LockKeyhole size={24} /></div>
+            <div className="bootstrap-copy">
+              <h2>输入网关主密钥</h2>
+              <p>配置台使用网关主密钥鉴权。密钥只保存在当前浏览器会话中，关闭会话后需要重新输入。</p>
+              <label className="visual-field">
+                <span>网关主密钥</span>
+                <input type="password" autoComplete="off" value={adminCredential} onChange={(event) => setAdminCredential(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void unlockAdmin(); }} placeholder="输入基础设置中的 api_key" autoFocus />
+              </label>
+              <button className="primary-button" onClick={() => void unlockAdmin()} disabled={loading}><LockKeyhole size={16} />进入配置台</button>
+            </div>
+          </section>
+        )}
+
         {bootstrapRequired && (
           <section className="admin-bootstrap-panel">
             <div className="bootstrap-icon"><LockKeyhole size={24} /></div>
@@ -465,13 +502,13 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
           </section>
         )}
 
-        {!bootstrapRequired && section !== "logs" && section !== "statistics" && <section className="admin-metrics">
+        {!authRequired && !bootstrapRequired && section !== "logs" && section !== "statistics" && <section className="admin-metrics">
           <div className="metric-card"><Database size={19} /><div><span>SQLite 数据库</span><strong title={databasePath}>{databasePath || "未连接"}</strong></div></div>
           <div className="metric-card"><Boxes size={19} /><div><span>Provider</span><strong>{enabledCount}/{providerCount} 启用</strong></div></div>
           <div className="metric-card"><Settings2 size={19} /><div><span>可用模型</span><strong>{modelCount}</strong></div></div>
         </section>}
 
-        {!bootstrapRequired && <div className="admin-grid visual-admin-grid">
+        {!authRequired && !bootstrapRequired && <div className="admin-grid visual-admin-grid">
           <section className={`admin-panel visual-config-panel ${section === "providers" ? "provider-config-panel" : ""} ${section === "advanced" ? "source-config-panel" : ""} ${section === "statistics" ? "statistics-config-panel" : ""}`}>
             {section === "system" && (
               <SystemForm configuration={configuration} onChange={replaceConfiguration} />
