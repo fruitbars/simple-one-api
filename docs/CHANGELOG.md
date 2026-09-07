@@ -1,6 +1,6 @@
 # simple-one-api更新日志
 
-## Unreleased
+## v0.12.0 - 2026-09-07
 
 1. 增加 Provider API Key 号池，可配置稳定 ID、显示名称、启停状态、Key 总限制和 Key-模型限制。
 2. 增加 Provider、Provider-模型、Key、Key-模型四层组合限流，QPS、QPM、RPM、TPM 和并发数可同时约束请求。
