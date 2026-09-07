@@ -1,6 +1,6 @@
 # simple-one-api更新日志
 
-## Unreleased
+## v0.12.1 - 2026-09-07
 
 1. 修复桌面 App 的 loopback 网关忽略 `enable_web`、导致 `/`、`/admin` 和 `/chat` 返回 404；浏览器直接进入配置台时增加网关主密钥解锁页。
 
