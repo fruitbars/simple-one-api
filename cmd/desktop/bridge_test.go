@@ -9,6 +9,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"simple-one-api/pkg/config"
 )
 
 func testDesktopBridge(handler http.Handler) (*DesktopBridge, *eventRecorder) {
@@ -68,6 +70,23 @@ func TestDesktopBridgeStreamsChunksAndForwardsAPIKey(t *testing.T) {
 	got := events.decoded(t)
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("events = %#v, want %#v", got, want)
+	}
+}
+
+func TestDesktopBridgeUsesConfiguredKeyWhenUIKeyIsEmpty(t *testing.T) {
+	if err := config.ApplyConfiguration(config.Configuration{APIKey: "configured-key"}, "desktop-bridge-test"); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = config.ApplyConfiguration(config.Configuration{}, "desktop-bridge-test-cleanup") })
+
+	bridge, _ := testDesktopBridge(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if got := request.Header.Get("Authorization"); got != "Bearer configured-key" {
+			t.Errorf("authorization = %q", got)
+		}
+		writer.WriteHeader(http.StatusOK)
+	}))
+	if err := bridge.StreamChat("configured-key-request", "", `{}`); err != nil {
+		t.Fatalf("stream chat: %v", err)
 	}
 }
 

@@ -6,6 +6,7 @@ import {
   scalarCredentialEntries,
   setModelAlias,
   stringList,
+  upstreamEndpointPreview,
 } from "./configuration";
 
 describe("configuration helpers", () => {
@@ -14,11 +15,21 @@ describe("configuration helpers", () => {
     expect(displayStringList(["model-a", "model-b"])).toBe("model-a, model-b");
   });
 
+  it("accepts common model separators", () => {
+    expect(stringList("model-a，model-b； model-c\nmodel-d")).toEqual(["model-a", "model-b", "model-c", "model-d"]);
+  });
+
+  it("previews the final upstream endpoint for the selected protocol", () => {
+    expect(upstreamEndpointPreview("openai", "responses", "https://example.com/v2")).toBe("https://example.com/v2/responses");
+    expect(upstreamEndpointPreview("openai", "chat_completions", "https://example.com/v2")).toBe("https://example.com/v2/chat/completions");
+  });
+
   it("creates a provider draft with a stable editable shape", () => {
     const service = createService("openai");
     expect(service.id).toMatch(/^[0-9a-f-]{36}$/i);
     expect(service).toMatchObject({
       provider: "openai",
+      upstream_protocol: "auto",
       enabled: true,
       models: [],
       credentials: {},

@@ -207,6 +207,7 @@ export function App() {
     window.history.pushState({}, "", path);
     setSurface(next);
     setSidebarOpen(false);
+    if (next === "chat") void refreshModels();
   }
 
   async function submit(event?: FormEvent, prompt = draft) {

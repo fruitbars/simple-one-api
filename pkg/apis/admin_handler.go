@@ -12,24 +12,26 @@ import (
 )
 
 type PublicServiceModel struct {
-	Provider        string            `json:"provider"`
-	EmbeddingModels []string          `json:"embedding_models"`
-	EmbeddingLimit  PublicLimit       `json:"embedding_limit"`
-	Models          []string          `json:"models"`
-	ReasoningModels map[string]string `json:"reasoning_models"`
-	Enabled         bool              `json:"enabled"`
-	ServerURL       string            `json:"server_url"`
-	ModelMap        map[string]string `json:"model_map"`
-	ModelRedirect   map[string]string `json:"model_redirect"`
-	Limit           PublicLimit       `json:"limit"`
-	Timeout         int               `json:"timeout"`
-	CredentialCount int               `json:"credential_count"`
+	Provider         string            `json:"provider"`
+	UpstreamProtocol string            `json:"upstream_protocol"`
+	EmbeddingModels  []string          `json:"embedding_models"`
+	EmbeddingLimit   PublicLimit       `json:"embedding_limit"`
+	Models           []string          `json:"models"`
+	ReasoningModels  map[string]string `json:"reasoning_models"`
+	Enabled          bool              `json:"enabled"`
+	ServerURL        string            `json:"server_url"`
+	ModelMap         map[string]string `json:"model_map"`
+	ModelRedirect    map[string]string `json:"model_redirect"`
+	Limit            PublicLimit       `json:"limit"`
+	Timeout          int               `json:"timeout"`
+	CredentialCount  int               `json:"credential_count"`
 }
 
 type PublicLimit struct {
 	QPS         float64 `json:"qps"`
 	QPM         float64 `json:"qpm"`
 	RPM         float64 `json:"rpm"`
+	TPM         float64 `json:"tpm"`
 	Concurrency float64 `json:"concurrency"`
 	Timeout     int     `json:"timeout"`
 }
@@ -148,18 +150,19 @@ func AdminConfigHandler(c *gin.Context) {
 				credentialCount++
 			}
 			items = append(items, PublicServiceModel{
-				Provider:        serviceModel.Provider,
-				EmbeddingModels: append([]string(nil), serviceModel.EmbeddingModels...),
-				EmbeddingLimit:  publicLimit(serviceModel.EmbeddingLimit),
-				Models:          append([]string(nil), serviceModel.Models...),
-				ReasoningModels: cloneStringMap(serviceModel.ReasoningModels),
-				Enabled:         serviceModel.Enabled,
-				ServerURL:       serviceModel.ServerURL,
-				ModelMap:        cloneStringMap(serviceModel.ModelMap),
-				ModelRedirect:   cloneStringMap(serviceModel.ModelRedirect),
-				Limit:           publicLimit(serviceModel.Limit),
-				Timeout:         serviceModel.Timeout,
-				CredentialCount: credentialCount,
+				Provider:         serviceModel.Provider,
+				UpstreamProtocol: serviceModel.UpstreamProtocol,
+				EmbeddingModels:  append([]string(nil), serviceModel.EmbeddingModels...),
+				EmbeddingLimit:   publicLimit(serviceModel.EmbeddingLimit),
+				Models:           append([]string(nil), serviceModel.Models...),
+				ReasoningModels:  cloneStringMap(serviceModel.ReasoningModels),
+				Enabled:          serviceModel.Enabled,
+				ServerURL:        serviceModel.ServerURL,
+				ModelMap:         cloneStringMap(serviceModel.ModelMap),
+				ModelRedirect:    cloneStringMap(serviceModel.ModelRedirect),
+				Limit:            publicLimit(serviceModel.Limit),
+				Timeout:          serviceModel.Timeout,
+				CredentialCount:  credentialCount,
 			})
 		}
 		pub.Services[serviceName] = items
@@ -176,7 +179,7 @@ func AdminConfigHandler(c *gin.Context) {
 }
 
 func publicLimit(limit config.Limit) PublicLimit {
-	return PublicLimit{QPS: limit.QPS, QPM: limit.QPM, RPM: limit.RPM, Concurrency: limit.Concurrency, Timeout: limit.Timeout}
+	return PublicLimit{QPS: limit.QPS, QPM: limit.QPM, RPM: limit.RPM, TPM: limit.TPM, Concurrency: limit.Concurrency, Timeout: limit.Timeout}
 }
 
 func publicParamsRange(values map[string]config.ModelParams) map[string]PublicModelParams {

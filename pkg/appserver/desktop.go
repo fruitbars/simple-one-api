@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"simple-one-api/internal/webui"
+	"simple-one-api/pkg/config"
 )
 
 // DesktopAssetMiddleware sends API calls to the same Gin router used by the
@@ -21,11 +22,21 @@ func DesktopAssetMiddlewareFor(api http.Handler) func(http.Handler) http.Handler
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 			webui.ApplySecurityHeaders(writer.Header())
 			if isDesktopAPIPath(request.URL.Path) {
+				authorizeDesktopRequest(request)
 				api.ServeHTTP(writer, request)
 				return
 			}
 			next.ServeHTTP(writer, request)
 		})
+	}
+}
+
+func authorizeDesktopRequest(request *http.Request) {
+	if strings.TrimSpace(request.Header.Get("Authorization")) != "" || strings.TrimSpace(request.Header.Get("x-api-key")) != "" {
+		return
+	}
+	if key := strings.TrimSpace(config.CurrentAPIKey()); key != "" {
+		request.Header.Set("Authorization", "Bearer "+key)
 	}
 }
 

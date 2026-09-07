@@ -38,6 +38,7 @@ type Limit struct {
 	QPS         float64                `json:"qps" yaml:"qps"`
 	QPM         float64                `json:"qpm" yaml:"qpm"`
 	RPM         float64                `json:"rpm" yaml:"rpm"`
+	TPM         float64                `json:"tpm" yaml:"tpm"`
 	Concurrency float64                `json:"concurrency" yaml:"concurrency"`
 	Timeout     int                    `json:"timeout" yaml:"timeout"`
 	Extensions  map[string]interface{} `json:"-" yaml:",inline"`
@@ -58,22 +59,24 @@ type ModelParams struct {
 
 // ServiceModel 定义相关结构体
 type ServiceModel struct {
-	ID              string                   `json:"id,omitempty" yaml:"id,omitempty"`
-	Provider        string                   `json:"provider" yaml:"provider"`
-	EmbeddingModels []string                 `json:"embedding_models" yaml:"embedding_models"`
-	EmbeddingLimit  Limit                    `json:"embedding_limit" yaml:"embedding_limit"`
-	Models          []string                 `json:"models" yaml:"models"`
-	ReasoningModels map[string]string        `json:"reasoning_models" yaml:"reasoning_models"`
-	Enabled         bool                     `json:"enabled" yaml:"enabled"`
-	Credentials     map[string]interface{}   `json:"credentials" yaml:"credentials"`
-	CredentialList  []map[string]interface{} `json:"credential_list" yaml:"credential_list"`
-	ServerURL       string                   `json:"server_url" yaml:"server_url"`
-	ModelMap        map[string]string        `json:"model_map" yaml:"model_map"`
-	ModelRedirect   map[string]string        `json:"model_redirect" yaml:"model_redirect"`
-	Limit           Limit                    `json:"limit" yaml:"limit"`
-	UseProxy        *bool                    `json:"use_proxy,omitempty" yaml:"use_proxy,omitempty"`
-	Timeout         int                      `json:"timeout" yaml:"timeout"`
-	Extensions      map[string]interface{}   `json:"-" yaml:",inline"`
+	ID               string                   `json:"id,omitempty" yaml:"id,omitempty"`
+	Provider         string                   `json:"provider" yaml:"provider"`
+	UpstreamProtocol string                   `json:"upstream_protocol,omitempty" yaml:"upstream_protocol,omitempty"`
+	EmbeddingModels  []string                 `json:"embedding_models" yaml:"embedding_models"`
+	EmbeddingLimit   Limit                    `json:"embedding_limit" yaml:"embedding_limit"`
+	Models           []string                 `json:"models" yaml:"models"`
+	ModelLimits      map[string]Limit         `json:"model_limits" yaml:"model_limits"`
+	ReasoningModels  map[string]string        `json:"reasoning_models" yaml:"reasoning_models"`
+	Enabled          bool                     `json:"enabled" yaml:"enabled"`
+	Credentials      map[string]interface{}   `json:"credentials" yaml:"credentials"`
+	CredentialList   []map[string]interface{} `json:"credential_list" yaml:"credential_list"`
+	ServerURL        string                   `json:"server_url" yaml:"server_url"`
+	ModelMap         map[string]string        `json:"model_map" yaml:"model_map"`
+	ModelRedirect    map[string]string        `json:"model_redirect" yaml:"model_redirect"`
+	Limit            Limit                    `json:"limit" yaml:"limit"`
+	UseProxy         *bool                    `json:"use_proxy,omitempty" yaml:"use_proxy,omitempty"`
+	Timeout          int                      `json:"timeout" yaml:"timeout"`
+	Extensions       map[string]interface{}   `json:"-" yaml:",inline"`
 }
 
 type ProxyConf struct {
@@ -145,8 +148,8 @@ func createModelToServiceMap(config Configuration) (map[string][]ModelDetails, m
 	for serviceName, serviceModels := range config.Services {
 		for _, model := range serviceModels {
 			if model.Enabled {
-				log.Printf("Models: %v, service Timeout:%v,Limit Timeout: %v, QPS: %v, QPM: %v, RPM: %v,Concurrency: %v\n",
-					model.Models, model.Timeout, model.Limit.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.RPM, model.Limit.Concurrency)
+				log.Printf("Models: %v, service Timeout:%v,Limit Timeout: %v, QPS: %v, QPM: %v, RPM: %v, TPM: %v,Concurrency: %v\n",
+					model.Models, model.Timeout, model.Limit.Timeout, model.Limit.QPS, model.Limit.QPM, model.Limit.RPM, model.Limit.TPM, model.Limit.Concurrency)
 
 				log.Printf("Models: %v\n", model.EmbeddingModels)
 

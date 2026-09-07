@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"simple-one-api/pkg/config"
 )
 
 const desktopChatEventPrefix = "simple-one-api:chat:"
@@ -77,7 +78,11 @@ func (bridge *DesktopBridge) StreamChat(requestID, apiKey, payload string) error
 		return err
 	}
 	request.Header.Set("Content-Type", "application/json")
-	if key := strings.TrimSpace(apiKey); key != "" {
+	key := strings.TrimSpace(apiKey)
+	if key == "" {
+		key = strings.TrimSpace(config.CurrentAPIKey())
+	}
+	if key != "" {
 		request.Header.Set("Authorization", "Bearer "+key)
 	}
 	eventName := desktopChatEventPrefix + requestID

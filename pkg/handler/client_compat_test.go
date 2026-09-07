@@ -51,6 +51,19 @@ func TestResponsesToChatMapsReasoningAndImages(t *testing.T) {
 	}
 }
 
+func TestResponsesToChatMapsMaxReasoningToHigh(t *testing.T) {
+	chat, err := responsesToChat(responsesRequest{
+		Reasoning: json.RawMessage(`{"effort":"max"}`),
+		Input:     json.RawMessage(`"hello"`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if chat.ReasoningEffort != "high" {
+		t.Fatalf("reasoning effort = %q, want high", chat.ReasoningEffort)
+	}
+}
+
 func TestCompatibilityRejectsStatefulOrUnknownInput(t *testing.T) {
 	if _, err := responsesToChat(responsesRequest{PreviousResponseID: "resp_1"}); err == nil {
 		t.Fatal("previous_response_id must not be silently ignored")

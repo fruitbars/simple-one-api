@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"simple-one-api/internal/webui"
 	"simple-one-api/pkg/appserver"
+	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/initializer"
 )
 
@@ -32,6 +34,18 @@ func main() {
 	defer initializer.Cleanup()
 	desktopAPI := appserver.NewRouterWithOptions(appserver.Options{EnableWeb: false, TrustedLocalAdminBootstrap: true})
 	bridge := NewDesktopBridge(desktopAPI)
+	gateway, _, gatewayErr := startDesktopGateway(desktopAPI, config.CurrentServerPort())
+	if gatewayErr != nil {
+		log.Printf("desktop gateway unavailable on %s: %v", desktopGatewayAddress(config.CurrentServerPort()), gatewayErr)
+	} else {
+		log.Printf("desktop gateway listening on http://%s", desktopGatewayAddress(config.CurrentServerPort()))
+	}
+	shutdown := func(ctx context.Context) {
+		bridge.shutdown(ctx)
+		if err := stopDesktopGateway(gateway); err != nil {
+			log.Printf("shutdown desktop gateway: %v", err)
+		}
+	}
 
 	err = wails.Run(&options.App{
 		Title:                    "Simple One",
@@ -44,7 +58,7 @@ func main() {
 		SingleInstanceLock:       &options.SingleInstanceLock{UniqueId: "com.simple-one-api.desktop"},
 		DragAndDrop:              &options.DragAndDrop{DisableWebViewDrop: true},
 		OnStartup:                bridge.startup,
-		OnShutdown:               bridge.shutdown,
+		OnShutdown:               shutdown,
 		Bind:                     []interface{}{bridge},
 		AssetServer: &assetserver.Options{
 			Assets:     webui.Assets(),

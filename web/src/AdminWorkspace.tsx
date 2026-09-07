@@ -3,6 +3,7 @@ import {
   Braces,
   BarChart3,
   ArrowRight,
+  ArrowDown,
   CheckCircle2,
   ChevronDown,
   CircleCheck,
@@ -10,6 +11,8 @@ import {
   Copy,
   Database,
   Download,
+  Eye,
+  EyeOff,
   KeyRound,
   LockKeyhole,
   Network,
@@ -31,12 +34,14 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   AdminRequestError,
   getConfigDraft,
+  getCredentialCapacity,
   getAdminLogs,
   publishConfig,
   validateConfig,
   type ConfigurationDocument,
   type ValidationIssue,
   type LiveLogEntry,
+  type CredentialCapacityStatus,
 } from "./api/admin";
 import {
   asConfiguration,
@@ -46,9 +51,12 @@ import {
   setModelAlias,
   removeModelAlias,
   serviceTypes,
+  upstreamProtocols,
+  upstreamEndpointPreview,
   stringList,
   type AccessKeyConfiguration,
   type AppConfiguration,
+  type LimitConfiguration,
   type ServiceConfiguration,
 } from "./configuration";
 import type { SourceFormat } from "./sourceDocument";
@@ -90,6 +98,7 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
   const [bootstrapCredential, setBootstrapCredential] = useState("");
   const [sourceEditing, setSourceEditing] = useState(false);
   const [sourceChanged, setSourceChanged] = useState(false);
+  const [capacityStatuses, setCapacityStatuses] = useState<CredentialCapacityStatus[]>([]);
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   const services = configuration.services ?? {};
@@ -112,6 +121,34 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
     const timer = window.setTimeout(() => setMessage(""), 5000);
     return () => window.clearTimeout(timer);
   }, [message, messagePersistent]);
+
+  useEffect(() => {
+    if (section !== "providers" || bootstrapRequired) {
+      setCapacityStatuses([]);
+      return;
+    }
+    let disposed = false;
+    let loadingCapacity = false;
+    const load = async () => {
+      if (loadingCapacity) return;
+      loadingCapacity = true;
+      try {
+        const next = await getCredentialCapacity(apiKey);
+        if (!disposed) setCapacityStatuses(next);
+      } catch {
+        // Capacity is supplementary runtime data; a transient error must not
+        // interrupt editing or saving the configuration draft.
+      } finally {
+        loadingCapacity = false;
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 3000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [apiKey, bootstrapRequired, section]);
 
   function showMessage(value: string, persistent = false) {
     setMessagePersistent(persistent);
@@ -384,9 +421,9 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
   return (
     <div className="admin-shell">
       <aside className="admin-nav">
-        <div className="admin-brand"><span className="brand-mark">S</span><span>Simple One <small>API</small></span></div>
+        <div className="admin-brand"><span className="brand-mark">S</span><span className="brand-name">Simple One <small>API</small></span></div>
         <div className="workspace-switch admin-workspace-switch" aria-label="工作区切换">
-          <button className="active"><Settings2 size={16} />配置</button>
+          <button className="active"><Database size={16} />配置</button>
           <button onClick={onBack}><MessageSquare size={16} />Chat</button>
         </div>
         <div className="admin-nav-title">配置管理</div>
@@ -442,6 +479,7 @@ export function AdminWorkspace({ apiKey, onApiKeyChange, onBack }: AdminWorkspac
             {section === "providers" && (
               <ProviderForm
                 services={services}
+                capacityStatuses={capacityStatuses}
                 onAdd={addService}
                 onMove={moveService}
                 onRemove={removeService}
@@ -515,14 +553,19 @@ function LiveLogsPanel({ apiKey }: { apiKey: string }) {
   const [enabled, setEnabled] = useState(true);
   const [entries, setEntries] = useState<LiveLogEntry[]>([]);
   const [level, setLevel] = useState("all");
+  const [followingTail, setFollowingTail] = useState(true);
   const [loadError, setLoadError] = useState("");
   const cursorRef = useRef(0);
+  const loadingRef = useRef(false);
+  const followTailRef = useRef(true);
   const viewportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
     let disposed = false;
     const load = async () => {
+      if (loadingRef.current) return;
+      loadingRef.current = true;
       try {
         const next = await getAdminLogs(apiKey, cursorRef.current);
         if (disposed || next.length === 0) return;
@@ -531,6 +574,8 @@ function LiveLogsPanel({ apiKey }: { apiKey: string }) {
         setLoadError("");
       } catch (reason) {
         if (!disposed) setLoadError(reason instanceof Error ? reason.message : "无法读取实时日志");
+      } finally {
+        loadingRef.current = false;
       }
     };
     void load();
@@ -542,38 +587,57 @@ function LiveLogsPanel({ apiKey }: { apiKey: string }) {
   }, [apiKey, enabled]);
 
   useEffect(() => {
-    if (!enabled || !viewportRef.current) return;
+    if (!enabled || !followTailRef.current || !viewportRef.current) return;
     viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
   }, [enabled, entries]);
+
+  function updateTailState() {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const following = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 32;
+    followTailRef.current = following;
+    setFollowingTail(following);
+  }
+
+  function followLatest() {
+    followTailRef.current = true;
+    setFollowingTail(true);
+    viewportRef.current?.scrollTo({ top: viewportRef.current.scrollHeight, behavior: "smooth" });
+  }
 
   const visibleEntries = level === "all" ? entries : entries.filter((entry) => entry.level === level);
 
   return (
     <div className="live-logs-panel">
-      <div className="section-heading with-action">
-        <div><h2>实时日志</h2><p>仅展示脱敏后的运行摘要，最多保留最近 500 条。</p></div>
-        <Toggle compact label={enabled ? "已开启" : "已关闭"} checked={enabled} onChange={setEnabled} />
-      </div>
       <div className="log-toolbar">
         <div className="status-filter" aria-label="日志级别筛选">
           {["all", "debug", "info", "warn", "error"].map((item) => (
             <button key={item} className={level === item ? "active" : ""} onClick={() => setLevel(item)}>{item === "all" ? "全部" : item.toUpperCase()}</button>
           ))}
         </div>
-        <button className="icon-text-button" onClick={() => setEntries([])}><Trash2 size={15} />清空视图</button>
+        <div className="log-toolbar-actions">
+          <Toggle compact label={enabled ? "已开启" : "已关闭"} checked={enabled} onChange={setEnabled} />
+          {!followingTail && <button className="icon-text-button" onClick={followLatest}><ArrowDown size={15} />跟随最新</button>}
+          <button className="icon-text-button" onClick={() => setEntries([])}><Trash2 size={15} />清空视图</button>
+        </div>
       </div>
       {loadError && <div className="log-inline-error" role="alert">{loadError}</div>}
-      <div className="log-viewport" ref={viewportRef} aria-live="off">
-        {!enabled && <div className="log-empty"><ScrollText size={24} /><span>实时日志已关闭</span></div>}
-        {enabled && visibleEntries.length === 0 && <div className="log-empty"><ScrollText size={24} /><span>等待新的日志...</span></div>}
-        {enabled && visibleEntries.map((entry) => (
-          <div className="log-row" key={entry.id}>
-            <time>{new Date(entry.time).toLocaleTimeString("zh-CN", { hour12: false })}</time>
-            <span className={`log-level ${entry.level}`}>{entry.level.toUpperCase()}</span>
-            <code>{entry.caller || "runtime"}</code>
-            <span>{entry.message}</span>
-          </div>
-        ))}
+      <div className="log-table">
+        <div className="log-column-header" aria-hidden="true">
+          <span>时间</span><span>级别</span><span>来源</span><span>消息</span>
+        </div>
+        <div className="log-viewport" ref={viewportRef} onScroll={updateTailState} aria-live="off">
+          {!enabled && <div className="log-empty"><ScrollText size={24} /><span>实时日志已关闭</span></div>}
+          {enabled && visibleEntries.length === 0 && <div className="log-empty"><ScrollText size={24} /><span>等待新的日志...</span></div>}
+          {enabled && visibleEntries.map((entry) => (
+            <div className="log-row" key={entry.id}>
+              <time>{new Date(entry.time).toLocaleTimeString("zh-CN", { hour12: false })}</time>
+              <span className={`log-level ${entry.level}`}>{entry.level.toUpperCase()}</span>
+              <code>{entry.caller || "runtime"}</code>
+              <span>{entry.message}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -644,6 +708,7 @@ function SystemForm({ configuration, onChange }: { configuration: AppConfigurati
 
 interface ProviderFormProps {
   services: Record<string, ServiceConfiguration[]>;
+  capacityStatuses: CredentialCapacityStatus[];
   onAdd: () => void;
   onMove: (serviceName: string, index: number, target: string) => void;
   onRemove: (serviceName: string, index: number) => void;
@@ -703,15 +768,23 @@ function ProviderForm(props: ProviderFormProps) {
               <Field label="服务类型" hint="决定请求使用哪个适配器">
                 <div className="select-wrap"><select value={serviceName} onChange={(event) => props.onMove(serviceName, index, event.target.value)}>{serviceTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select><ChevronDown size={15} /></div>
               </Field>
+              <Field label="上游接口类型" hint="决定发给上游的协议；自动模式保持旧版行为">
+                <div className="select-wrap"><select value={service.upstream_protocol ?? "auto"} onChange={(event) => props.onUpdate(serviceName, index, { upstream_protocol: event.target.value as ServiceConfiguration["upstream_protocol"] })}>{upstreamProtocols.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><ChevronDown size={15} /></div>
+              </Field>
               <Field label="服务地址" hint="OpenAI 兼容服务可填写完整 API 地址">
                 <input value={service.server_url ?? ""} onChange={(event) => props.onUpdate(serviceName, index, { server_url: event.target.value })} placeholder="https://api.example.com/v1" />
               </Field>
+              <div className="upstream-endpoint-preview">
+                <span>最终请求地址</span>
+                <code>{upstreamEndpointPreview(serviceName, service.upstream_protocol, service.server_url)}</code>
+                {service.upstream_protocol === "responses" && service.server_url?.includes("xf-yun.com") && <strong>讯飞 MaaS OpenAI 兼容接口通常应选择 Chat Completions</strong>}
+              </div>
               <div className="provider-key-field">
                 <Field label="上游 API Key" hint="用于访问模型服务商；保存后会脱敏显示">
-                  <input type="password" autoComplete="off" value={String(service.credentials?.api_key ?? "")} onChange={(event) => props.onUpdateCredential(serviceName, index, "api_key", "api_key", event.target.value)} placeholder="粘贴服务商提供的 API Key" />
+                  <SecretInput ariaLabel="上游 API Key" value={String(service.credentials?.api_key ?? "")} onChange={(value) => props.onUpdateCredential(serviceName, index, "api_key", "api_key", value)} placeholder="粘贴服务商提供的 API Key" />
                 </Field>
               </div>
-              <Field label="聊天模型" hint="使用逗号或换行分隔">
+              <Field label="聊天模型" hint={`已识别 ${service.models?.length ?? 0} 个；可用逗号、空格或换行分隔`}>
                 <StringListEditor multiline values={service.models} onChange={(models) => props.onUpdate(serviceName, index, { models })} placeholder="gpt-4o-mini, deepseek-chat" />
               </Field>
               <Field label="Embedding 模型" hint="可选，使用逗号或换行分隔">
@@ -723,6 +796,13 @@ function ProviderForm(props: ProviderFormProps) {
               modelMap={service.model_map}
               onChange={(models, model_map) => props.onUpdate(serviceName, index, { models, model_map })}
             />
+            {(service.credential_list?.length ?? 0) === 0 && <ModelLimitEditor
+              title="主 Key-模型限流"
+              description="当前上游 API Key 调用指定模型时单独计量；不配置则使用 Key 总限制。"
+              models={service.models}
+              modelLimits={service.credentials?.model_limits as Record<string, LimitConfiguration> | undefined}
+              onChange={(model_limits) => props.onUpdate(serviceName, index, { credentials: { ...(service.credentials ?? {}), model_limits } })}
+            />}
             <div className="credential-section">
               <div className="subsection-heading"><div><strong>更多凭证</strong><span>Access Key、Secret Key 等服务商专用字段。</span></div><button onClick={() => props.onAddCredential(serviceName, index)}><Plus size={14} />添加字段</button></div>
               <div className="credential-list">
@@ -742,21 +822,174 @@ function ProviderForm(props: ProviderFormProps) {
                 {scalarCredentialEntries(service.credentials).filter(([key]) => key !== "api_key").length === 0 && <div className="credential-empty">大多数服务只需填写上方 API Key，无需添加其他凭证。</div>}
               </div>
             </div>
+            <CredentialPoolEditor
+              providerId={service.id}
+              models={service.models}
+              credentials={service.credential_list}
+              capacityStatuses={props.capacityStatuses}
+              onChange={(credential_list) => props.onUpdate(serviceName, index, { credential_list })}
+            />
             <details className="provider-advanced">
               <summary>高级路由与限流</summary>
+              <div className="limit-group-title"><strong>聊天请求总限制</strong><span>所有号池 Key 合计受此限制；填写多项时同时生效。</span></div>
               <div className="form-grid four-columns">
                 <Field label="稳定 ID"><input value={service.id ?? ""} onChange={(event) => props.onUpdate(serviceName, index, { id: event.target.value })} /></Field>
                 <Field label="请求超时（秒）"><NumberInput value={service.timeout} onChange={(timeout) => props.onUpdate(serviceName, index, { timeout })} /></Field>
                 <Field label="QPS"><NumberInput value={service.limit?.qps} onChange={(qps) => props.onUpdate(serviceName, index, { limit: { ...(service.limit ?? {}), qps } })} /></Field>
+                <Field label="QPM"><NumberInput value={service.limit?.qpm} onChange={(qpm) => props.onUpdate(serviceName, index, { limit: { ...(service.limit ?? {}), qpm } })} /></Field>
+                <Field label="RPM"><NumberInput value={service.limit?.rpm} onChange={(rpm) => props.onUpdate(serviceName, index, { limit: { ...(service.limit ?? {}), rpm } })} /></Field>
+                <Field label="TPM"><NumberInput value={service.limit?.tpm} onChange={(tpm) => props.onUpdate(serviceName, index, { limit: { ...(service.limit ?? {}), tpm } })} /></Field>
                 <Field label="并发数"><NumberInput value={service.limit?.concurrency} onChange={(concurrency) => props.onUpdate(serviceName, index, { limit: { ...(service.limit ?? {}), concurrency } })} /></Field>
+                <Field label="限流等待（秒）"><NumberInput value={service.limit?.timeout} onChange={(timeout) => props.onUpdate(serviceName, index, { limit: { ...(service.limit ?? {}), timeout } })} /></Field>
+              </div>
+              <ModelLimitEditor
+                title="Provider-模型共享上限"
+                description="指定模型在这个 Provider 下的总额度，所有 API Key 共同计量；通常无需配置。"
+                models={service.models}
+                modelLimits={service.model_limits}
+                onChange={(model_limits) => props.onUpdate(serviceName, index, { model_limits })}
+              />
+              <div className="limit-group-title"><strong>Embedding 请求总限制</strong><span>独立于聊天请求统计，Key 自身限制仍会叠加生效。</span></div>
+              <div className="form-grid four-columns">
+                <Field label="QPS"><NumberInput value={service.embedding_limit?.qps} onChange={(qps) => props.onUpdate(serviceName, index, { embedding_limit: { ...(service.embedding_limit ?? {}), qps } })} /></Field>
+                <Field label="QPM"><NumberInput value={service.embedding_limit?.qpm} onChange={(qpm) => props.onUpdate(serviceName, index, { embedding_limit: { ...(service.embedding_limit ?? {}), qpm } })} /></Field>
+                <Field label="RPM"><NumberInput value={service.embedding_limit?.rpm} onChange={(rpm) => props.onUpdate(serviceName, index, { embedding_limit: { ...(service.embedding_limit ?? {}), rpm } })} /></Field>
+                <Field label="TPM"><NumberInput value={service.embedding_limit?.tpm} onChange={(tpm) => props.onUpdate(serviceName, index, { embedding_limit: { ...(service.embedding_limit ?? {}), tpm } })} /></Field>
+                <Field label="并发数"><NumberInput value={service.embedding_limit?.concurrency} onChange={(concurrency) => props.onUpdate(serviceName, index, { embedding_limit: { ...(service.embedding_limit ?? {}), concurrency } })} /></Field>
+                <Field label="限流等待（秒）"><NumberInput value={service.embedding_limit?.timeout} onChange={(timeout) => props.onUpdate(serviceName, index, { embedding_limit: { ...(service.embedding_limit ?? {}), timeout } })} /></Field>
               </div>
               <Toggle label="使用代理" description="是否允许这个 Provider 按全局代理策略转发。" checked={service.use_proxy ?? false} onChange={(use_proxy) => props.onUpdate(serviceName, index, { use_proxy })} />
-              {(service.credential_list?.length ?? 0) > 0 && <p className="advanced-note">该条目还有 {service.credential_list?.length} 组轮换凭证，可在配置源码中管理。</p>}
             </details>
             </div>
           </article>;
         })}
       </div>
+    </div>
+  );
+}
+
+function CredentialPoolEditor({
+  providerId,
+  models,
+  credentials,
+  capacityStatuses,
+  onChange,
+}: {
+  providerId?: string;
+  models?: string[];
+  credentials?: Array<Record<string, unknown>>;
+  capacityStatuses: CredentialCapacityStatus[];
+  onChange: (credentials: Array<Record<string, unknown>>) => void;
+}) {
+  const pool = credentials ?? [];
+  const update = (index: number, patch: Record<string, unknown>) => {
+    onChange(pool.map((entry, current) => current === index ? { ...entry, ...patch } : entry));
+  };
+  return (
+    <div className="credential-pool-section">
+      <div className="subsection-heading">
+        <div><strong>API Key 号池</strong><span>{pool.length > 0 ? `${pool.length} 个 Key，按当前负载策略轮询并自动跳过冷却中的 Key。` : "可添加多组 API Key，失败时自动切换。"}</span></div>
+        <button onClick={() => onChange([...pool, { id: crypto.randomUUID(), name: `Key ${pool.length + 1}`, enabled: true, api_key: "", limit: {} }])}><Plus size={14} />添加 Key</button>
+      </div>
+      {pool.length === 0 ? <div className="credential-empty">当前使用单个 Provider API Key。添加 Key 后会启用号池轮询。</div> : (
+        <div className="credential-pool-list">
+          {pool.map((entry, index) => {
+            const limit = (entry.limit && typeof entry.limit === "object" ? entry.limit : {}) as LimitConfiguration;
+            const name = String(entry.name ?? `Key ${index + 1}`);
+            const credentialID = String(entry.id ?? "");
+            const runtimeStatuses = capacityStatuses.filter((status) => status.provider_id === providerId && status.credential_id === credentialID);
+            return <div className="credential-pool-row" key={String(entry.id ?? index)}>
+              <span className="credential-pool-index">{index + 1}</span>
+              <input className="credential-pool-name" aria-label={`号池名称 ${index + 1}`} value={name} onChange={(event) => update(index, { name: event.target.value })} placeholder={`Key ${index + 1}`} />
+              <SecretInput ariaLabel={`号池 API Key ${index + 1}`} value={String(entry.api_key ?? "")} onChange={(value) => update(index, { api_key: value })} placeholder="粘贴 API Key" />
+              <label className="credential-pool-enabled"><input type="checkbox" checked={entry.enabled !== false} onChange={(event) => update(index, { enabled: event.target.checked })} /><span>启用</span></label>
+              <button className="credential-pool-remove" onClick={() => onChange(pool.filter((_, current) => current !== index))} aria-label={`删除号池 API Key ${index + 1}`}><Trash2 size={14} /></button>
+              <details className="credential-pool-limits">
+                <summary>独立限流（聊天与 Embedding 共用）</summary>
+                <div className="credential-pool-limit-grid">
+                  <Field label="稳定 ID"><input value={String(entry.id ?? "")} onChange={(event) => update(index, { id: event.target.value })} /></Field>
+                  <Field label="QPS"><NumberInput value={limit.qps} onChange={(qps) => update(index, { limit: { ...limit, qps } })} /></Field>
+                  <Field label="QPM"><NumberInput value={limit.qpm} onChange={(qpm) => update(index, { limit: { ...limit, qpm } })} /></Field>
+                  <Field label="RPM"><NumberInput value={limit.rpm} onChange={(rpm) => update(index, { limit: { ...limit, rpm } })} /></Field>
+                  <Field label="TPM"><NumberInput value={limit.tpm} onChange={(tpm) => update(index, { limit: { ...limit, tpm } })} /></Field>
+                  <Field label="并发数"><NumberInput value={limit.concurrency} onChange={(concurrency) => update(index, { limit: { ...limit, concurrency } })} /></Field>
+                  <Field label="等待（秒）"><NumberInput value={limit.timeout} onChange={(timeout) => update(index, { limit: { ...limit, timeout } })} /></Field>
+                </div>
+                <ModelLimitEditor
+                  compact
+                  title="Key-模型限流"
+                  description="当前 API Key 调用指定模型时单独计量；不配置则使用 Key 总限制。"
+                  models={models}
+                  modelLimits={entry.model_limits as Record<string, LimitConfiguration> | undefined}
+                  onChange={(model_limits) => update(index, { model_limits })}
+                />
+              </details>
+              <CredentialCapacityStatusList statuses={runtimeStatuses} />
+            </div>;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CredentialCapacityStatusList({ statuses }: { statuses: CredentialCapacityStatus[] }) {
+  if (statuses.length === 0) {
+    return <div className="credential-capacity-empty">发布配置后显示此 Key 的实时 TPM 窗口和冷却状态。</div>;
+  }
+  return (
+    <div className="credential-capacity-status" aria-label="Key 实时容量">
+      <div className="credential-capacity-heading"><strong>实时容量</strong><span>按模型独立计量，约每 60 秒滚动恢复</span></div>
+      <div className="credential-capacity-list">
+        {statuses.map((status) => {
+          const cooling = Boolean(status.cooldown_until);
+          const state = status.available ? "available" : cooling ? "cooling" : "waiting";
+          const stateLabel = status.available ? "可用" : cooling ? "冷却中" : "等待窗口";
+          const recovery = !status.available_at ? "" : `预计 ${formatCapacityTime(status.available_at)}`;
+          return <div className="credential-capacity-item" key={`${status.credential_id}-${status.model}`}>
+            <code title={status.model}>{status.model}</code>
+            <span>TPM {formatCapacityTokens(status.tpm_limit)}</span>
+            <span>已预留 {formatCapacityTokens(status.reserved_tokens)}</span>
+            <span>剩余 {formatCapacityTokens(status.remaining_tokens, status.tpm_limit <= 0)}</span>
+            <span className={`credential-capacity-state ${state}`}>{stateLabel}{recovery && ` · ${recovery}`}</span>
+          </div>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function formatCapacityTokens(value: number, unlimited = false): string {
+  if (unlimited) return "不限";
+  if (value >= 1000000) return `${(value / 1000000).toFixed(value % 1000000 === 0 ? 0 : 1)}M`;
+  if (value >= 1000) return `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}K`;
+  return Math.max(0, Math.round(value)).toLocaleString("zh-CN");
+}
+
+function formatCapacityTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "稍后";
+  return date.toLocaleTimeString("zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function SecretInput({
+  value,
+  onChange,
+  ariaLabel,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  placeholder?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="secret-input-wrap">
+      <input type={visible ? "text" : "password"} autoComplete="off" aria-label={ariaLabel} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+      <button type="button" className="secret-toggle" onClick={() => setVisible((current) => !current)} aria-label={visible ? `隐藏${ariaLabel}` : `查看${ariaLabel}`} title={visible ? `隐藏${ariaLabel}` : `查看${ariaLabel}`}>
+        {visible ? <EyeOff size={15} /> : <Eye size={15} />}
+      </button>
     </div>
   );
 }
@@ -877,6 +1110,73 @@ function ModelAliasRow({
       <div className="model-alias-actions"><button type="button" onClick={onRemove} aria-label={`删除模型别名 ${alias}`} title="删除别名"><Trash2 size={14} /></button></div>
       {error && <span className="model-alias-error">{error}</span>}
     </div>
+  );
+}
+
+function ModelLimitEditor({
+  title,
+  description,
+  models,
+  modelLimits,
+  onChange,
+  compact = false,
+}: {
+  title: string;
+  description: string;
+  models?: string[];
+  modelLimits?: Record<string, LimitConfiguration>;
+  onChange: (modelLimits: Record<string, LimitConfiguration>) => void;
+  compact?: boolean;
+}) {
+  const configured = Object.keys(modelLimits ?? {});
+  const available = (models ?? []).filter((model) => !configured.includes(model));
+  const [selected, setSelected] = useState(available[0] ?? "");
+
+  useEffect(() => {
+    if (!available.includes(selected)) setSelected(available[0] ?? "");
+  }, [available.join("\u0000"), selected]);
+
+  const updateLimit = (model: string, field: keyof LimitConfiguration, value: number) => {
+    onChange({ ...(modelLimits ?? {}), [model]: { ...(modelLimits?.[model] ?? {}), [field]: value } });
+  };
+  const removeLimit = (model: string) => {
+    const next = { ...(modelLimits ?? {}) };
+    delete next[model];
+    onChange(next);
+  };
+
+  return (
+    <section className={`model-limit-section ${compact ? "compact" : ""}`} aria-label={title}>
+      <div className="subsection-heading">
+        <div><strong>{title}</strong><span>{description}</span></div>
+      </div>
+      {configured.length > 0 && <>
+        <div className="model-limit-labels"><span>模型</span><span>QPS</span><span>QPM</span><span>RPM</span><span>TPM</span><span>并发</span><span>等待秒</span><span /></div>
+        <div className="model-limit-list">
+        {configured.map((model) => {
+          const limit = modelLimits?.[model] ?? {};
+          return <div className="model-limit-row" key={model}>
+            <code title={model}>{model}</code>
+            <NumberInput value={limit.qps} onChange={(value) => updateLimit(model, "qps", value)} />
+            <NumberInput value={limit.qpm} onChange={(value) => updateLimit(model, "qpm", value)} />
+            <NumberInput value={limit.rpm} onChange={(value) => updateLimit(model, "rpm", value)} />
+            <NumberInput value={limit.tpm} onChange={(value) => updateLimit(model, "tpm", value)} />
+            <NumberInput value={limit.concurrency} onChange={(value) => updateLimit(model, "concurrency", value)} />
+            <NumberInput value={limit.timeout} onChange={(value) => updateLimit(model, "timeout", value)} />
+            <button type="button" className="credential-pool-remove" onClick={() => removeLimit(model)} aria-label={`删除 ${model} 的模型限流`} title="删除模型限流"><Trash2 size={14} /></button>
+          </div>;
+        })}
+        </div>
+      </>}
+      {available.length > 0 && <div className="model-limit-add">
+        <select aria-label="选择要添加模型限流的模型" value={selected} onChange={(event) => setSelected(event.target.value)}>
+          <option value="">选择模型</option>
+          {available.map((model) => <option key={model} value={model}>{model}</option>)}
+        </select>
+        <button type="button" onClick={() => { if (!selected) return; onChange({ ...(modelLimits ?? {}), [selected]: {} }); }} disabled={!selected}><Plus size={14} />添加模型限制</button>
+      </div>}
+      {configured.length === 0 && available.length === 0 && <div className="model-limit-empty">请先配置聊天模型。</div>}
+    </section>
   );
 }
 

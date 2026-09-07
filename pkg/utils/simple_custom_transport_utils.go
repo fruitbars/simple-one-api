@@ -52,7 +52,7 @@ func (c *SimpleCustomTransport) RoundTrip(req *http.Request) (*http.Response, er
 			return nil, fmt.Errorf("error reading error response body: %v", readErr)
 		}
 		resp.Body.Close()
-		return nil, fmt.Errorf("HTTP error: %s, body: %s", resp.Status, string(bodyBytes[:n]))
+		return nil, NewHTTPStatusError(resp.StatusCode, resp.Status, string(bodyBytes[:n]))
 	}
 
 	return resp, nil

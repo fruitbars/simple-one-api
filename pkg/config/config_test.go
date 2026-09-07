@@ -21,6 +21,16 @@ func TestInitConfigRejectsInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestValidateConfigurationRejectsUnknownUpstreamProtocol(t *testing.T) {
+	conf := Configuration{Services: map[string][]ServiceModel{
+		"openai": {{ID: "openai-1", Enabled: true, Models: []string{"model-a"}, UpstreamProtocol: "xml"}},
+	}}
+	issues := ValidateConfiguration(conf)
+	if len(issues) == 0 || issues[0].Path != "services.openai.0.upstream_protocol" {
+		t.Fatalf("issues = %#v, want upstream protocol validation error", issues)
+	}
+}
+
 func TestInitConfigUsesBuiltInDefaultsWhenDefaultFileIsMissing(t *testing.T) {
 	previous := *CurrentConfiguration()
 	previousPath := CurrentConfigPath()
@@ -317,6 +327,16 @@ func TestValidateConfigurationRejectsInvalidManagementDrafts(t *testing.T) {
 			path: "services.openai.0.limit",
 		},
 		{
+			name: "negative model limit",
+			conf: Configuration{Services: map[string][]ServiceModel{"openai": {{Enabled: true, Models: []string{"model-a"}, ModelLimits: map[string]Limit{"model-a": {TPM: -1}}}}}},
+			path: "services.openai.0.model_limits.model-a",
+		},
+		{
+			name: "negative credential model limit",
+			conf: Configuration{Services: map[string][]ServiceModel{"openai": {{Enabled: true, Models: []string{"model-a"}, CredentialList: []map[string]interface{}{{"id": "key-a", "enabled": true, "model_limits": map[string]interface{}{"model-a": map[string]interface{}{"QPS": -1}}}}}}}},
+			path: "services.openai.0.credential_list.0.model_limits.model-a",
+		},
+		{
 			name: "enabled OpenAI service missing models",
 			conf: Configuration{Services: map[string][]ServiceModel{"openai": {{Enabled: true}}}},
 			path: "services.openai.0.models",
@@ -330,6 +350,14 @@ func TestValidateConfigurationRejectsInvalidManagementDrafts(t *testing.T) {
 				t.Fatalf("validation issues = %#v, want path %q", issues, test.path)
 			}
 		})
+	}
+}
+
+func TestModelLimitForMatchesClientAndUpstreamNames(t *testing.T) {
+	details := &ModelDetails{ServiceModel: ServiceModel{ModelLimits: map[string]Limit{"upstream-model": {TPM: 100}}}}
+	limit, name, ok := ModelLimitFor(details, "client-model", "upstream-model")
+	if !ok || name != "upstream-model" || limit.TPM != 100 {
+		t.Fatalf("model limit = %#v, %q, %v", limit, name, ok)
 	}
 }
 

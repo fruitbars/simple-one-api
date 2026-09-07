@@ -75,6 +75,7 @@ func registerAPI(router *gin.Engine, options Options) {
 	admin.POST("/config/revisions", apis.AdminConfigPublishHandler)
 	admin.GET("/config/revisions", apis.AdminConfigRevisionsHandler)
 	admin.GET("/logs", apis.AdminLogsHandler)
+	admin.GET("/capacity", apis.AdminCapacityHandler)
 	admin.GET("/statistics/overview", apis.AdminStatisticsOverviewHandler)
 	admin.GET("/statistics/export", apis.AdminStatisticsExportHandler)
 	admin.POST("/config/revisions/:id/activate", apis.AdminConfigActivateHandler)

@@ -1,12 +1,11 @@
 package mycommon
 
 import (
-	"errors"
-	"fmt"
 	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"simple-one-api/pkg/mylog"
+	"simple-one-api/pkg/utils"
 )
 
 // 假设 somewhere in your code you have initialized the logger correctly.
@@ -20,7 +19,7 @@ func CheckStatusCode(resp *http.Response) error {
 			mylog.Logger.Error("Failed to read response body",
 				zap.Int("status", resp.StatusCode),
 				zap.Error(err))
-			return errors.New("failed to read error response body")
+			return err
 		}
 
 		// Logging the error with more context.
@@ -29,7 +28,7 @@ func CheckStatusCode(resp *http.Response) error {
 			zap.String("body", string(errMsg)))
 
 		// Returning a new error with the status code and the body message
-		return errors.New(fmt.Sprintf("status %d: %s", resp.StatusCode, string(errMsg)))
+		return utils.NewHTTPStatusError(resp.StatusCode, resp.Status, string(errMsg))
 	}
 	return nil
 }

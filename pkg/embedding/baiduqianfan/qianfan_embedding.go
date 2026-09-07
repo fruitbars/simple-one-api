@@ -2,6 +2,7 @@ package baiduqianfan
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/baidubce/bce-qianfan-sdk/go/qianfan"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"simple-one-api/pkg/embedding/oai"
 	baidu_qianfan "simple-one-api/pkg/llm/baidu-qianfan"
+	"simple-one-api/pkg/utils"
 	"time"
 )
 
@@ -64,7 +66,7 @@ func convertBaiduEmbeddingResponseToOpenAIEmbeddingResponse(src *qianfan.Embeddi
 	}
 }
 
-func getBaiduEmbeddings(request *oai.EmbeddingRequest, accessToken string, proxyTransport *http.Transport) (*oai.EmbeddingResponse, error) {
+func getBaiduEmbeddings(ctx context.Context, request *oai.EmbeddingRequest, accessToken string, proxyTransport *http.Transport) (*oai.EmbeddingResponse, error) {
 	requestURL := fmt.Sprintf("https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/embeddings/embedding-v1?access_token=%s", accessToken)
 
 	bdReq := convertOpenAIEmbeddingRequestToBaiduEmbeddingRequest(request)
@@ -74,7 +76,7 @@ func getBaiduEmbeddings(request *oai.EmbeddingRequest, accessToken string, proxy
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +105,9 @@ func getBaiduEmbeddings(request *oai.EmbeddingRequest, accessToken string, proxy
 	if err != nil {
 		return nil, err
 	}
+	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
+		return nil, utils.NewHTTPStatusError(res.StatusCode, res.Status, string(body))
+	}
 
 	var embeddingRes qianfan.EmbeddingResponse
 	if err := json.Unmarshal(body, &embeddingRes); err != nil {
@@ -111,9 +116,9 @@ func getBaiduEmbeddings(request *oai.EmbeddingRequest, accessToken string, proxy
 
 	return convertBaiduEmbeddingResponseToOpenAIEmbeddingResponse(&embeddingRes), nil
 }
-func BaiduQianfanEmbedding(req *oai.EmbeddingRequest, accessKey string, secretKey string, proxyTransport *http.Transport) (*oai.EmbeddingResponse, error) {
+func BaiduQianfanEmbedding(ctx context.Context, req *oai.EmbeddingRequest, accessKey string, secretKey string, proxyTransport *http.Transport) (*oai.EmbeddingResponse, error) {
 
 	accessToken := baidu_qianfan.GetAccessToken(accessKey, secretKey)
 
-	return getBaiduEmbeddings(req, accessToken, proxyTransport)
+	return getBaiduEmbeddings(ctx, req, accessToken, proxyTransport)
 }

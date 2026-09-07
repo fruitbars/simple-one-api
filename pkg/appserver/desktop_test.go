@@ -49,3 +49,17 @@ func TestDesktopMiddlewareAllowsFirstRunAdminWithoutBootstrapToken(t *testing.T)
 		t.Fatalf("expected desktop first-run admin to open without bootstrap token, got %d: %s", response.Code, response.Body.String())
 	}
 }
+
+func TestDesktopMiddlewareUsesConfiguredKeyForInternalRequests(t *testing.T) {
+	setTestConfiguration(t, config.Configuration{APIKey: "desktop-secret"})
+	next := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("desktop admin API request escaped to the Wails asset handler")
+	})
+	handler := DesktopAssetMiddleware(next)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/admin/status", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected configured desktop admin to authorize internally, got %d: %s", response.Code, response.Body.String())
+	}
+}

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 var (
@@ -38,16 +37,14 @@ func getRoundRobinIndex(modelName string, n int) int {
 	}
 
 	// Increment index atomically and get the server
-	newIdx := atomic.AddUint32(idx, 1)
+	newIdx := atomic.AddUint32(idx, 1) - 1
 	return int(newIdx) % n
 }
 
 func getHashIndex(key string, n int) int {
-	// 包含到毫秒的时间戳
-	timestamp := time.Now().Format("2006-01-02 15:04:05.999")
 	h := fnv.New32a()
-	h.Write([]byte(key + timestamp))
-	return int(h.Sum32()) % n
+	_, _ = h.Write([]byte(key))
+	return int(h.Sum32() % uint32(n))
 }
 
 func GetLBIndex(lbStrategy string, key string, length int) int {
@@ -60,7 +57,7 @@ func GetLBIndex(lbStrategy string, key string, length int) int {
 		return 0
 	case mycomdef.KEYNAME_RANDOM, mycomdef.KEYNAME_RAND:
 		return getRandomIndex(length)
-	case mycomdef.KEYNAME_ROUND_ROBIN, mycomdef.KEYNAME_RR:
+	case mycomdef.KEYNAME_ROUND_ROBIN, "round_robin", mycomdef.KEYNAME_RR:
 		return getRoundRobinIndex(key, length)
 	case mycomdef.KEYNAME_HASH:
 		return getHashIndex(key, length)

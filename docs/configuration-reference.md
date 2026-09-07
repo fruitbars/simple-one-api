@@ -76,17 +76,51 @@ Chat Completions 会将 SDK 未建模的顶层 JSON 字段原样透传给 OpenAI
 | --- | --- | --- |
 | `id` | string | Provider 稳定 ID。缺少时自动生成 `<type>-<序号>` 并在发布时持久化。 |
 | `provider` | string | Provider 标识，通常与服务类型相同。 |
+| `upstream_protocol` | string | 上游接口协议：`auto`、`chat_completions`、`responses`、`anthropic_messages`。省略时默认为 `auto`。 |
 | `enabled` | boolean | 是否参与模型路由。 |
 | `models` | string[] | 聊天模型列表，会自动去空格、去重。 |
 | `embedding_models` | string[] | Embedding 模型列表。 |
 | `server_url` | string | 上游 HTTP(S) 或 WebSocket 地址。 |
 | `credentials` | object | Provider 凭证。不同服务需要的字段不同。 |
-| `credential_list` | object[] | 多组轮换凭证，复杂结构建议使用高级 JSON。 |
+| `credential_list` | object[] | 多组轮换凭证；每项支持 `id`、`name`、`enabled`、服务商凭证字段、独立 `limit` 和按模型的 `model_limits`。 |
 | `model_map` | object | Provider 内部模型别名映射。 |
 | `model_redirect` | object | Provider 内部模型重定向。 |
-| `limit` / `embedding_limit` | object | `qps`、`qpm`、`rpm`、`concurrency`、`timeout`，数值不能为负。 |
+| `limit` / `embedding_limit` | object | `qps`、`qpm`、`rpm`、`tpm`、`concurrency`、`timeout`，数值不能为负；设置多项时组合生效。 |
+| `model_limits` | object | 按模型设置独立组合限流；键为模型名，值支持同样的限流字段。 |
 | `use_proxy` | boolean | 覆盖全局代理策略。 |
 | `timeout` | number | 单次请求超时秒数。 |
+
+`upstream_protocol` 用于将服务商类型与实际上游 HTTP 协议解耦。`auto` 保持现有按 Provider 适配器路由的行为；显式选择 `chat_completions`、`responses` 或 `anthropic_messages` 时，网关会使用对应协议发送请求。
+
+`credential_list` 可以作为 Provider 的 API Key 号池使用：每组凭证通常至少包含 `api_key`，也可以配置稳定 `id`、显示 `name`、`enabled` 和独立 `limit`。凭证按全局 `load_balancing` 策略选择；非流式请求在尚未写出响应且遇到可恢复的鉴权、限流、网络或上游服务错误时，会自动尝试池内下一个健康凭证。熔断状态按 `Provider ID + Credential ID + 模型` 独立记录，单个 Key 冷却不会拖停同池其他 Key。
+
+Provider 的 `limit`（聊天）或 `embedding_limit`（Embedding）与当前 Key 的 `limit` 会叠加执行。QPS、QPM、RPM、TPM 和并发数不是互斥选项，配置了几项就同时满足几项；Key 达到限制时可以切换到池内其他 Key，Provider 总限制达到后不会通过换 Key 绕过。`timeout` 是等待限流额度的最长秒数，超时返回 HTTP 429。
+
+模型还可以配置独立的 `model_limits`。Provider 上的 `model_limits.<model>` 是该 Provider 下模型的共享限制；号池凭证中的 `model_limits.<model>` 是“当前 API Key + 当前模型”的限制。一次请求会按顺序叠加 Key 总限制、Key-模型限制、Provider-模型限制和 Provider 总限制。Provider 层或 Provider-模型层达到上限时不会通过切换 Key 绕过；Key 层达到上限时，号池仍可以切换到其他 Key。
+
+例如：
+
+```json
+{
+  "models": ["deepseek-chat", "deepseek-reasoner"],
+  "model_limits": {
+    "deepseek-chat": {"tpm": 100000, "concurrency": 5}
+  },
+  "credential_list": [
+    {
+      "id": "key-a",
+      "enabled": true,
+      "api_key": "sk-...",
+      "limit": {"qps": 2},
+      "model_limits": {
+        "deepseek-reasoner": {"tpm": 20000}
+      }
+    }
+  ]
+}
+```
+
+TPM 在请求发往上游前预占：聊天请求按消息、工具定义和最大输出 Token 估算，Embedding 按输入体积估算。该值是面向限流的保守近似，不是供应商 tokenizer 的精确计费结果；单次估算已经超过 TPM 上限时会立即返回 429。QPM 与 RPM 都保留为一分钟请求数窗口，用于兼容不同上游配置命名；若两者同时填写，会按两个窗口共同约束。
 
 启用的 Provider 至少要有聊天或 Embedding 模型；`qianfan`、`hunyuan`、`deepseek`、`zhipu`、`minimax`、`huoshan`、`gemini`、`groq`、`xinghuo` 等存在默认模型映射的服务可以省略 `models`。
 

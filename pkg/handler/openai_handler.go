@@ -13,7 +13,6 @@ import (
 	"simple-one-api/pkg/adapter"
 	"simple-one-api/pkg/config"
 	"simple-one-api/pkg/mycommon"
-	"simple-one-api/pkg/mylimiter"
 	"simple-one-api/pkg/mylog"
 	"simple-one-api/pkg/statistics"
 	"simple-one-api/pkg/utils"
@@ -211,7 +210,12 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 		}
 	}
 
-	creds, credsID := mycommon.GetACredentials(s, oaiReq.Model)
+	tokenCost := estimateRequestTokens(oaiReq)
+	credentialCandidates := mycommon.OrderCredentialCandidates(s, clientModel, tokenCost)
+	if len(credentialCandidates) == 0 {
+		sendErrorResponse(c, http.StatusTooManyRequests, "no healthy credential is available")
+		return
+	}
 	requestTimeout := s.Timeout
 	if requestTimeout <= 0 {
 		requestTimeout = defaultReqTimeout
@@ -220,84 +224,13 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 	defer cancelRequest()
 	c.Request = c.Request.WithContext(requestCtx)
 
-	var limiter *mylimiter.Limiter
-	lt, ln, timeout := mycommon.GetServiceModelDetailsLimit(s)
-	if lt != "" && ln > 0 {
-		limiter = mylimiter.GetLimiter(s.ServiceID, lt, ln)
-	} else {
-		lt, ln, timeout = mycommon.GetCredentialLimit(creds)
-		if lt != "" && ln > 0 {
-			limiter = mylimiter.GetLimiter(credsID, lt, ln)
-		}
-	}
-
 	oaiReqParam := &OAIRequestParam{
 		ctx:               requestCtx,
 		chatCompletionReq: oaiReq,
 		modelDetails:      s,
-		creds:             creds,
+		creds:             credentialCandidates[0].Credentials,
 		ClientModel:       clientModel,
 		extraFields:       extraFields,
-	}
-
-	if limiter != nil {
-		if timeout <= 0 {
-			timeout = defaultReqTimeout
-		}
-		ctx, cancel := context.WithTimeout(requestCtx, time.Duration(timeout)*time.Second)
-		defer cancel()
-
-		startWaitTime := time.Now()
-
-		mylog.Logger.Info("Rate limits and timeout configuration",
-			zap.String("limit type:", lt),
-			zap.Float64("limit num:", ln),
-			zap.Int("timeout", timeout))
-
-		if lt == "qps" || lt == "qpm" || lt == "rpm" {
-			err = limiter.Wait(ctx)
-			elapsed := time.Since(startWaitTime)
-
-			if err != nil {
-				if errors.Is(err, context.DeadlineExceeded) {
-					// Log a message if the request could not obtain a token within the specified timeout period.
-					// 假设 logger 是一个已经配置好的 zap.Logger 实例
-					mylog.Logger.Error("Failed to obtain token within the specified time",
-						zap.Error(err),                   // 记录错误对象
-						zap.Int("timeout", timeout),      // 假设 timeout 是 time.Duration 类型
-						zap.Duration("elapsed", elapsed)) // 假设 elapsed 是 time.Duration 类型
-
-				} else if errors.Is(err, context.Canceled) {
-					// Log a message if the operation was canceled.
-					mylog.Logger.Error("Operation canceled %v, actual waiting time: %v", zap.Error(err), zap.Duration("elapsed", elapsed))
-				} else {
-					// Log a message for any other unknown errors that occurred while waiting for a token.
-					mylog.Logger.Error("Unknown error occurred while waiting for a token: ", zap.Error(err), zap.Duration("elapsed", elapsed))
-				}
-
-				//waitDuration := time.Since(startWaitTime)
-				mylog.Logger.Info("waited for: ", zap.Duration("elapsed", elapsed))
-				sendErrorResponse(c, http.StatusTooManyRequests, "Request rate limit exceeded")
-				return
-			}
-			// 假设 logger 是一个已经配置好的 zap.Logger 实例
-			mylog.Logger.Info("Wait duration",
-				zap.Duration("waited_for", time.Since(startWaitTime)))
-
-		} else if lt == "concurrency" {
-
-			err := limiter.Acquire(ctx)
-			if err != nil {
-				mylog.Logger.Error(err.Error())
-				sendErrorResponse(c, http.StatusTooManyRequests, "Request concurrency limit exceeded")
-				return
-			}
-			defer limiter.Release()
-
-			mylog.Logger.Info("Concurrency wait time",
-				zap.Duration("waited_for", time.Since(startWaitTime)))
-		}
-
 	}
 
 	if config.IsProxyEnabled(s) {
@@ -321,17 +254,125 @@ func HandleOpenAIRequest(c *gin.Context, oaiReq *openai.ChatCompletionRequest) {
 	//mylog.Logger.Debug("oaiReq", zap.Any("oaiReq", oaiReq))
 	oaiReq.Messages = mycommon.NormalizeMessages(oaiReq.Messages, keepAllSystem)
 
-	if err := dispatchToServiceHandler(c, oaiReqParam); err != nil {
-		config.RecordProviderResult(s.ServiceID, clientModel, false)
-		mylog.Logger.Error(err.Error())
-		sendErrorResponse(c, http.StatusInternalServerError, err.Error())
+	var dispatchErr error
+	for index, candidate := range credentialCandidates {
+		oaiReqParam.creds = candidate.Credentials
+		releaseLimits, limitErr := acquireAttemptLimits(requestCtx, s, candidate, oaiReq, clientModel, serviceModelName, mrModel)
+		if limitErr != nil {
+			dispatchErr = limitErr
+			var waitErr *mycommon.LimitWaitError
+			providerLimited := errors.As(limitErr, &waitErr) && (waitErr.Scope == mycommon.LimitScopeProvider || waitErr.Scope == mycommon.LimitScopeModel)
+			if providerLimited || index == len(credentialCandidates)-1 {
+				break
+			}
+			continue
+		}
+		mycommon.ReserveCredentialCapacity(candidate.Credentials, candidate.ID, clientModel, tokenCost)
+		dispatchErr = dispatchToServiceHandler(c, oaiReqParam)
+		releaseLimits()
+		if dispatchErr == nil {
+			config.RecordProviderResult(candidate.ID, clientModel, true)
+			break
+		}
+		if isUpstreamRateLimit(dispatchErr) {
+			mycommon.MarkCredentialCooldown(candidate.ID, clientModel, 30*time.Second)
+		}
+		retryable := shouldRetryCredential(dispatchErr)
+		if retryable {
+			config.RecordProviderResult(candidate.ID, clientModel, false)
+		}
+		if !retryable || c.Writer.Written() || index == len(credentialCandidates)-1 {
+			break
+		}
+		mylog.Logger.Warn("provider credential failed; trying next pooled credential",
+			zap.String("credential_id", candidate.ID), zap.Int("next_index", index+1), zap.Error(dispatchErr))
+	}
+	if dispatchErr != nil {
+		mylog.Logger.Error(dispatchErr.Error())
+		sendErrorResponse(c, dispatchErrorStatus(dispatchErr), dispatchErr.Error())
 		return
 	}
-	config.RecordProviderResult(s.ServiceID, clientModel, true)
 
 	if oaiReq.Stream {
 		utils.SendOpenAIStreamEOFData(c)
 	}
+}
+
+func isUpstreamRateLimit(err error) bool {
+	var statusErr *utils.HTTPStatusError
+	return errors.As(err, &statusErr) && statusErr.StatusCode == http.StatusTooManyRequests
+}
+
+func dispatchErrorStatus(err error) int {
+	var waitErr *mycommon.LimitWaitError
+	if errors.As(err, &waitErr) {
+		return http.StatusTooManyRequests
+	}
+	var statusErr *utils.HTTPStatusError
+	if errors.As(err, &statusErr) && statusErr.StatusCode >= 400 && statusErr.StatusCode < 600 {
+		return statusErr.StatusCode
+	}
+	return http.StatusInternalServerError
+}
+
+func acquireAttemptLimits(ctx context.Context, service *config.ModelDetails, credential mycommon.CredentialSelection, request *openai.ChatCompletionRequest, modelNames ...string) (func(), error) {
+	tokenCost := estimateRequestTokens(request)
+	if request != nil {
+		modelNames = append(modelNames, request.Model)
+	}
+	return acquireAttemptLimitsWithTokenCost(ctx, service, credential, tokenCost, modelNames...)
+}
+
+func acquireAttemptLimitsWithTokenCost(ctx context.Context, service *config.ModelDetails, credential mycommon.CredentialSelection, tokenCost int, modelNames ...string) (func(), error) {
+	targets := []mycommon.LimitTarget{
+		{Key: credential.ID + ":credential", Scope: mycommon.LimitScopeCredential, Limit: mycommon.GetCredentialLimits(credential.Credentials)},
+	}
+	if limit, name, ok := mycommon.GetCredentialModelLimit(credential.Credentials, modelNames...); ok {
+		targets = append(targets, mycommon.LimitTarget{Key: credential.ID + ":credential:model:" + name, Scope: mycommon.LimitScopeCredentialModel, Limit: limit})
+	}
+	if limit, name, ok := config.ModelLimitFor(service, modelNames...); ok {
+		targets = append(targets, mycommon.LimitTarget{Key: service.ServiceID + ":provider:model:" + name, Scope: mycommon.LimitScopeModel, Limit: limit})
+	}
+	targets = append(targets, mycommon.LimitTarget{Key: service.ServiceID + ":provider", Scope: mycommon.LimitScopeProvider, Limit: service.Limit})
+	return mycommon.AcquireCombinedLimits(ctx, targets, tokenCost, defaultReqTimeout)
+}
+
+func estimateRequestTokens(request *openai.ChatCompletionRequest) int {
+	if request == nil {
+		return 1
+	}
+	payload, _ := json.Marshal(struct {
+		Messages []openai.ChatCompletionMessage `json:"messages"`
+		Tools    []openai.Tool                  `json:"tools,omitempty"`
+	}{Messages: request.Messages, Tools: request.Tools})
+	inputEstimate := (len(payload) + 3) / 4
+	outputReservation := request.MaxCompletionTokens
+	if outputReservation <= 0 {
+		outputReservation = request.MaxTokens
+	}
+	if inputEstimate+outputReservation < 1 {
+		return 1
+	}
+	return inputEstimate + outputReservation
+}
+
+func shouldRetryCredential(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	status := 0
+	var statusErr *utils.HTTPStatusError
+	if errors.As(err, &statusErr) {
+		status = statusErr.StatusCode
+	}
+	var apiErr *openai.APIError
+	if status == 0 && errors.As(err, &apiErr) {
+		status = apiErr.HTTPStatusCode
+	}
+	if status == 0 {
+		return true
+	}
+	return status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusRequestTimeout || status == http.StatusConflict || status == http.StatusTooManyRequests || status >= http.StatusInternalServerError
 }
 
 func requestExtraFields(c *gin.Context) map[string]json.RawMessage {
@@ -353,6 +394,15 @@ func requestExtraFields(c *gin.Context) map[string]json.RawMessage {
 // dispatchToServiceHandler dispatches the request to the appropriate service handler based on the service name
 func dispatchToServiceHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	s := oaiReqParam.modelDetails
+	protocol := strings.ToLower(strings.TrimSpace(s.UpstreamProtocol))
+	switch protocol {
+	case config.UpstreamProtocolResponses:
+		return OpenAI2ResponsesHandler(c, oaiReqParam)
+	case config.UpstreamProtocolAnthropicMessages:
+		return OpenAI2ClaudeHandler(c, oaiReqParam)
+	case config.UpstreamProtocolChatCompletions:
+		return OpenAI2OpenAIHandler(c, oaiReqParam)
+	}
 	serviceName := strings.ToLower(s.ServiceName)
 	if handler, ok := serviceHandlerMap[serviceName]; ok {
 		return handler(c, oaiReqParam)

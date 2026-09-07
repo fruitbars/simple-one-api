@@ -4,6 +4,7 @@ export interface LimitConfiguration {
   qps?: number;
   qpm?: number;
   rpm?: number;
+  tpm?: number;
   concurrency?: number;
   timeout?: number;
 }
@@ -12,7 +13,9 @@ export interface ServiceConfiguration extends ConfigurationDocument {
   id?: string;
   name?: string;
   provider?: string;
+  upstream_protocol?: UpstreamProtocol;
   models?: string[];
+  model_limits?: Record<string, LimitConfiguration>;
   embedding_models?: string[];
   enabled?: boolean;
   credentials?: Record<string, unknown>;
@@ -25,6 +28,15 @@ export interface ServiceConfiguration extends ConfigurationDocument {
   use_proxy?: boolean;
   timeout?: number;
 }
+
+export type UpstreamProtocol = "auto" | "chat_completions" | "responses" | "anthropic_messages";
+
+export const upstreamProtocols: Array<{ value: UpstreamProtocol; label: string }> = [
+  { value: "auto", label: "自动（按 Provider）" },
+  { value: "chat_completions", label: "OpenAI Chat Completions" },
+  { value: "responses", label: "OpenAI Responses" },
+  { value: "anthropic_messages", label: "Anthropic Messages" },
+];
 
 export interface AccessKeyConfiguration extends ConfigurationDocument {
   api_key?: string;
@@ -90,11 +102,23 @@ export function stringList(value: string): string[] {
   return Array.from(
     new Set(
       value
-        .split(/[\n,]/)
+        .split(/[\s,，;；、]+/)
         .map((item) => item.trim())
         .filter(Boolean),
     ),
   );
+}
+
+export function upstreamEndpointPreview(serviceName: string, protocol: UpstreamProtocol | undefined, serverURL: string | undefined): string {
+  const base = (serverURL ?? "").trim().replace(/\/+$/, "");
+  if (!base) return "请先填写服务地址";
+  const selected = protocol === "auto" ? (serviceName === "claude" ? "anthropic_messages" : "chat_completions") : (protocol ?? "chat_completions");
+  if (selected === "anthropic_messages") return base;
+  const suffix = selected === "responses" ? "/responses" : "/chat/completions";
+  if (base.endsWith(suffix)) return base;
+  if (selected === "responses" && base.endsWith("/chat/completions")) return `${base.slice(0, -"/chat/completions".length)}/responses`;
+  if (selected === "chat_completions" && base.endsWith("/responses")) return `${base.slice(0, -"/responses".length)}/chat/completions`;
+  return `${base}${suffix}`;
 }
 
 export function displayStringList(values: string[] | undefined): string {
@@ -149,6 +173,7 @@ export function createService(serviceName: string): ServiceConfiguration {
   return {
     id: crypto.randomUUID(),
     provider: serviceName,
+    upstream_protocol: "auto",
     enabled: true,
     models: [],
     credentials: {},

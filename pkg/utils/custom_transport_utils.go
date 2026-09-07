@@ -28,7 +28,7 @@ func (c *CustomTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			return nil, fmt.Errorf("error reading error response body: %v", readErr)
 		}
 		resp.Body.Close()
-		return nil, fmt.Errorf("HTTP error: %s, body: %s", resp.Status, string(bodyBytes))
+		return nil, NewHTTPStatusError(resp.StatusCode, resp.Status, string(bodyBytes))
 	}
 
 	// 创建一个新的响应体

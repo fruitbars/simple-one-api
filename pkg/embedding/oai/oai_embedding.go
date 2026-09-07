@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"simple-one-api/pkg/utils"
 	"strings"
 	"time"
 )
@@ -84,7 +85,7 @@ func OpenAIEmbedding(ctx context.Context, embReq *EmbeddingRequest, apiKey, serv
 		if readErr != nil {
 			return nil, fmt.Errorf("读取错误响应失败: %v", readErr)
 		}
-		return nil, fmt.Errorf("embedding upstream returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, utils.NewHTTPStatusError(resp.StatusCode, resp.Status, strings.TrimSpace(string(body)))
 	}
 
 	body, err := io.ReadAll(resp.Body)

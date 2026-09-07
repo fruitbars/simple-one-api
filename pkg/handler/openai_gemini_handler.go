@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/sashabaranov/go-openai"
 	"go.uber.org/zap"
@@ -126,7 +125,7 @@ func handleRegularResponse(c *gin.Context, chatCompletionReq *openai.ChatComplet
 
 	if resp.StatusCode != 200 {
 		mylog.Logger.Error(string(responseBytes))
-		return errors.New(string(responseBytes))
+		return utils.NewHTTPStatusError(resp.StatusCode, resp.Status, string(responseBytes))
 	}
 
 	var geminiResp googlegemini.GeminiResponse

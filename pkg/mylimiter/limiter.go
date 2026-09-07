@@ -2,6 +2,8 @@ package mylimiter
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"golang.org/x/sync/semaphore"
@@ -10,10 +12,22 @@ import (
 	"sync"
 )
 
+var ErrTokenCostExceedsLimit = errors.New("estimated token cost exceeds TPM limit")
+
 type Limiter struct {
 	QPSLimiter         *rate.Limiter
 	QPMLimiter         *SlidingWindowLimiter
+	RPMLimiter         *SlidingWindowLimiter
+	TPMLimiter         *WeightedSlidingWindowLimiter
 	ConcurrencyLimiter *semaphore.Weighted
+}
+
+type Limits struct {
+	QPS         float64
+	QPM         float64
+	RPM         float64
+	TPM         float64
+	Concurrency float64
 }
 
 type SlidingWindowLimiter struct {
@@ -21,6 +35,19 @@ type SlidingWindowLimiter struct {
 	maxRequests int
 	interval    time.Duration
 	requests    []time.Time
+}
+
+type weightedWindowEntry struct {
+	at   time.Time
+	cost int
+}
+
+type WeightedSlidingWindowLimiter struct {
+	mu       sync.Mutex
+	maximum  int
+	interval time.Duration
+	used     int
+	entries  []weightedWindowEntry
 }
 
 var (
@@ -90,6 +117,58 @@ func (l *SlidingWindowLimiter) Wait(ctx context.Context) error {
 	}
 }
 
+func NewWeightedSlidingWindowLimiter(maximum int) *WeightedSlidingWindowLimiter {
+	return &WeightedSlidingWindowLimiter{maximum: maximum, interval: time.Minute}
+}
+
+func (l *WeightedSlidingWindowLimiter) reserve(cost int) (bool, time.Duration) {
+	if cost < 1 {
+		cost = 1
+	}
+	if cost > l.maximum {
+		return false, l.interval
+	}
+	now := time.Now()
+	windowStart := now.Add(-l.interval)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	index := 0
+	for index < len(l.entries) && l.entries[index].at.Before(windowStart) {
+		l.used -= l.entries[index].cost
+		index++
+	}
+	l.entries = l.entries[index:]
+	if l.used+cost <= l.maximum {
+		l.entries = append(l.entries, weightedWindowEntry{at: now, cost: cost})
+		l.used += cost
+		return true, 0
+	}
+	if len(l.entries) == 0 {
+		return false, l.interval
+	}
+	return false, time.Until(l.entries[0].at.Add(l.interval))
+}
+
+func (l *WeightedSlidingWindowLimiter) Wait(ctx context.Context, cost int) error {
+	if cost > l.maximum {
+		return fmt.Errorf("%w: cost %d, limit %d", ErrTokenCostExceedsLimit, cost, l.maximum)
+	}
+	for {
+		allowed, wait := l.reserve(cost)
+		if allowed {
+			return nil
+		}
+		if wait < 10*time.Millisecond {
+			wait = 10 * time.Millisecond
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(wait):
+		}
+	}
+}
+
 // NewLimiter 创建一个新的限流器，根据指定的类型和限制值进行配置
 func NewLimiter(limitType string, limitn float64) *Limiter {
 	lim := &Limiter{}
@@ -106,13 +185,68 @@ func NewLimiter(limitType string, limitn float64) *Limiter {
 	return lim
 }
 
+func NewCombinedLimiter(limits Limits) *Limiter {
+	limiter := &Limiter{}
+	if limits.QPS > 0 {
+		burst := int(limits.QPS)
+		if burst < 1 {
+			burst = 1
+		}
+		limiter.QPSLimiter = rate.NewLimiter(rate.Limit(limits.QPS), burst)
+	}
+	if limits.QPM > 0 {
+		limiter.QPMLimiter = NewSlidingWindowLimiter(positiveWholeLimit(limits.QPM))
+	}
+	if limits.RPM > 0 {
+		limiter.RPMLimiter = NewSlidingWindowLimiter(positiveWholeLimit(limits.RPM))
+	}
+	if limits.TPM > 0 {
+		limiter.TPMLimiter = NewWeightedSlidingWindowLimiter(positiveWholeLimit(limits.TPM))
+	}
+	if limits.Concurrency > 0 {
+		limiter.ConcurrencyLimiter = semaphore.NewWeighted(int64(positiveWholeLimit(limits.Concurrency)))
+	}
+	return limiter
+}
+
+func positiveWholeLimit(value float64) int {
+	whole := int(value)
+	if whole < 1 {
+		return 1
+	}
+	return whole
+}
+
 // Wait 使用QPS限流器等待直到获得令牌
 func (l *Limiter) Wait(ctx context.Context) error {
+	return l.WaitN(ctx, 1)
+}
+
+// WaitN applies every configured rate constraint. tokenCost is only consumed
+// by the TPM window; request-based windows consume one request.
+func (l *Limiter) WaitN(ctx context.Context, tokenCost int) error {
+	if l.TPMLimiter != nil && tokenCost > l.TPMLimiter.maximum {
+		return fmt.Errorf("%w: cost %d, limit %d", ErrTokenCostExceedsLimit, tokenCost, l.TPMLimiter.maximum)
+	}
 	if l.QPSLimiter != nil {
-		return l.QPSLimiter.Wait(ctx)
+		if err := l.QPSLimiter.Wait(ctx); err != nil {
+			return err
+		}
 	}
 	if l.QPMLimiter != nil {
-		return l.QPMLimiter.Wait(ctx)
+		if err := l.QPMLimiter.Wait(ctx); err != nil {
+			return err
+		}
+	}
+	if l.RPMLimiter != nil {
+		if err := l.RPMLimiter.Wait(ctx); err != nil {
+			return err
+		}
+	}
+	if l.TPMLimiter != nil {
+		if err := l.TPMLimiter.Wait(ctx, tokenCost); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -151,4 +285,22 @@ func GetLimiter(key string, limitType string, limitn float64) *Limiter {
 	lim := NewLimiter(limitType, limitn)
 	limiterMap[key] = lim
 	return lim
+}
+
+func GetCombinedLimiter(key string, limits Limits) *Limiter {
+	signature := key + ":combined:" + fmt.Sprintf("%g:%g:%g:%g:%g", limits.QPS, limits.QPM, limits.RPM, limits.TPM, limits.Concurrency)
+	mapMutex.RLock()
+	if limiter, exists := limiterMap[signature]; exists {
+		mapMutex.RUnlock()
+		return limiter
+	}
+	mapMutex.RUnlock()
+	mapMutex.Lock()
+	defer mapMutex.Unlock()
+	if limiter, exists := limiterMap[signature]; exists {
+		return limiter
+	}
+	limiter := NewCombinedLimiter(limits)
+	limiterMap[signature] = limiter
+	return limiter
 }

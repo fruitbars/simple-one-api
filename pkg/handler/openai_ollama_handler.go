@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"io"
@@ -55,7 +54,7 @@ func handleResponse(resp *http.Response) error {
 		}
 
 		mylog.Logger.Info("Response body", zap.String("body", string(body)))
-		return fmt.Errorf("%s", string(body))
+		return utils.NewHTTPStatusError(resp.StatusCode, resp.Status, string(body))
 	}
 	return nil
 }

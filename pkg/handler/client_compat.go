@@ -35,6 +35,21 @@ type responsesReasoning struct {
 	Summary string `json:"summary"`
 }
 
+// normalizeReasoningEffort keeps client-specific aliases from reaching
+// providers that only implement the standard low/medium/high levels.
+func normalizeReasoningEffort(effort string) (string, error) {
+	switch effort {
+	case "":
+		return "", nil
+	case "low", "medium", "high":
+		return effort, nil
+	case "max":
+		return "high", nil
+	default:
+		return "", fmt.Errorf("unsupported reasoning effort %q", effort)
+	}
+}
+
 type responsesTool struct {
 	Type        string `json:"type"`
 	Name        string `json:"name"`
@@ -74,6 +89,15 @@ type anthropicImageSource struct {
 }
 
 func ResponsesHandler(c *gin.Context) {
+	bodyData, bodyErr := getBodyDataCopy(c)
+	if bodyErr != nil {
+		if isRequestTooLarge(bodyErr) {
+			writeResponsesError(c, http.StatusRequestEntityTooLarge, "request body too large")
+		} else {
+			writeResponsesError(c, http.StatusBadRequest, bodyErr.Error())
+		}
+		return
+	}
 	var request responsesRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		if isRequestTooLarge(err) {
@@ -81,6 +105,12 @@ func ResponsesHandler(c *gin.Context) {
 			return
 		}
 		sendErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if handled, err := tryDirectResponses(c, bodyData, request); handled {
+		if err != nil {
+			writeResponsesError(c, dispatchErrorStatus(err), err.Error())
+		}
 		return
 	}
 	chatRequest, err := responsesToChat(request)
@@ -110,9 +140,11 @@ func responsesToChat(request responsesRequest) (*openaisdk.ChatCompletionRequest
 		if err := json.Unmarshal(request.Reasoning, &reasoning); err != nil {
 			return nil, fmt.Errorf("invalid reasoning configuration: %w", err)
 		}
-		if reasoning.Effort != "" && reasoning.Effort != "low" && reasoning.Effort != "medium" && reasoning.Effort != "high" {
-			return nil, fmt.Errorf("unsupported reasoning effort %q", reasoning.Effort)
+		normalizedEffort, err := normalizeReasoningEffort(reasoning.Effort)
+		if err != nil {
+			return nil, err
 		}
+		reasoning.Effort = normalizedEffort
 	}
 	messages, err := parseResponsesInput(request.Input)
 	if err != nil {

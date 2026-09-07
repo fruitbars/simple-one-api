@@ -40,6 +40,20 @@ export interface LiveLogEntry {
   caller?: string;
 }
 
+export interface CredentialCapacityStatus {
+  provider_id: string;
+  provider_name: string;
+  credential_id: string;
+  credential_name: string;
+  model: string;
+  tpm_limit: number;
+  reserved_tokens: number;
+  remaining_tokens: number;
+  available: boolean;
+  cooldown_until?: string;
+  available_at?: string;
+}
+
 export interface StatisticsSummary {
   requests: number;
   successful: number;
@@ -202,6 +216,11 @@ export function activateRevision(apiKey: string, id: number): Promise<PublishRes
 
 export async function getAdminLogs(apiKey: string, after = 0, limit = 200): Promise<LiveLogEntry[]> {
   const response = await adminRequest<{ data: LiveLogEntry[] }>(`/api/admin/logs?after=${after}&limit=${limit}`, apiKey);
+  return response.data ?? [];
+}
+
+export async function getCredentialCapacity(apiKey: string): Promise<CredentialCapacityStatus[]> {
+  const response = await adminRequest<{ data: CredentialCapacityStatus[] }>("/api/admin/capacity", apiKey);
   return response.data ?? [];
 }
 

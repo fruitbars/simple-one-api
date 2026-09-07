@@ -38,6 +38,13 @@ var activeSnapshot atomic.Pointer[runtimeSnapshot]
 var serviceIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 var unsafeServiceIDCharacters = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
 
+const (
+	UpstreamProtocolAuto              = "auto"
+	UpstreamProtocolChatCompletions   = "chat_completions"
+	UpstreamProtocolResponses         = "responses"
+	UpstreamProtocolAnthropicMessages = "anthropic_messages"
+)
+
 type PreparedConfiguration struct {
 	snapshot *runtimeSnapshot
 }
@@ -139,6 +146,14 @@ func validateNormalizedConfiguration(conf Configuration) []ValidationIssue {
 		}
 		for index, model := range models {
 			base := fmt.Sprintf("services.%s.%d", serviceName, index)
+			if protocol := strings.ToLower(strings.TrimSpace(model.UpstreamProtocol)); protocol != "" {
+				if _, ok := map[string]bool{
+					UpstreamProtocolAuto: true, UpstreamProtocolChatCompletions: true,
+					UpstreamProtocolResponses: true, UpstreamProtocolAnthropicMessages: true,
+				}[protocol]; !ok {
+					issues = append(issues, ValidationIssue{Path: base + ".upstream_protocol", Message: "supported values: auto, chat_completions, responses, anthropic_messages"})
+				}
+			}
 			if model.ID == "" || !serviceIDPattern.MatchString(model.ID) {
 				issues = append(issues, ValidationIssue{Path: base + ".id", Message: "must be a stable identifier using letters, numbers, dot, underscore, or dash"})
 			} else if _, exists := seenServiceIDs[model.ID]; exists {
@@ -147,6 +162,41 @@ func validateNormalizedConfiguration(conf Configuration) []ValidationIssue {
 			seenServiceIDs[model.ID] = struct{}{}
 			if model.Timeout < 0 || hasNegativeLimit(model.Limit) || hasNegativeLimit(model.EmbeddingLimit) {
 				issues = append(issues, ValidationIssue{Path: base + ".limit", Message: "limits and timeouts must not be negative"})
+			}
+			for modelName, limit := range model.ModelLimits {
+				if strings.TrimSpace(modelName) == "" {
+					issues = append(issues, ValidationIssue{Path: base + ".model_limits", Message: "model names must not be empty"})
+				}
+				if hasNegativeLimit(limit) {
+					issues = append(issues, ValidationIssue{Path: fmt.Sprintf("%s.model_limits.%s", base, modelName), Message: "limits and timeouts must not be negative"})
+				}
+			}
+			seenCredentialIDs := make(map[string]struct{}, len(model.CredentialList))
+			for credentialIndex, credential := range model.CredentialList {
+				credentialBase := fmt.Sprintf("%s.credential_list.%d", base, credentialIndex)
+				id, _ := credential["id"].(string)
+				if id == "" || !serviceIDPattern.MatchString(id) {
+					issues = append(issues, ValidationIssue{Path: credentialBase + ".id", Message: "must be a stable identifier using letters, numbers, dot, underscore, or dash"})
+				} else if _, exists := seenCredentialIDs[id]; exists {
+					issues = append(issues, ValidationIssue{Path: credentialBase + ".id", Message: "duplicate credential id in provider"})
+				}
+				seenCredentialIDs[id] = struct{}{}
+				if _, ok := credential["enabled"].(bool); !ok {
+					issues = append(issues, ValidationIssue{Path: credentialBase + ".enabled", Message: "must be a boolean"})
+				}
+				if limit, ok := credentialLimit(credential); !ok {
+					issues = append(issues, ValidationIssue{Path: credentialBase + ".limit", Message: "must be an object containing numeric limit values"})
+				} else if hasNegativeLimit(limit) {
+					issues = append(issues, ValidationIssue{Path: credentialBase + ".limit", Message: "limits and timeouts must not be negative"})
+				}
+				for modelName, modelLimit := range credentialModelLimits(credential) {
+					if strings.TrimSpace(modelName) == "" {
+						issues = append(issues, ValidationIssue{Path: credentialBase + ".model_limits", Message: "model names must not be empty"})
+					}
+					if hasNegativeLimit(modelLimit) {
+						issues = append(issues, ValidationIssue{Path: fmt.Sprintf("%s.model_limits.%s", credentialBase, modelName), Message: "limits and timeouts must not be negative"})
+					}
+				}
 			}
 			if model.Enabled && len(model.Models) == 0 && len(model.EmbeddingModels) == 0 {
 				if _, hasDefaults := DefaultSupportModelMap[serviceName]; !hasDefaults {
@@ -171,7 +221,57 @@ func validateNormalizedConfiguration(conf Configuration) []ValidationIssue {
 }
 
 func hasNegativeLimit(limit Limit) bool {
-	return limit.QPS < 0 || limit.QPM < 0 || limit.RPM < 0 || limit.Concurrency < 0 || limit.Timeout < 0
+	return limit.QPS < 0 || limit.QPM < 0 || limit.RPM < 0 || limit.TPM < 0 || limit.Concurrency < 0 || limit.Timeout < 0
+}
+
+func credentialLimit(credential map[string]interface{}) (Limit, bool) {
+	raw, exists := credential["limit"]
+	if !exists || raw == nil {
+		return Limit{}, true
+	}
+	payload, err := json.Marshal(raw)
+	if err != nil {
+		return Limit{}, false
+	}
+	var limit Limit
+	if err := json.Unmarshal(payload, &limit); err != nil {
+		return Limit{}, false
+	}
+	return limit, true
+}
+
+func credentialModelLimits(credential map[string]interface{}) map[string]Limit {
+	result := make(map[string]Limit)
+	raw, exists := credential["model_limits"]
+	if !exists || raw == nil {
+		return result
+	}
+	payload, err := json.Marshal(raw)
+	if err != nil {
+		return result
+	}
+	if err := json.Unmarshal(payload, &result); err != nil {
+		return map[string]Limit{}
+	}
+	return result
+}
+
+// ModelLimitFor returns the first configured model limit matching one of the
+// supplied client or upstream model names.
+func ModelLimitFor(details *ModelDetails, modelNames ...string) (Limit, string, bool) {
+	if details == nil || len(details.ModelLimits) == 0 {
+		return Limit{}, "", false
+	}
+	for _, name := range modelNames {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if limit, ok := details.ModelLimits[name]; ok {
+			return limit, name, true
+		}
+	}
+	return Limit{}, "", false
 }
 
 func PrepareConfiguration(conf Configuration, configPath string) (*PreparedConfiguration, error) {
@@ -261,8 +361,44 @@ func normalizeConfiguration(immutable *Configuration) {
 				model.Provider = serviceName
 			}
 			model.ServerURL = strings.TrimSpace(model.ServerURL)
+			model.UpstreamProtocol = strings.ToLower(strings.TrimSpace(model.UpstreamProtocol))
+			if model.UpstreamProtocol == "" {
+				model.UpstreamProtocol = UpstreamProtocolAuto
+			}
 			model.Models = normalizeStringList(model.Models)
 			model.EmbeddingModels = normalizeStringList(model.EmbeddingModels)
+			if model.ModelLimits != nil {
+				modelLimits := make(map[string]Limit, len(model.ModelLimits))
+				for name, limit := range model.ModelLimits {
+					name = strings.TrimSpace(name)
+					if name != "" {
+						modelLimits[name] = limit
+					}
+				}
+				model.ModelLimits = modelLimits
+			}
+			for credentialIndex := range model.CredentialList {
+				credential := model.CredentialList[credentialIndex]
+				if credential == nil {
+					credential = make(map[string]interface{})
+					model.CredentialList[credentialIndex] = credential
+				}
+				id, _ := credential["id"].(string)
+				id = strings.TrimSpace(id)
+				if id == "" {
+					id = fmt.Sprintf("key-%d", credentialIndex+1)
+				}
+				credential["id"] = id
+				name, _ := credential["name"].(string)
+				if strings.TrimSpace(name) == "" {
+					credential["name"] = fmt.Sprintf("Key %d", credentialIndex+1)
+				} else {
+					credential["name"] = strings.TrimSpace(name)
+				}
+				if _, exists := credential["enabled"]; !exists {
+					credential["enabled"] = true
+				}
+			}
 		}
 		immutable.Services[serviceName] = models
 	}

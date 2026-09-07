@@ -87,7 +87,7 @@ func SendHTTPRequestContext(ctx context.Context, apiKey, url string, reqBody []b
 
 	if resp.StatusCode != http.StatusOK {
 		errMsg := string(respBody)
-		return nil, fmt.Errorf("http status code: %d, %s", resp.StatusCode, errMsg)
+		return nil, NewHTTPStatusError(resp.StatusCode, resp.Status, errMsg)
 	}
 
 	return respBody, nil
@@ -128,7 +128,7 @@ func SendSSERequestContext(ctx context.Context, apiKey, url string, reqBody []by
 			errMsg = "empty response body"
 		}
 
-		return fmt.Errorf("http status code: %d, %s", resp.StatusCode, errMsg)
+		return NewHTTPStatusError(resp.StatusCode, resp.Status, errMsg)
 	}
 
 	reader := bufio.NewReader(resp.Body)
@@ -177,7 +177,7 @@ func SendSSERequestWithHttpHeaderContext(ctx context.Context, apiKey, url string
 		if readErr != nil {
 			return fmt.Errorf("failed to read error response: %w", readErr)
 		}
-		return fmt.Errorf("http status code: %d, %s", resp.StatusCode, string(respBody))
+		return NewHTTPStatusError(resp.StatusCode, resp.Status, string(respBody))
 	}
 
 	reader := bufio.NewReader(resp.Body)
