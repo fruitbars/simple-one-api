@@ -6,19 +6,21 @@
 
 Expose multiple LLM providers through one gateway with OpenAI Chat Completions, OpenAI Responses, and Anthropic Messages client protocols, plus embedded Web chat, visual configuration, and a Wails desktop app.
 
-This project does not track provider billing or quotas. Model names, prices, free tiers, and upstream endpoints should always be checked against the provider's current official documentation.
+This project does not track provider billing or account balances. Capacity shown in the UI comes from the local rolling limiter window and is not a provider bill. Model names, prices, free tiers, and upstream endpoints should always be checked against the provider's current official documentation.
 
 ## Highlights
 
-- `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, `/v1/models`, and Embeddings endpoints.
-- Multiple providers, models, and credential sets with random, first, round-robin, or hash routing.
+- `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, `GET /v1/models`, `GET /v1/models/:model`, and Embeddings endpoints.
+- Multiple providers, models, and API key pools with random, first, round-robin, or hash base routing.
+- Capacity-aware key scheduling: estimate remaining TPM per `key + model`, fail over on 429, cool down saturated keys, and calculate their recovery time.
+- Combined limits at four scopes: provider, provider-model, key, and key-model. QPS, QPM, RPM, TPM, and concurrency constraints can all apply together.
 - Embedded React Web chat with Markdown, streaming metrics, and up to 50 local conversations; production assets are compiled into the server binary with `go:embed`.
-- Visual configuration for system settings, providers, models, credentials, proxies, and access keys, plus a source editor.
+- Visual configuration for system settings, providers, upstream protocols, models, key pools, proxies, and access keys, plus a source editor. Each key shows live reservations, remaining capacity, cooldown state, and expected recovery time.
 - Optional real-time logs with level filters, follow mode, bounded memory, and secret redaction.
 - SQLite configuration repository with JSON/YAML import, validation, save, and atomic runtime activation.
-- Wails v2 desktop app sharing the same UI and Go routes without opening a local HTTP port.
+- Wails v2 desktop app that starts a loopback gateway with the app and shuts it down on exit, so local clients such as Codex and zcode can connect directly.
 - Global and per-provider proxies, rate limits, model aliases, translation, and multimodal routing.
-- Provider/model circuit breaking with half-open recovery, passthrough vendor parameters, and streamed reasoning display.
+- Provider-key-model circuit breaking with half-open recovery, passthrough vendor parameters, and streamed reasoning display.
 - GitHub Release automation for server and desktop artifacts plus amd64/arm64 images published to GHCR.
 
 See the [configuration reference](docs/configuration-reference.md) for the authoritative provider list, fields, and samples. Historical provider guides remain under [`docs/`](docs/README.md); quota and model examples may be outdated, so verify them with the provider.
@@ -56,6 +58,37 @@ Open `http://localhost:9090/` for configuration and `http://localhost:9090/chat`
 - SQLite data is not encrypted at rest. The database is created with `0600` permissions when possible; restrict access to its directory.
 
 See the [configuration reference](docs/configuration-reference.md) for the complete workflow.
+
+### Local key-pool quick start
+
+Put multiple keys in one provider's `credential_list`, with total or per-model limits on each key:
+
+```json
+{
+  "load_balancing": "round_robin",
+  "services": {
+    "openai": [{
+      "id": "local-pool",
+      "provider": "openai",
+      "upstream_protocol": "responses",
+      "enabled": true,
+      "models": ["your-model"],
+      "server_url": "https://api.example.com/v1",
+      "credential_list": [{
+        "id": "key-1",
+        "name": "Key 1",
+        "enabled": true,
+        "api_key": "your-upstream-key",
+        "model_limits": {
+          "your-model": {"tpm": 1000000, "concurrency": 2}
+        }
+      }]
+    }]
+  }
+}
+```
+
+Add `key-2`, `key-3`, and so on to grow the pool. The scheduler starts with the configured load-balancing order, then prefers keys that can fit the request and have more remaining capacity. An upstream 429 temporarily cools down that `key + model`. The admin UI reads runtime state from `GET /api/admin/capacity`. See the [provider configuration reference](docs/configuration-reference.md#provider-配置) for all fields and the four limit scopes.
 
 ### Docker
 
@@ -109,6 +142,8 @@ wails build -clean
 ```
 
 Artifacts are written to `cmd/desktop/build/bin/`. See [`cmd/desktop/README.md`](cmd/desktop/README.md) for desktop details.
+
+The desktop app also listens on `127.0.0.1:<server_port>` (port `9090` by default). Local clients can therefore use `http://127.0.0.1:9090/v1` as their Base URL. Closing the app shuts down the gateway process and releases the port.
 
 ## API examples
 

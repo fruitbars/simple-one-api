@@ -6,20 +6,22 @@
 
 用统一网关连接多个大模型 Provider，并提供 OpenAI Chat Completions、OpenAI Responses 和 Anthropic Messages 三种客户端协议，以及内嵌 Web 聊天、可视化配置台和 Wails 桌面端。
 
-项目不负责供应商计费或额度统计。模型名称、价格、免费额度和上游接口以各供应商当前官方文档为准。
+项目不负责供应商计费或账户余额统计。界面中的容量来自本地滚动限流窗口，不等同于供应商账单；模型名称、价格、免费额度和上游接口以各供应商当前官方文档为准。
 
 ## 当前能力
 
-- `/v1/chat/completions`、`/v1/responses`、`/v1/messages`、`/v1/models` 和 Embeddings 接口。
-- 多 Provider、多模型、多组凭证的随机、首选、轮询和哈希路由。
+- `/v1/chat/completions`、`/v1/responses`、`/v1/messages`、`GET /v1/models`、`GET /v1/models/:model` 和 Embeddings 接口。
+- 多 Provider、多模型和 API Key 号池，支持随机、首选、轮询和哈希基础路由。
+- 容量感知的 Key 调度：按 `Key + 模型` 估算剩余 TPM，遇到 429 自动切换、冷却并计算恢复时间，避免轮询反复撞到已满 Key。
+- Provider、Provider-模型、Key、Key-模型四层组合限流；QPS、QPM、RPM、TPM、并发数可同时生效。
 - 内嵌 React Web 聊天界面，支持 Markdown、流式输出统计和最多 50 条本地对话历史；生产资源通过 `go:embed` 打进服务端单文件。
-- 可视化配置台：编辑基础设置、Provider、模型、凭证、代理和访问密钥，也可以切换到配置源码。
+- 可视化配置台：编辑基础设置、Provider、上游协议、模型、号池、代理和访问密钥，也可以切换到配置源码；每个 Key 可查看实时预留、剩余容量、冷却状态和预计恢复时间。
 - 可开关的实时日志视图，支持级别筛选、自动跟随、固定容量和敏感信息脱敏。
 - 轻量使用统计：输入/输出 Token、Usage 完整率、P50/P95 延迟、流式 TTFT、Provider/模型分布、组合筛选、周期对比与 CSV 导出；不保存提示词或响应正文。
 - SQLite 配置仓库：首次导入 JSON/YAML、校验、保存和运行时原子生效。
-- Wails v2 桌面应用；桌面端与 Web 共用界面和 Go 路由，不额外开放 HTTP 端口。
+- Wails v2 桌面应用；启动 App 时自动在 loopback 地址启动网关，退出 App 时一并关闭，便于 Codex、zcode 等本地客户端直接连接。
 - 全局/Provider 代理、限流、模型别名、翻译和多模态路由。
-- Provider/模型粒度的熔断与半开恢复、供应商扩展参数透传，以及思考过程流式展示。
+- Provider-Key-模型粒度的熔断与半开恢复、供应商扩展参数透传，以及思考过程流式展示。
 - GitHub Release 自动生成服务端与桌面端产物，并同步发布 amd64/arm64 GHCR 镜像。
 
 支持的 Provider 类型、字段和样例以[配置参考](docs/configuration-reference.md)为准。供应商接入指南仍保留在 [`docs/`](docs/README.md)，其中的额度和模型示例可能过时，使用前请核对官方文档。
@@ -57,6 +59,37 @@
 - SQLite 当前没有静态加密，数据库文件尽量使用 `0600` 权限；请限制数据目录访问。
 
 完整流程见[配置参考](docs/configuration-reference.md)。
+
+### 本地号池快速配置
+
+在一个 Provider 的 `credential_list` 中配置多组 Key，并为每个 Key 设置总限制或模型限制：
+
+```json
+{
+  "load_balancing": "round_robin",
+  "services": {
+    "openai": [{
+      "id": "local-pool",
+      "provider": "openai",
+      "upstream_protocol": "responses",
+      "enabled": true,
+      "models": ["your-model"],
+      "server_url": "https://api.example.com/v1",
+      "credential_list": [{
+        "id": "key-1",
+        "name": "Key 1",
+        "enabled": true,
+        "api_key": "your-upstream-key",
+        "model_limits": {
+          "your-model": {"tpm": 1000000, "concurrency": 2}
+        }
+      }]
+    }]
+  }
+}
+```
+
+继续添加 `key-2`、`key-3` 即可扩展号池。调度器以全局负载策略作为基础顺序，再优先选择能容纳当前请求且剩余容量更高的 Key。上游 429 会让当前 `Key + 模型` 短暂冷却；管理页通过 `GET /api/admin/capacity` 展示运行时状态。完整字段和四层限流关系见[配置参考](docs/configuration-reference.md#provider-配置)。
 
 ### Docker
 
@@ -110,6 +143,8 @@ wails build -clean
 ```
 
 产物位于 `cmd/desktop/build/bin/`。桌面端说明见 [`cmd/desktop/README.md`](cmd/desktop/README.md)。
+
+桌面 App 启动后会同时监听 `127.0.0.1:<server_port>`（默认 `9090`），因此本地客户端可将 Base URL 配置为 `http://127.0.0.1:9090/v1`。退出 App 后该网关进程和监听端口会一起关闭。
 
 ## API 示例
 

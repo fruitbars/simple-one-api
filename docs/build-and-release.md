@@ -70,7 +70,7 @@ wails dev
 wails build -clean
 ```
 
-桌面端使用同一套 React Web 资源和 Go 路由，不会额外开放 loopback HTTP 端口。产物位于 `cmd/desktop/build/bin/`。
+桌面端使用同一套 React Web 资源和 Go 路由。App 启动时还会监听 `127.0.0.1:<server_port>`（默认 `9090`），供 Codex、zcode 等本地客户端访问；退出 App 后监听随进程关闭。如果端口已被占用，桌面 UI 仍可启动，但外部客户端需要释放端口或修改配置后重启。产物位于 `cmd/desktop/build/bin/`。
 
 ## Docker
 

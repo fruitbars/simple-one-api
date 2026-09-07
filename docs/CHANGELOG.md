@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+1. 增加 Provider API Key 号池，可配置稳定 ID、显示名称、启停状态、Key 总限制和 Key-模型限制。
+2. 增加 Provider、Provider-模型、Key、Key-模型四层组合限流，QPS、QPM、RPM、TPM 和并发数可同时约束请求。
+3. 增加容量感知调度：按 `Key + 模型` 维护滚动 TPM 预留，上游 429 自动切换并冷却，按剩余容量和预计恢复时间选择后续 Key。
+4. 增加 `GET /api/admin/capacity` 与号池实时容量 UI，展示模型 TPM、已预留、剩余额度、冷却状态和恢复时间，不返回上游密钥。
+5. Provider 可选择 `auto`、Chat Completions、Responses 或 Anthropic Messages 上游协议；完善 Responses 原样透传、错误状态和模型查询接口兼容。
+6. Wails 桌面 App 启动时自动提供 loopback API 网关，退出时一并关闭，方便 Codex、zcode 等本地客户端直连。
+
 ## v0.11.0 - 2026-08-23
 
 1. 增加 SQLite 轻量使用统计，记录请求、状态、Provider、模型、访问密钥指纹，以及输入、输出、缓存、推理和总 Token；不保存提示词、响应正文或原始密钥。

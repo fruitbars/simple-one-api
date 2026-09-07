@@ -12,7 +12,15 @@
 - OpenAI Chat Completions：`POST /v1/chat/completions`
 - OpenAI Responses / Codex：`POST /v1/responses`
 - Anthropic Messages / Claude Code：`POST /v1/messages`
+- OpenAI 模型列表与单模型查询：`GET /v1/models`、`GET /v1/models/:model`
 - 字段、鉴权、流式行为和限制见[配置参考](./configuration-reference.md#客户端协议)。
+
+## 本地 API Key 号池
+
+- 每个 Provider 可配置多组凭证，并设置 Key 总限制或 Key-模型限制。
+- QPS、QPM、RPM、TPM 和并发数支持组合生效，并可与 Provider 共享限制叠加。
+- 调度器按剩余 TPM、429 冷却和预计恢复时间选择 Key；配置台展示实时容量。
+- 配置格式与调度边界见[配置参考](./configuration-reference.md#provider-配置)。
 
 ## 部署与维护
 

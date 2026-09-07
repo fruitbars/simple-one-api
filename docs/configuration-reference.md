@@ -37,7 +37,7 @@ JSON 和 YAML 都可以作为启动时的导入格式。启动后 SQLite 是运�
 | `debug` | boolean | 调试模式，变更需要重启。 |
 | `log_level` | string | `debug`、`info`、`warn`、`error`、`prodj` 等兼容值，变更需要重启。 |
 | `load_balancing` | string | `random`、`first`、`round_robin`、`hash`。 |
-| `circuit_breaker` | object | Provider/模型粒度的熔断与自动恢复；默认连续失败 5 次后暂停 30 秒，并放行 1 个半开探测请求。 |
+| `circuit_breaker` | object | Provider-Key-模型粒度的熔断与自动恢复；默认连续失败 5 次后暂停 30 秒，并放行 1 个半开探测请求。 |
 | `statistics` | object | 轻量使用统计；默认启用并保留 30 天，保留期范围为 1–3650 天。 |
 | `services` | object | Provider 配置，键名是支持的服务类型。 |
 | `proxy` | object | 全局 HTTP/HTTPS/SOCKS5 代理。 |
@@ -61,8 +61,9 @@ Coze（含 v2/v3）和百度 AgentBuilder 已停止支持；包含这些旧 Prov
 - OpenAI Chat Completions：`POST /v1/chat/completions`
 - OpenAI Responses：`POST /v1/responses`，可供 Codex 自定义 Provider 使用
 - Anthropic Messages：`POST /v1/messages`，可供 Claude Code 使用
+- OpenAI 模型列表：`GET /v1/models`；单模型查询：`GET /v1/models/:model`
 
-Responses 与 Messages 入口支持文本、图片、函数工具定义、工具调用和工具结果。流式请求会实时消费上游 Chat Completions SSE，并转换为对应协议事件；客户端断开会取消上游请求。不支持的有状态会话续接或内容类型会返回明确的协议错误，不会静默忽略。
+Responses 与 Messages 入口支持文本、图片、函数工具定义、工具调用和工具结果。使用 Chat Completions 上游时，流式请求会实时消费其 SSE 并转换为对应客户端协议事件；选择 Responses 上游时，请求字段和响应事件直接透传。客户端断开会取消上游请求。不支持的有状态会话续接或内容类型会返回明确的协议错误，不会静默忽略。
 
 Chat Completions 会将 SDK 未建模的顶层 JSON 字段原样透传给 OpenAI 兼容上游，例如 DashScope/Qwen 的 `enable_thinking`。网关规范化后的 `model`、`messages` 和流式选项优先，客户端不能借此绕过模型路由。内置 Chat 的“思考”开关会同时发送 `reasoning_effort`、`enable_thinking` 和 `chat_template_kwargs.enable_thinking`；上游返回的 `reasoning_content` 或 `reasoning` 会与正文分离并实时展示。
 
@@ -92,7 +93,7 @@ Chat Completions 会将 SDK 未建模的顶层 JSON 字段原样透传给 OpenAI
 
 `upstream_protocol` 用于将服务商类型与实际上游 HTTP 协议解耦。`auto` 保持现有按 Provider 适配器路由的行为；显式选择 `chat_completions`、`responses` 或 `anthropic_messages` 时，网关会使用对应协议发送请求。
 
-`credential_list` 可以作为 Provider 的 API Key 号池使用：每组凭证通常至少包含 `api_key`，也可以配置稳定 `id`、显示 `name`、`enabled` 和独立 `limit`。凭证按全局 `load_balancing` 策略选择；非流式请求在尚未写出响应且遇到可恢复的鉴权、限流、网络或上游服务错误时，会自动尝试池内下一个健康凭证。熔断状态按 `Provider ID + Credential ID + 模型` 独立记录，单个 Key 冷却不会拖停同池其他 Key。
+`credential_list` 可以作为 Provider 的 API Key 号池使用：每组凭证通常至少包含 `api_key`，也可以配置稳定 `id`、显示 `name`、`enabled` 和独立 `limit`。凭证以全局 `load_balancing` 策略作为基础顺序，再优先选择能容纳当前请求且剩余 TPM 较高的 Key；在尚未写出响应且遇到可恢复的鉴权、限流、网络或上游服务错误时，会自动尝试池内下一个健康凭证。熔断状态按 `Provider ID + Credential ID + 模型` 独立记录，单个 Key 冷却不会拖停同池其他 Key。
 
 Provider 的 `limit`（聊天）或 `embedding_limit`（Embedding）与当前 Key 的 `limit` 会叠加执行。QPS、QPM、RPM、TPM 和并发数不是互斥选项，配置了几项就同时满足几项；Key 达到限制时可以切换到池内其他 Key，Provider 总限制达到后不会通过换 Key 绕过。`timeout` 是等待限流额度的最长秒数，超时返回 HTTP 429。
 
@@ -121,6 +122,8 @@ Provider 的 `limit`（聊天）或 `embedding_limit`（Embedding）与当前 Ke
 ```
 
 TPM 在请求发往上游前预占：聊天请求按消息、工具定义和最大输出 Token 估算，Embedding 按输入体积估算。该值是面向限流的保守近似，不是供应商 tokenizer 的精确计费结果；单次估算已经超过 TPM 上限时会立即返回 429。QPM 与 RPM 都保留为一分钟请求数窗口，用于兼容不同上游配置命名；若两者同时填写，会按两个窗口共同约束。
+
+容量调度状态保存在 Go 进程内存中，以 60 秒滚动窗口清理预留。上游返回 429 时，当前 `Key + 模型` 默认冷却 30 秒；调度器会综合 TPM 窗口和冷却截止时间计算下一次可用时间。进程重启会清空这些运行时预留，这套数据用于本地调度，不代表供应商账户余额或账单。
 
 启用的 Provider 至少要有聊天或 Embedding 模型；`qianfan`、`hunyuan`、`deepseek`、`zhipu`、`minimax`、`huoshan`、`gemini`、`groq`、`xinghuo` 等存在默认模型映射的服务可以省略 `models`。
 
@@ -160,6 +163,11 @@ TPM 在请求发往上游前预占：聊天请求按消息、工具定义和最�
 - `statistics.enabled` 和 `statistics.retention_days` 保存后立即生效。过期记录会自动从同一个 SQLite 数据库的 `request_stats` 表清理。
 - 管理聚合接口为 `GET /api/admin/statistics/overview?from=<RFC3339>&to=<RFC3339>&bucket=hour|day`，可选筛选参数为 `provider`、`model`、`protocol`、`access_key` 和 `status=success|failure`。
 - CSV 接口为 `GET /api/admin/statistics/export`，接受与聚合接口相同的时间和筛选参数，并使用现有 Admin 鉴权。
+- 号池容量接口为 `GET /api/admin/capacity`，返回当前启用 Provider 的 Key-模型 TPM 上限、预留、剩余、可用状态、冷却截止和预计恢复时间；响应不包含上游密钥。
+
+## 桌面本地网关
+
+Wails App 启动时会在 `127.0.0.1:<server_port>` 启动与服务端相同的 API 网关，默认地址为 `http://127.0.0.1:9090`。本地 OpenAI 兼容客户端可使用 `http://127.0.0.1:9090/v1` 作为 Base URL，并通过网关主 `api_key` 鉴权。关闭 App 会停止网关并释放端口；如果端口已被其他进程占用，桌面 UI 仍可运行，但外部客户端无法连接该 App 的网关。
 
 ## 配置台保存流程
 
