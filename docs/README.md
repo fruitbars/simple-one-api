@@ -20,7 +20,7 @@
 - 每个 Provider 可配置多组凭证，并设置 Key 总限制或 Key-模型限制。
 - QPS、QPM、RPM、TPM 和并发数支持组合生效，并可与 Provider 共享限制叠加。
 - 调度器按剩余 TPM、429 冷却和预计恢复时间选择 Key；配置台展示实时容量。
-- 配置格式与调度边界见[配置参考](./configuration-reference.md#provider-配置)。
+- 号池调度原理、失败切换边界、容量估算和示例见[配置参考](./configuration-reference.md#号池调度机制)。
 
 ## 部署与维护
 

@@ -90,6 +90,22 @@ Put multiple keys in one provider's `credential_list`, with total or per-model l
 
 Add `key-2`, `key-3`, and so on to grow the pool. The scheduler starts with the configured load-balancing order, then prefers keys that can fit the request and have more remaining capacity. An upstream 429 temporarily cools down that `key + model`. The admin UI reads runtime state from `GET /api/admin/capacity`. See the [provider configuration reference](docs/configuration-reference.md#provider-配置) for all fields and the four limit scopes.
 
+### Why this is more than round-robin
+
+Round-robin only answers “which key is next”; it does not know whether that key can accept the request. A large Codex context, long conversation, or tool-heavy request can consume most of a key's 1M TPM window in one call. Random or fixed rotation then keeps hitting the same saturated key and produces repeated 429 responses.
+
+simple-one-api estimates request cost before contacting the upstream and keeps a 60-second rolling reservation window for each `provider + API key + model`:
+
+1. Disabled, circuit-broken, and clearly unavailable keys are filtered first.
+2. Request cost is estimated conservatively. Chat considers messages, tools, and maximum output; Responses uses the original request body; Embeddings use input size.
+3. Keys that can fit the request are preferred, with higher remaining capacity ranked first. Keys without enough capacity are ordered by their expected recovery time.
+4. Tokens are reserved after the limiter accepts the attempt. Reservations are not refunded when an upstream finishes early because providers generally count the request already.
+5. A 429 cools down only the affected `key + model` for 30 seconds by default. If no response has been written, the gateway tries the next healthy key.
+
+This spreads large requests across the pool, measures different models independently on the same key, and prevents one provider key from stalling the entire provider. Recovery time combines the TPM window and 429 cooldown and is shown live in the admin UI.
+
+The boundary is intentional: key and key-model limits can use another key's capacity, but provider-wide and provider-model shared limits cannot be bypassed by switching keys. QPS, QPM, RPM, TPM, and concurrency constraints may all apply together. Runtime reservations and cooldowns live only in process memory and reset on restart; they are scheduling data, not provider balances or billing data.
+
 ### Docker
 
 ```sh
@@ -102,7 +118,7 @@ docker run -d --name simple-one-api -p 9090:9090 \
   ghcr.io/fruitbars/simple-one-api:latest
 ```
 
-For production, replace `latest` with a fixed version such as `v0.10.3`. The image supports both `linux/amd64` and `linux/arm64` and includes a `/healthz` health check. The bundled `docker-compose.yml` mounts `config.json` and `data/` from the current directory. If configuration is read-only, SQLite must point to the writable data directory.
+For production, replace `latest` with a fixed version such as `v0.12.1`. The image supports both `linux/amd64` and `linux/arm64` and includes a `/healthz` health check. The bundled `docker-compose.yml` mounts `config.json` and `data/` from the current directory. If configuration is read-only, SQLite must point to the writable data directory.
 
 Other deployment options: [systemd](docs/startup/systemd_startup.md) · [nohup](docs/startup/nohup_startup.md).
 

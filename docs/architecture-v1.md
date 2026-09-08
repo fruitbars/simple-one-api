@@ -15,6 +15,7 @@
 9. 客户端兼容 OpenAI Chat Completions、OpenAI Responses 和 Anthropic Messages；三种协议复用 Provider 路由、鉴权、限流、代理、取消传播和错误边界。
 10. 多 Key 号池按 `Provider + Credential + 模型` 保存进程内运行状态。调度以配置的负载策略为基础顺序，再结合滚动 TPM 预留与 429 冷却选择 Key；状态不写入 SQLite，进程重启后重新计算。
 11. 桌面 UI 通过 Wails 进程内桥接工作，同时在 loopback 地址启动同一 API 路由，满足本地 CLI/编辑器客户端接入；桌面进程负责该监听的完整生命周期。
+12. 号池调度只在 Key 级限制达到边界时切换凭证；Provider 总限制和 Provider-模型共享限制始终保持共享计量，避免通过增加 Key 意外绕过全局容量策略。
 
 ## 交付分层
 

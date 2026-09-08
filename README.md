@@ -91,6 +91,24 @@
 
 继续添加 `key-2`、`key-3` 即可扩展号池。调度器以全局负载策略作为基础顺序，再优先选择能容纳当前请求且剩余容量更高的 Key。上游 429 会让当前 `Key + 模型` 短暂冷却；管理页通过 `GET /api/admin/capacity` 展示运行时状态。完整字段和四层限流关系见[配置参考](docs/configuration-reference.md#provider-配置)。
 
+### 为什么这个号池不只是简单轮询
+
+传统轮询只回答“下一个是谁”，不知道这个 Key 当前还能不能承载请求。对于输入很大的 Codex、长上下文或批量工具请求，一个 Key 即使配置了 100 万 TPM，也可能在一分钟内只能处理一次；随机或固定轮询会反复撞到刚刚用满的 Key，最终出现连续 429。
+
+simple-one-api 会在请求发往上游前做一次保守 Token 估算，并为每个 `Provider + API Key + 模型` 维护 60 秒滚动预留窗口：
+
+1. 先过滤停用、熔断和明确不可用的 Key。
+2. 计算本次请求成本；聊天会考虑消息、工具定义和最大输出，Responses 会按原始请求体估算，Embedding 会按输入体积估算。
+3. 先选择能容纳本次成本的 Key，再在这些 Key 中优先选择剩余容量更大的 Key；容量不足的 Key 按预计恢复时间排到后面。
+4. 限流器接受请求后预留 Token。预留不会因为上游提前结束而退回，因为供应商通常已经把请求计入 TPM。
+5. 上游返回 429 时，仅冷却当前 `Key + 模型`，默认 30 秒；尚未写出响应时会自动尝试池内下一个健康 Key。
+
+这带来几个实际效果：大请求会自然分散到多个 Key；不同模型在同一个 Key 上独立计量；某个 Key 被供应商限流时不会拖停整个 Provider；下一次可用时间会综合 TPM 窗口和 429 冷却时间计算，并在配置台实时显示。
+
+号池的限制边界也很明确：Key 总限制和 Key-模型限制可以通过切换到其他 Key 获得池内总容量，但 Provider 总限制和 Provider-模型共享限制不会因为换 Key 被绕过。QPS、QPM、RPM、TPM、并发数可以同时配置，只有所有已配置的限制都满足时请求才会发出。
+
+运行时容量只保存在当前 Go 进程内存中，重启后会清空本地预留和冷却状态；它用于调度，不代表供应商后台的账户余额、账单或精确 Token 计费。供应商真实限制仍应以官方文档和上游响应为准。
+
 ### Docker
 
 ```sh
@@ -103,7 +121,7 @@ docker run -d --name simple-one-api -p 9090:9090 \
   ghcr.io/fruitbars/simple-one-api:latest
 ```
 
-正式环境建议将 `latest` 替换为固定版本，例如 `v0.10.3`。镜像同时支持 `linux/amd64` 和 `linux/arm64`，内置 `/healthz` 健康检查。仓库内的 `docker-compose.yml` 默认挂载当前目录的 `config.json` 和 `data/`；配置文件只读挂载时，SQLite 必须指向可写数据目录。
+正式环境建议将 `latest` 替换为固定版本，例如 `v0.12.1`。镜像同时支持 `linux/amd64` 和 `linux/arm64`，内置 `/healthz` 健康检查。仓库内的 `docker-compose.yml` 默认挂载当前目录的 `config.json` 和 `data/`；配置文件只读挂载时，SQLite 必须指向可写数据目录。
 
 其他部署方式：[systemd](docs/startup/systemd_startup.md) · [nohup](docs/startup/nohup_startup.md)。
 

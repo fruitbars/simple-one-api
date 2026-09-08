@@ -85,26 +85,26 @@ docker build --platform linux/amd64 --build-arg TARGETARCH=amd64 --tag fruitbars
 或直接使用脚本。脚本会先刷新 Web、构建 Linux 服务端，再构建镜像；它不会自动推送：
 
 ```bash
-./build_docker.sh v0.10.3
+./build_docker.sh v0.12.1
 ```
 
 `IMAGE_NAME` 环境变量可以覆盖默认镜像名：
 
 ```bash
-IMAGE_NAME=registry.example.com/team/simple-one-api ./build_docker.sh v0.10.3
+IMAGE_NAME=registry.example.com/team/simple-one-api ./build_docker.sh v0.12.1
 ```
 
 默认目标为 `amd64`，构建 ARM64 镜像时设置 `ARCH=arm64`：
 
 ```bash
-ARCH=arm64 ./build_docker.sh v0.10.3
+ARCH=arm64 ./build_docker.sh v0.12.1
 ```
 
 正式版本由 Release workflow 自动发布到 GHCR：
 
 ```bash
 docker pull ghcr.io/fruitbars/simple-one-api:latest
-docker pull ghcr.io/fruitbars/simple-one-api:v0.10.3
+docker pull ghcr.io/fruitbars/simple-one-api:v0.12.1
 ```
 
 每个版本是同时包含 `linux/amd64` 和 `linux/arm64` 的多架构 manifest，并附带 provenance 与 SBOM。发布标签包括原始 Git Tag（如 `v1.2.3`）、语义化标签（`1.2.3`、`1.2`、`1`）；稳定版本还会更新 `latest`，带连字符的预发布版本不会覆盖 `latest`。
