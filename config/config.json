@@ -1,0 +1,17 @@
+{
+  "debug": false,
+  "load_balancing": "random",
+  "services": {
+    "minimax": [
+      {
+        "models": ["abab5.5-chat"],
+        "enabled": true,
+        "credentials": {
+          "group_id": "2029980791815021006",
+          "api_key": "sk-api-YmsCJ9W19CC3_8yrcQ90qm-5KsKzkPskwKu11ZSjL8D9DBW_6cL0ZJl6F0VmxFjGf63YV081VUecfdGOnh9W23kLbyyiNcwSNaWO4lLjraWT9y8XkWDfCS4"
+        },
+        "server_url":"https://api.minimax.chat/v1/chat/completions"
+      }
+    ]
+  }
+}
