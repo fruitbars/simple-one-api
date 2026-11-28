@@ -15,7 +15,6 @@ import (
 	//"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"simple-one-api/pkg/adapter"
@@ -24,11 +23,7 @@ import (
 	"simple-one-api/pkg/utils"
 )
 
-// 定义常量
-const (
-	BaseURL        = "https://generativelanguage.googleapis.com/v1beta/models"
-	RequestTimeout = 1 * time.Minute
-)
+const BaseURL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 // OpenAI2GeminiHandler 主要的处理函数
 func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
@@ -66,7 +61,8 @@ func OpenAI2GeminiHandler(c *gin.Context, oaiReqParam *OAIRequestParam) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	geminiHttpClient := utils.NewHTTPClient(oaiReqParam.httpTransport, RequestTimeout)
+	// The gateway's request context already applies the provider timeout.
+	geminiHttpClient := utils.NewHTTPClient(oaiReqParam.httpTransport, 0)
 	resp, err := geminiHttpClient.Do(req)
 	if err != nil {
 		errStr := err.Error()
